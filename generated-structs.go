@@ -2312,6 +2312,16 @@ type PageIsVisibleOptions struct {
 	/// </summary>
 	Timeout *float64 `json:"timeout"`
 }
+type PagePDFmarginOption struct {
+	/// <summary><para>Top margin, accepts values labeled with units. Defaults to 0.</para></summary>
+	Top *string `json:"top"`
+	/// <summary><para>Right margin, accepts values labeled with units. Defaults to 0.</para></summary>
+	Right *string `json:"right"`
+	/// <summary><para>Bottom margin, accepts values labeled with units. Defaults to 0.</para></summary>
+	Bottom *string `json:"bottom"`
+	/// <summary><para>Left margin, accepts values labeled with units. Defaults to 0.</para></summary>
+	Left *string `json:"left"`
+}
 type PagePdfOptions struct {
 	/// <summary><para>Display header and footer. Defaults to <c>false</c>.</para></summary>
 	DisplayHeaderFooter *bool `json:"displayHeaderFooter"`
@@ -2378,6 +2388,8 @@ type PagePdfOptions struct {
 	/// </para>
 	/// </summary>
 	Scale *float64 `json:"scale"`
+	/// <summary><para>Paper margins, defaults to none.</para></summary>
+	Margin *PagePDFmarginOption `json:"margin"`
 }
 type PagePressOptions struct {
 	/// <summary>
