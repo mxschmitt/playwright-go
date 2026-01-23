@@ -154,14 +154,14 @@ func newResponse(parent *channelOwner, objectType string, guid string, initializ
 	resp.request = fromChannel(resp.initializer["request"]).(*requestImpl)
 	resp.request.response = resp
 	resp.request.timing = &RequestTiming{
-		StartTime:             timing["startTime"].(float64),
-		DomainLookupStart:     timing["domainLookupStart"].(float64),
-		DomainLookupEnd:       timing["domainLookupEnd"].(float64),
-		ConnectStart:          timing["connectStart"].(float64),
-		SecureConnectionStart: timing["secureConnectionStart"].(float64),
-		ConnectEnd:            timing["connectEnd"].(float64),
-		RequestStart:          timing["requestStart"].(float64),
-		ResponseStart:         timing["responseStart"].(float64),
+		StartTime:             getFloatOrDefault(timing, "startTime", 0.0),
+		DomainLookupStart:     getFloatOrDefault(timing, "domainLookupStart", 0.0),
+		DomainLookupEnd:       getFloatOrDefault(timing, "domainLookupEnd", 0.0),
+		ConnectStart:          getFloatOrDefault(timing, "connectStart", 0.0),
+		SecureConnectionStart: getFloatOrDefault(timing, "secureConnectionStart", 0.0),
+		ConnectEnd:            getFloatOrDefault(timing, "connectEnd", 0.0),
+		RequestStart:          getFloatOrDefault(timing, "requestStart", 0.0),
+		ResponseStart:         getFloatOrDefault(timing, "responseStart", 0.0),
 	}
 	resp.provisionalHeaders = newRawHeaders(resp.initializer["headers"])
 	resp.finished = make(chan error, 1)

@@ -70,3 +70,15 @@ func (c Cookie) ToOptionalCookie() OptionalCookie {
 		SameSite: c.SameSite,
 	}
 }
+
+func getFloatOrDefault(m map[string]interface{}, key string, defaultValue float64) float64 {
+	if val, ok := m[key]; !ok {
+		return defaultValue
+	} else {
+		if f, isFloat := val.(float64); !isFloat {
+			return defaultValue
+		} else {
+			return f
+		}
+	}
+}
