@@ -62,7 +62,7 @@ func (r *responseImpl) Text() (string, error) {
 	return string(body), nil
 }
 
-func (r *responseImpl) JSON(v interface{}) error {
+func (r *responseImpl) JSON(v any) error {
 	body, err := r.Body()
 	if err != nil {
 		return err
@@ -127,7 +127,7 @@ func (r *responseImpl) SecurityDetails() (*ResponseSecurityDetailsResult, error)
 		return nil, err
 	}
 	result := &ResponseSecurityDetailsResult{}
-	remapMapToStruct(details.(map[string]interface{}), result)
+	remapMapToStruct(details.(map[string]any), result)
 	return result, nil
 }
 
@@ -141,10 +141,10 @@ func (r *responseImpl) ServerAddr() (*ResponseServerAddrResult, error) {
 	return result, nil
 }
 
-func newResponse(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *responseImpl {
+func newResponse(parent *channelOwner, objectType string, guid string, initializer map[string]any) *responseImpl {
 	resp := &responseImpl{}
 	resp.createChannelOwner(resp, parent, objectType, guid, initializer)
-	timing := resp.initializer["timing"].(map[string]interface{})
+	timing := resp.initializer["timing"].(map[string]any)
 	resp.request = fromChannel(resp.initializer["request"]).(*requestImpl)
 	resp.request.timing = &RequestTiming{
 		StartTime:             timing["startTime"].(float64),

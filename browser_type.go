@@ -18,7 +18,7 @@ func (b *browserTypeImpl) ExecutablePath() string {
 }
 
 func (b *browserTypeImpl) Launch(options ...BrowserTypeLaunchOptions) (Browser, error) {
-	overrides := map[string]interface{}{}
+	overrides := map[string]any{}
 	// timeout is required in Playwright v1.57+ protocol
 	if len(options) == 0 || options[0].Timeout == nil {
 		overrides["timeout"] = float64(30000) // default 30s
@@ -37,7 +37,7 @@ func (b *browserTypeImpl) Launch(options ...BrowserTypeLaunchOptions) (Browser, 
 }
 
 func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ...BrowserTypeLaunchPersistentContextOptions) (BrowserContext, error) {
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"userDataDir": userDataDir,
 	}
 	// timeout is required in Playwright v1.57+ protocol
@@ -108,7 +108,7 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 }
 
 func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConnectOptions) (Browser, error) {
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"wsEndpoint": wsEndpoint,
 		"headers": map[string]string{
 			"x-playwright-browser":        b.Name(),
@@ -160,7 +160,7 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 }
 
 func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserTypeConnectOverCDPOptions) (Browser, error) {
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"endpointURL": endpointURL,
 	}
 	// timeout is required in Playwright v1.57+ protocol
@@ -194,7 +194,7 @@ func (b *browserTypeImpl) didLaunchBrowser(browser *browserImpl) {
 	browser.browserType = b
 }
 
-func newBrowserType(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *browserTypeImpl {
+func newBrowserType(parent *channelOwner, objectType string, guid string, initializer map[string]any) *browserTypeImpl {
 	bt := &browserTypeImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	return bt

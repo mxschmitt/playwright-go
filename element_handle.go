@@ -40,7 +40,7 @@ func (e *elementHandleImpl) ContentFrame() (Frame, error) {
 }
 
 func (e *elementHandleImpl) GetAttribute(name string) (string, error) {
-	attribute, err := e.channel.Send("getAttribute", map[string]interface{}{
+	attribute, err := e.channel.Send("getAttribute", map[string]any{
 		"name": name,
 	})
 	if attribute == nil {
@@ -73,12 +73,12 @@ func (e *elementHandleImpl) InnerHTML() (string, error) {
 	return innerHTML.(string), err
 }
 
-func (e *elementHandleImpl) DispatchEvent(typ string, initObjects ...interface{}) error {
-	var initObject interface{}
+func (e *elementHandleImpl) DispatchEvent(typ string, initObjects ...any) error {
+	var initObject any
 	if len(initObjects) == 1 {
 		initObject = initObjects[0]
 	}
-	_, err := e.channel.Send("dispatchEvent", map[string]interface{}{
+	_, err := e.channel.Send("dispatchEvent", map[string]any{
 		"type":      typ,
 		"eventInit": serializeArgument(initObject),
 	})
@@ -101,7 +101,7 @@ func (e *elementHandleImpl) Dblclick(options ...ElementHandleDblclickOptions) er
 }
 
 func (e *elementHandleImpl) QuerySelector(selector string) (ElementHandle, error) {
-	channel, err := e.channel.Send("querySelector", map[string]interface{}{
+	channel, err := e.channel.Send("querySelector", map[string]any{
 		"selector": selector,
 	})
 	if err != nil {
@@ -114,25 +114,25 @@ func (e *elementHandleImpl) QuerySelector(selector string) (ElementHandle, error
 }
 
 func (e *elementHandleImpl) QuerySelectorAll(selector string) ([]ElementHandle, error) {
-	channels, err := e.channel.Send("querySelectorAll", map[string]interface{}{
+	channels, err := e.channel.Send("querySelectorAll", map[string]any{
 		"selector": selector,
 	})
 	if err != nil {
 		return nil, err
 	}
 	elements := make([]ElementHandle, 0)
-	for _, channel := range channels.([]interface{}) {
+	for _, channel := range channels.([]any) {
 		elements = append(elements, fromChannel(channel).(*elementHandleImpl))
 	}
 	return elements, nil
 }
 
-func (e *elementHandleImpl) EvalOnSelector(selector string, expression string, options ...interface{}) (interface{}, error) {
-	var arg interface{}
+func (e *elementHandleImpl) EvalOnSelector(selector string, expression string, options ...any) (any, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := e.channel.Send("evalOnSelector", map[string]interface{}{
+	result, err := e.channel.Send("evalOnSelector", map[string]any{
 		"selector":   selector,
 		"expression": expression,
 		"arg":        serializeArgument(arg),
@@ -143,12 +143,12 @@ func (e *elementHandleImpl) EvalOnSelector(selector string, expression string, o
 	return parseResult(result), nil
 }
 
-func (e *elementHandleImpl) EvalOnSelectorAll(selector string, expression string, options ...interface{}) (interface{}, error) {
-	var arg interface{}
+func (e *elementHandleImpl) EvalOnSelectorAll(selector string, expression string, options ...any) (any, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := e.channel.Send("evalOnSelectorAll", map[string]interface{}{
+	result, err := e.channel.Send("evalOnSelectorAll", map[string]any{
 		"selector":   selector,
 		"expression": expression,
 		"arg":        serializeArgument(arg),
@@ -167,7 +167,7 @@ func (e *elementHandleImpl) ScrollIntoViewIfNeeded(options ...ElementHandleScrol
 	return err
 }
 
-func (e *elementHandleImpl) SetInputFiles(files interface{}, options ...ElementHandleSetInputFilesOptions) error {
+func (e *elementHandleImpl) SetInputFiles(files any, options ...ElementHandleSetInputFilesOptions) error {
 	frame, err := e.OwnerFrame()
 	if err != nil {
 		return err
@@ -210,21 +210,21 @@ func (e *elementHandleImpl) Uncheck(options ...ElementHandleUncheckOptions) erro
 }
 
 func (e *elementHandleImpl) Press(key string, options ...ElementHandlePressOptions) error {
-	_, err := e.channel.Send("press", map[string]interface{}{
+	_, err := e.channel.Send("press", map[string]any{
 		"key": key,
 	}, options)
 	return err
 }
 
 func (e *elementHandleImpl) Fill(value string, options ...ElementHandleFillOptions) error {
-	_, err := e.channel.Send("fill", map[string]interface{}{
+	_, err := e.channel.Send("fill", map[string]any{
 		"value": value,
 	}, options)
 	return err
 }
 
 func (e *elementHandleImpl) Type(value string, options ...ElementHandleTypeOptions) error {
-	_, err := e.channel.Send("type", map[string]interface{}{
+	_, err := e.channel.Send("type", map[string]any{
 		"text": value,
 	}, options)
 	return err
@@ -242,19 +242,19 @@ func (e *elementHandleImpl) SelectText(options ...ElementHandleSelectTextOptions
 
 func (e *elementHandleImpl) Screenshot(options ...ElementHandleScreenshotOptions) ([]byte, error) {
 	var path *string
-	overrides := map[string]interface{}{}
+	overrides := map[string]any{}
 	if len(options) == 1 {
 		path = options[0].Path
 		options[0].Path = nil
 		if options[0].Mask != nil {
-			masks := make([]map[string]interface{}, 0)
+			masks := make([]map[string]any, 0)
 			for _, m := range options[0].Mask {
 				if m.Err() != nil { // ErrLocatorNotSameFrame
 					return nil, m.Err()
 				}
 				l, ok := m.(*locatorImpl)
 				if ok {
-					masks = append(masks, map[string]interface{}{
+					masks = append(masks, map[string]any{
 						"selector": l.selector,
 						"frame":    l.frame.channel,
 					})
@@ -344,7 +344,7 @@ func (e *elementHandleImpl) IsVisible() (bool, error) {
 }
 
 func (e *elementHandleImpl) WaitForElementState(state ElementState, options ...ElementHandleWaitForElementStateOptions) error {
-	_, err := e.channel.Send("waitForElementState", map[string]interface{}{
+	_, err := e.channel.Send("waitForElementState", map[string]any{
 		"state": state,
 	}, options)
 	if err != nil {
@@ -354,7 +354,7 @@ func (e *elementHandleImpl) WaitForElementState(state ElementState, options ...E
 }
 
 func (e *elementHandleImpl) WaitForSelector(selector string, options ...ElementHandleWaitForSelectorOptions) (ElementHandle, error) {
-	ch, err := e.channel.Send("waitForSelector", map[string]interface{}{
+	ch, err := e.channel.Send("waitForSelector", map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -386,14 +386,14 @@ func (e *elementHandleImpl) SetChecked(checked bool, options ...ElementHandleSet
 	}
 }
 
-func newElementHandle(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *elementHandleImpl {
+func newElementHandle(parent *channelOwner, objectType string, guid string, initializer map[string]any) *elementHandleImpl {
 	bt := &elementHandleImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	return bt
 }
 
-func transformToStringList(in interface{}) []string {
-	s := in.([]interface{})
+func transformToStringList(in any) []string {
+	s := in.([]any)
 
 	var out []string
 	for _, v := range s {

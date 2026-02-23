@@ -39,7 +39,7 @@ func (la *locatorAssertionsImpl) ToBeAttached(options ...LocatorAssertionsToBeAt
 func (la *locatorAssertionsImpl) ToBeChecked(options ...LocatorAssertionsToBeCheckedOptions) error {
 	var timeout *float64
 
-	expectedValue := map[string]interface{}{}
+	expectedValue := map[string]any{}
 	expected := "checked"
 
 	if len(options) == 1 {
@@ -180,7 +180,7 @@ func (la *locatorAssertionsImpl) ToBeVisible(options ...LocatorAssertionsToBeVis
 	)
 }
 
-func (la *locatorAssertionsImpl) ToContainClass(expected interface{}, options ...LocatorAssertionsToContainClassOptions) error {
+func (la *locatorAssertionsImpl) ToContainClass(expected any, options ...LocatorAssertionsToContainClassOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
@@ -201,7 +201,7 @@ func (la *locatorAssertionsImpl) ToContainClass(expected interface{}, options ..
 			"Locator expected to contain class",
 		)
 	case string:
-		expectedText, err := toExpectedTextValues([]interface{}{expected}, false, false, nil)
+		expectedText, err := toExpectedTextValues([]any{expected}, false, false, nil)
 		if err != nil {
 			return err
 		}
@@ -219,7 +219,7 @@ func (la *locatorAssertionsImpl) ToContainClass(expected interface{}, options ..
 	}
 }
 
-func (la *locatorAssertionsImpl) ToContainText(expected interface{}, options ...LocatorAssertionsToContainTextOptions) error {
+func (la *locatorAssertionsImpl) ToContainText(expected any, options ...LocatorAssertionsToContainTextOptions) error {
 	var (
 		timeout      *float64
 		useInnerText *bool
@@ -248,7 +248,7 @@ func (la *locatorAssertionsImpl) ToContainText(expected interface{}, options ...
 			"Locator expected to contain text",
 		)
 	default:
-		expectedText, err := toExpectedTextValues([]interface{}{expected}, true, true, ignoreCase)
+		expectedText, err := toExpectedTextValues([]any{expected}, true, true, ignoreCase)
 		if err != nil {
 			return err
 		}
@@ -265,14 +265,14 @@ func (la *locatorAssertionsImpl) ToContainText(expected interface{}, options ...
 	}
 }
 
-func (la *locatorAssertionsImpl) ToHaveAccessibleDescription(description interface{}, options ...LocatorAssertionsToHaveAccessibleDescriptionOptions) error {
+func (la *locatorAssertionsImpl) ToHaveAccessibleDescription(description any, options ...LocatorAssertionsToHaveAccessibleDescriptionOptions) error {
 	var timeout *float64
 	var ignoreCase *bool
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{description}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{description}, false, false, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -284,14 +284,14 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleDescription(description interfa
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveAccessibleErrorMessage(errorMessage interface{}, options ...LocatorAssertionsToHaveAccessibleErrorMessageOptions) error {
+func (la *locatorAssertionsImpl) ToHaveAccessibleErrorMessage(errorMessage any, options ...LocatorAssertionsToHaveAccessibleErrorMessageOptions) error {
 	var timeout *float64
 	var ignoreCase *bool
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{errorMessage}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{errorMessage}, false, false, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -303,14 +303,14 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleErrorMessage(errorMessage inter
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveAccessibleName(name interface{}, options ...LocatorAssertionsToHaveAccessibleNameOptions) error {
+func (la *locatorAssertionsImpl) ToHaveAccessibleName(name any, options ...LocatorAssertionsToHaveAccessibleNameOptions) error {
 	var timeout *float64
 	var ignoreCase *bool
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{name}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{name}, false, false, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -322,14 +322,14 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleName(name interface{}, options 
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveAttribute(name string, value interface{}, options ...LocatorAssertionsToHaveAttributeOptions) error {
+func (la *locatorAssertionsImpl) ToHaveAttribute(name string, value any, options ...LocatorAssertionsToHaveAttributeOptions) error {
 	var timeout *float64
 	var ignoreCase *bool
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{value}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{value}, false, false, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -345,7 +345,7 @@ func (la *locatorAssertionsImpl) ToHaveAttribute(name string, value interface{},
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveClass(expected interface{}, options ...LocatorAssertionsToHaveClassOptions) error {
+func (la *locatorAssertionsImpl) ToHaveClass(expected any, options ...LocatorAssertionsToHaveClassOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
@@ -366,7 +366,7 @@ func (la *locatorAssertionsImpl) ToHaveClass(expected interface{}, options ...Lo
 			"Locator expected to have class",
 		)
 	default:
-		expectedText, err := toExpectedTextValues([]interface{}{expected}, false, false, nil)
+		expectedText, err := toExpectedTextValues([]any{expected}, false, false, nil)
 		if err != nil {
 			return err
 		}
@@ -395,12 +395,12 @@ func (la *locatorAssertionsImpl) ToHaveCount(count int, options ...LocatorAssert
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveCSS(name string, value interface{}, options ...LocatorAssertionsToHaveCSSOptions) error {
+func (la *locatorAssertionsImpl) ToHaveCSS(name string, value any, options ...LocatorAssertionsToHaveCSSOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{value}, false, false, nil)
+	expectedText, err := toExpectedTextValues([]any{value}, false, false, nil)
 	if err != nil {
 		return err
 	}
@@ -416,12 +416,12 @@ func (la *locatorAssertionsImpl) ToHaveCSS(name string, value interface{}, optio
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveId(id interface{}, options ...LocatorAssertionsToHaveIdOptions) error {
+func (la *locatorAssertionsImpl) ToHaveId(id any, options ...LocatorAssertionsToHaveIdOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{id}, false, false, nil)
+	expectedText, err := toExpectedTextValues([]any{id}, false, false, nil)
 	if err != nil {
 		return err
 	}
@@ -433,7 +433,7 @@ func (la *locatorAssertionsImpl) ToHaveId(id interface{}, options ...LocatorAsse
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveJSProperty(name string, value interface{}, options ...LocatorAssertionsToHaveJSPropertyOptions) error {
+func (la *locatorAssertionsImpl) ToHaveJSProperty(name string, value any, options ...LocatorAssertionsToHaveJSPropertyOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
@@ -455,7 +455,7 @@ func (la *locatorAssertionsImpl) ToHaveRole(role AriaRole, options ...LocatorAss
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{string(role)}, false, false, nil)
+	expectedText, err := toExpectedTextValues([]any{string(role)}, false, false, nil)
 	if err != nil {
 		return err
 	}
@@ -467,7 +467,7 @@ func (la *locatorAssertionsImpl) ToHaveRole(role AriaRole, options ...LocatorAss
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveText(expected interface{}, options ...LocatorAssertionsToHaveTextOptions) error {
+func (la *locatorAssertionsImpl) ToHaveText(expected any, options ...LocatorAssertionsToHaveTextOptions) error {
 	var (
 		timeout      *float64
 		useInnerText *bool
@@ -496,7 +496,7 @@ func (la *locatorAssertionsImpl) ToHaveText(expected interface{}, options ...Loc
 			"Locator expected to have text",
 		)
 	default:
-		expectedText, err := toExpectedTextValues([]interface{}{expected}, false, true, ignoreCase)
+		expectedText, err := toExpectedTextValues([]any{expected}, false, true, ignoreCase)
 		if err != nil {
 			return err
 		}
@@ -513,12 +513,12 @@ func (la *locatorAssertionsImpl) ToHaveText(expected interface{}, options ...Loc
 	}
 }
 
-func (la *locatorAssertionsImpl) ToHaveValue(value interface{}, options ...LocatorAssertionsToHaveValueOptions) error {
+func (la *locatorAssertionsImpl) ToHaveValue(value any, options ...LocatorAssertionsToHaveValueOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	expectedText, err := toExpectedTextValues([]interface{}{value}, false, false, nil)
+	expectedText, err := toExpectedTextValues([]any{value}, false, false, nil)
 	if err != nil {
 		return err
 	}
@@ -530,7 +530,7 @@ func (la *locatorAssertionsImpl) ToHaveValue(value interface{}, options ...Locat
 	)
 }
 
-func (la *locatorAssertionsImpl) ToHaveValues(values []interface{}, options ...LocatorAssertionsToHaveValuesOptions) error {
+func (la *locatorAssertionsImpl) ToHaveValues(values []any, options ...LocatorAssertionsToHaveValuesOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout

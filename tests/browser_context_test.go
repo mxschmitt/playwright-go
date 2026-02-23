@@ -187,7 +187,7 @@ func TestBrowserContextAddCookies(t *testing.T) {
 			HttpOnly:     false,
 			Secure:       false,
 			SameSite:     sameSite,
-			PartitionKey: playwright.String(""),
+			PartitionKey: nil,
 		},
 	}, cookies)
 

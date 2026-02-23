@@ -18,12 +18,12 @@ type jsHandleImpl struct {
 	preview string
 }
 
-func (j *jsHandleImpl) Evaluate(expression string, options ...interface{}) (interface{}, error) {
-	var arg interface{}
+func (j *jsHandleImpl) Evaluate(expression string, options ...any) (any, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := j.channel.Send("evaluateExpression", map[string]interface{}{
+	result, err := j.channel.Send("evaluateExpression", map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
 	})
@@ -33,12 +33,12 @@ func (j *jsHandleImpl) Evaluate(expression string, options ...interface{}) (inte
 	return parseResult(result), nil
 }
 
-func (j *jsHandleImpl) EvaluateHandle(expression string, options ...interface{}) (JSHandle, error) {
-	var arg interface{}
+func (j *jsHandleImpl) EvaluateHandle(expression string, options ...any) (JSHandle, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := j.channel.Send("evaluateExpressionHandle", map[string]interface{}{
+	result, err := j.channel.Send("evaluateExpressionHandle", map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
 	})
@@ -53,7 +53,7 @@ func (j *jsHandleImpl) EvaluateHandle(expression string, options ...interface{})
 }
 
 func (j *jsHandleImpl) GetProperty(name string) (JSHandle, error) {
-	channel, err := j.channel.Send("getProperty", map[string]interface{}{
+	channel, err := j.channel.Send("getProperty", map[string]any{
 		"name": name,
 	})
 	if err != nil {
@@ -68,8 +68,8 @@ func (j *jsHandleImpl) GetProperties() (map[string]JSHandle, error) {
 		return nil, err
 	}
 	propertiesMap := make(map[string]JSHandle)
-	for _, property := range properties.([]interface{}) {
-		item := property.(map[string]interface{})
+	for _, property := range properties.([]any) {
+		item := property.(map[string]any)
 		propertiesMap[item["name"].(string)] = fromChannel(item["value"]).(*jsHandleImpl)
 	}
 	return propertiesMap, nil
@@ -91,7 +91,7 @@ func (j *jsHandleImpl) String() string {
 	return j.preview
 }
 
-func (j *jsHandleImpl) JSONValue() (interface{}, error) {
+func (j *jsHandleImpl) JSONValue() (any, error) {
 	v, err := j.channel.Send("jsonValue")
 	if err != nil {
 		return nil, err
@@ -99,8 +99,8 @@ func (j *jsHandleImpl) JSONValue() (interface{}, error) {
 	return parseResult(v), nil
 }
 
-func parseValue(result interface{}, refs map[float64]interface{}) interface{} {
-	vMap, ok := result.(map[string]interface{})
+func parseValue(result any, refs map[float64]any) any {
+	vMap, ok := result.(map[string]any)
 	if !ok {
 		return result
 	}
@@ -158,7 +158,7 @@ func parseValue(result interface{}, refs map[float64]interface{}) interface{} {
 		return t
 	}
 	if v, ok := vMap["a"]; ok {
-		aV := v.([]interface{})
+		aV := v.([]any)
 		refs[vMap["id"].(float64)] = aV
 		for i := range aV {
 			aV[i] = parseValue(aV[i], refs)
@@ -166,11 +166,11 @@ func parseValue(result interface{}, refs map[float64]interface{}) interface{} {
 		return aV
 	}
 	if v, ok := vMap["o"]; ok {
-		aV := v.([]interface{})
-		out := map[string]interface{}{}
+		aV := v.([]any)
+		out := map[string]any{}
 		refs[vMap["id"].(float64)] = out
 		for key := range aV {
-			entry := aV[key].(map[string]interface{})
+			entry := aV[key].(map[string]any)
 			out[entry["k"].(string)] = parseValue(entry["v"], refs)
 		}
 		return out
@@ -178,14 +178,14 @@ func parseValue(result interface{}, refs map[float64]interface{}) interface{} {
 
 	if v, ok := vMap["e"]; ok {
 		return parseError(Error{
-			Name:    v.(map[string]interface{})["n"].(string),
-			Message: v.(map[string]interface{})["m"].(string),
-			Stack:   v.(map[string]interface{})["s"].(string),
+			Name:    v.(map[string]any)["n"].(string),
+			Message: v.(map[string]any)["m"].(string),
+			Stack:   v.(map[string]any)["s"].(string),
 		})
 	}
 	if v, ok := vMap["ta"]; ok {
-		b, b_ok := v.(map[string]interface{})["b"].(string)
-		k, k_ok := v.(map[string]interface{})["k"].(string)
+		b, b_ok := v.(map[string]any)["b"].(string)
+		k, k_ok := v.(map[string]any)["k"].(string)
 		if b_ok && k_ok {
 			decoded, err := base64.StdEncoding.DecodeString(b)
 			if err != nil {
@@ -239,23 +239,23 @@ func parseValue(result interface{}, refs map[float64]interface{}) interface{} {
 	panic(fmt.Errorf("Unexpected value: %v", vMap))
 }
 
-func serializeValue(value interface{}, handles *[]*channel, depth int) interface{} {
+func serializeValue(value any, handles *[]*channel, depth int) any {
 	if handle, ok := value.(*elementHandleImpl); ok {
 		h := len(*handles)
 		*handles = append(*handles, handle.channel)
-		return map[string]interface{}{
+		return map[string]any{
 			"h": h,
 		}
 	}
 	if handle, ok := value.(*jsHandleImpl); ok {
 		h := len(*handles)
 		*handles = append(*handles, handle.channel)
-		return map[string]interface{}{
+		return map[string]any{
 			"h": h,
 		}
 	}
 	if u, ok := value.(*url.URL); ok {
-		return map[string]interface{}{
+		return map[string]any{
 			"u": u.String(),
 		}
 	}
@@ -263,16 +263,16 @@ func serializeValue(value interface{}, handles *[]*channel, depth int) interface
 	if err, ok := value.(error); ok {
 		var e *Error
 		if errors.As(err, &e) {
-			return map[string]interface{}{
-				"e": map[string]interface{}{
+			return map[string]any{
+				"e": map[string]any{
 					"n": e.Name,
 					"m": e.Message,
 					"s": e.Stack,
 				},
 			}
 		}
-		return map[string]interface{}{
-			"e": map[string]interface{}{
+		return map[string]any{
+			"e": map[string]any{
 				"n": "",
 				"m": err.Error(),
 				"s": "",
@@ -284,31 +284,31 @@ func serializeValue(value interface{}, handles *[]*channel, depth int) interface
 		panic(errors.New("Maximum argument depth exceeded"))
 	}
 	if value == nil {
-		return map[string]interface{}{
+		return map[string]any{
 			"v": "undefined",
 		}
 	}
 	if n, ok := value.(*big.Int); ok {
-		return map[string]interface{}{
+		return map[string]any{
 			"bi": n.String(),
 		}
 	}
 
 	switch v := value.(type) {
 	case time.Time:
-		return map[string]interface{}{
+		return map[string]any{
 			"d": v.Format(time.RFC3339Nano),
 		}
 	case int:
-		return map[string]interface{}{
+		return map[string]any{
 			"n": v,
 		}
 	case string:
-		return map[string]interface{}{
+		return map[string]any{
 			"s": v,
 		}
 	case bool:
-		return map[string]interface{}{
+		return map[string]any{
 			"b": v,
 		}
 	}
@@ -319,83 +319,83 @@ func serializeValue(value interface{}, handles *[]*channel, depth int) interface
 	case reflect.Float32, reflect.Float64:
 		floatV := refV.Float()
 		if math.IsInf(floatV, 1) {
-			return map[string]interface{}{
+			return map[string]any{
 				"v": "Infinity",
 			}
 		}
 		if math.IsInf(floatV, -1) {
-			return map[string]interface{}{
+			return map[string]any{
 				"v": "-Infinity",
 			}
 		}
 		// https://github.com/golang/go/issues/2196
 		if floatV == math.Copysign(0, -1) {
-			return map[string]interface{}{
+			return map[string]any{
 				"v": "-0",
 			}
 		}
 		if math.IsNaN(floatV) {
-			return map[string]interface{}{
+			return map[string]any{
 				"v": "NaN",
 			}
 		}
-		return map[string]interface{}{
+		return map[string]any{
 			"n": floatV,
 		}
 	case reflect.Slice:
-		aV := make([]interface{}, refV.Len())
+		aV := make([]any, refV.Len())
 		for i := 0; i < refV.Len(); i++ {
 			aV[i] = serializeValue(refV.Index(i).Interface(), handles, depth+1)
 		}
-		return map[string]interface{}{
+		return map[string]any{
 			"a": aV,
 		}
 	case reflect.Map:
-		out := []interface{}{}
-		vM := value.(map[string]interface{})
+		out := []any{}
+		vM := value.(map[string]any)
 		for key := range vM {
 			v := serializeValue(vM[key], handles, depth+1)
 			// had key, so convert "undefined" to "null"
-			if reflect.DeepEqual(v, map[string]interface{}{
+			if reflect.DeepEqual(v, map[string]any{
 				"v": "undefined",
 			}) {
-				v = map[string]interface{}{
+				v = map[string]any{
 					"v": "null",
 				}
 			}
-			out = append(out, map[string]interface{}{
+			out = append(out, map[string]any{
 				"k": key,
 				"v": v,
 			})
 		}
-		return map[string]interface{}{
+		return map[string]any{
 			"o": out,
 		}
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"v": "undefined",
 	}
 }
 
-func parseResult(result interface{}) interface{} {
-	return parseValue(result, map[float64]interface{}{})
+func parseResult(result any) any {
+	return parseValue(result, map[float64]any{})
 }
 
-func serializeArgument(arg interface{}) interface{} {
+func serializeArgument(arg any) any {
 	handles := []*channel{}
 	value := serializeValue(arg, &handles, 0)
-	return map[string]interface{}{
+	return map[string]any{
 		"value":   value,
 		"handles": handles,
 	}
 }
 
-func newJSHandle(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *jsHandleImpl {
+func newJSHandle(parent *channelOwner, objectType string, guid string, initializer map[string]any) *jsHandleImpl {
 	bt := &jsHandleImpl{
 		preview: initializer["preview"].(string),
 	}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
-	bt.channel.On("previewUpdated", func(ev map[string]interface{}) {
+	bt.channel.On("previewUpdated", func(ev map[string]any) {
 		bt.preview = ev["preview"].(string)
 	})
 	return bt

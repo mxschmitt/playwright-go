@@ -23,7 +23,7 @@ func (s *streamImpl) SaveAs(path string) error {
 	defer file.Close()
 	writer := bufio.NewWriter(file)
 	for {
-		binary, err := s.channel.Send("read", map[string]interface{}{"size": 1024 * 1024})
+		binary, err := s.channel.Send("read", map[string]any{"size": 1024 * 1024})
 		if err != nil {
 			return err
 		}
@@ -45,7 +45,7 @@ func (s *streamImpl) SaveAs(path string) error {
 func (s *streamImpl) ReadAll() ([]byte, error) {
 	var data []byte
 	for {
-		binary, err := s.channel.Send("read", map[string]interface{}{"size": 1024 * 1024})
+		binary, err := s.channel.Send("read", map[string]any{"size": 1024 * 1024})
 		if err != nil {
 			return nil, err
 		}
@@ -61,7 +61,7 @@ func (s *streamImpl) ReadAll() ([]byte, error) {
 	return data, nil
 }
 
-func newStream(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *streamImpl {
+func newStream(parent *channelOwner, objectType string, guid string, initializer map[string]any) *streamImpl {
 	stream := &streamImpl{}
 	stream.createChannelOwner(stream, parent, objectType, guid, initializer)
 	return stream

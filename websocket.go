@@ -15,7 +15,7 @@ func (ws *webSocketImpl) URL() string {
 	return ws.initializer["url"].(string)
 }
 
-func newWebsocket(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *webSocketImpl {
+func newWebsocket(parent *channelOwner, objectType string, guid string, initializer map[string]any) *webSocketImpl {
 	ws := &webSocketImpl{}
 	ws.createChannelOwner(ws, parent, objectType, guid, initializer)
 	ws.page = fromChannel(parent.channel).(*pageImpl)
@@ -27,19 +27,19 @@ func newWebsocket(parent *channelOwner, objectType string, guid string, initiali
 	})
 	ws.channel.On(
 		"frameSent",
-		func(params map[string]interface{}) {
+		func(params map[string]any) {
 			ws.onFrameSent(params["opcode"].(float64), params["data"].(string))
 		},
 	)
 	ws.channel.On(
 		"frameReceived",
-		func(params map[string]interface{}) {
+		func(params map[string]any) {
 			ws.onFrameReceived(params["opcode"].(float64), params["data"].(string))
 		},
 	)
 	ws.channel.On(
 		"socketError",
-		func(params map[string]interface{}) {
+		func(params map[string]any) {
 			ws.Emit("socketerror", params["error"])
 		},
 	)
@@ -72,11 +72,11 @@ func (ws *webSocketImpl) onFrameReceived(opcode float64, data string) {
 	}
 }
 
-func (ws *webSocketImpl) ExpectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (interface{}, error) {
+func (ws *webSocketImpl) ExpectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (any, error) {
 	return ws.expectEvent(event, cb, options...)
 }
 
-func (ws *webSocketImpl) WaitForEvent(event string, options ...WebSocketWaitForEventOptions) (interface{}, error) {
+func (ws *webSocketImpl) WaitForEvent(event string, options ...WebSocketWaitForEventOptions) (any, error) {
 	if len(options) == 1 {
 		option := WebSocketExpectEventOptions(options[0])
 		return ws.expectEvent(event, nil, option)
@@ -85,8 +85,8 @@ func (ws *webSocketImpl) WaitForEvent(event string, options ...WebSocketWaitForE
 	}
 }
 
-func (ws *webSocketImpl) expectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (interface{}, error) {
-	var predicate interface{} = nil
+func (ws *webSocketImpl) expectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (any, error) {
+	var predicate any = nil
 	timeout := ws.page.timeoutSettings.Timeout()
 	if len(options) == 1 {
 		if options[0].Timeout != nil {

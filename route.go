@@ -48,7 +48,7 @@ func (r *routeImpl) Request() Request {
 	return fromChannel(r.initializer["request"]).(*requestImpl)
 }
 
-func unpackOptionalArgument(input interface{}) interface{} {
+func unpackOptionalArgument(input any) any {
 	inputValue := reflect.ValueOf(input)
 	if inputValue.Kind() != reflect.Slice {
 		panic("Needs to be a slice")
@@ -62,7 +62,7 @@ func unpackOptionalArgument(input interface{}) interface{} {
 func (r *routeImpl) Abort(errorCode ...string) error {
 	return r.handleRoute(func() error {
 		return r.raceWithPageClose(func() error {
-			_, err := r.channel.Send("abort", map[string]interface{}{
+			_, err := r.channel.Send("abort", map[string]any{
 				"errorCode": unpackOptionalArgument(errorCode),
 			})
 			return err
@@ -113,7 +113,7 @@ func (r *routeImpl) innerFulfill(options ...RouteFulfillOptions) error {
 	if len(options) == 1 {
 		option = options[0]
 	}
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"status": 200,
 	}
 	headers := make(map[string]string)
@@ -208,7 +208,7 @@ func (r *routeImpl) Fetch(options ...RouteFetchOptions) (APIResponse, error) {
 			url = *options[0].URL
 		}
 	}
-	ret, err := r.connection.WrapAPICall(func() (interface{}, error) {
+	ret, err := r.connection.WrapAPICall(func() (any, error) {
 		return r.context.request.innerFetch(url, r.Request(), *opt)
 	}, false)
 	if ret == nil {
@@ -233,7 +233,7 @@ func (r *routeImpl) Continue(options ...RouteContinueOptions) error {
 }
 
 func (r *routeImpl) internalContinue(isFallback bool) error {
-	overrides := make(map[string]interface{})
+	overrides := make(map[string]any)
 	overrides["url"] = r.Request().(*requestImpl).fallbackOverrides.URL
 	overrides["method"] = r.Request().(*requestImpl).fallbackOverrides.Method
 	headers := r.Request().(*requestImpl).fallbackOverrides.Headers
@@ -254,7 +254,7 @@ func (r *routeImpl) internalContinue(isFallback bool) error {
 func (r *routeImpl) redirectedNavigationRequest(url string) error {
 	return r.handleRoute(func() error {
 		return r.raceWithPageClose(func() error {
-			_, err := r.channel.Send("redirectNavigationRequest", map[string]interface{}{
+			_, err := r.channel.Send("redirectNavigationRequest", map[string]any{
 				"url": url,
 			})
 			return err
@@ -262,7 +262,7 @@ func (r *routeImpl) redirectedNavigationRequest(url string) error {
 	})
 }
 
-func newRoute(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *routeImpl {
+func newRoute(parent *channelOwner, objectType string, guid string, initializer map[string]any) *routeImpl {
 	bt := &routeImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.markAsInternalType()

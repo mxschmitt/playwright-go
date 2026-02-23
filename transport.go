@@ -11,7 +11,7 @@ import (
 )
 
 type transport interface {
-	Send(msg map[string]interface{}) error
+	Send(msg map[string]any) error
 	Poll() (*message, error)
 	Close() error
 }
@@ -52,17 +52,17 @@ func (t *pipeTransport) Poll() (*message, error) {
 }
 
 type message struct {
-	ID     int                    `json:"id"`
-	GUID   string                 `json:"guid"`
-	Method string                 `json:"method,omitempty"`
-	Params map[string]interface{} `json:"params,omitempty"`
-	Result map[string]interface{} `json:"result,omitempty"`
+	ID     int            `json:"id"`
+	GUID   string         `json:"guid"`
+	Method string         `json:"method,omitempty"`
+	Params map[string]any `json:"params,omitempty"`
+	Result map[string]any `json:"result,omitempty"`
 	Error  *struct {
 		Error Error `json:"error"`
 	} `json:"error,omitempty"`
 }
 
-func (t *pipeTransport) Send(msg map[string]interface{}) error {
+func (t *pipeTransport) Send(msg map[string]any) error {
 	if t.isClosed() {
 		return fmt.Errorf("transport closed")
 	}

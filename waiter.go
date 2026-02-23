@@ -16,24 +16,24 @@ type (
 		fulfilled atomic.Bool
 		listeners []eventListener
 		errChan   chan error
-		waitFunc  func() (interface{}, error)
+		waitFunc  func() (any, error)
 	}
 	eventListener struct {
 		emitter EventEmitter
 		event   string
-		handler interface{}
+		handler any
 	}
 )
 
 // RejectOnEvent sets the Waiter to return an error when an event occurs (and the predicate returns true)
-func (w *waiter) RejectOnEvent(emitter EventEmitter, event string, err error, predicates ...interface{}) *waiter {
+func (w *waiter) RejectOnEvent(emitter EventEmitter, event string, err error, predicates ...any) *waiter {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.waitFunc != nil {
 		w.reject(fmt.Errorf("waiter: call RejectOnEvent before WaitForEvent"))
 		return w
 	}
-	handler := func(ev ...interface{}) {
+	handler := func(ev ...any) {
 		if w.fulfilled.Load() {
 			return
 		}
@@ -68,14 +68,14 @@ func (w *waiter) WithTimeout(timeout float64) *waiter {
 }
 
 // WaitForEvent sets the Waiter to return when an event occurs (and the predicate returns true)
-func (w *waiter) WaitForEvent(emitter EventEmitter, event string, predicate interface{}) *waiter {
+func (w *waiter) WaitForEvent(emitter EventEmitter, event string, predicate any) *waiter {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.waitFunc != nil {
 		w.reject(fmt.Errorf("waiter: WaitForEvent can only be called once"))
 		return w
 	}
-	evChan := make(chan interface{}, 1)
+	evChan := make(chan any, 1)
 	handler := w.createHandler(evChan, predicate)
 	ctx, cancel := context.WithCancel(context.Background())
 	if w.timeout != 0 {
@@ -99,10 +99,10 @@ func (w *waiter) WaitForEvent(emitter EventEmitter, event string, predicate inte
 		handler: handler,
 	})
 
-	w.waitFunc = func() (interface{}, error) {
+	w.waitFunc = func() (any, error) {
 		var (
 			err error
-			val interface{}
+			val any
 		)
 		select {
 		case err = <-w.errChan:
@@ -126,7 +126,7 @@ func (w *waiter) WaitForEvent(emitter EventEmitter, event string, predicate inte
 }
 
 // Wait waits for the waiter to return. It needs to call WaitForEvent once first.
-func (w *waiter) Wait() (interface{}, error) {
+func (w *waiter) Wait() (any, error) {
 	if w.waitFunc == nil {
 		return nil, fmt.Errorf("waiter: call WaitForEvent first")
 	}
@@ -134,7 +134,7 @@ func (w *waiter) Wait() (interface{}, error) {
 }
 
 // RunAndWait waits for the waiter to return after calls func.
-func (w *waiter) RunAndWait(cb func() error) (interface{}, error) {
+func (w *waiter) RunAndWait(cb func() error) (any, error) {
 	if w.waitFunc == nil {
 		return nil, fmt.Errorf("waiter: call WaitForEvent first")
 	}
@@ -146,8 +146,8 @@ func (w *waiter) RunAndWait(cb func() error) (interface{}, error) {
 	return w.waitFunc()
 }
 
-func (w *waiter) createHandler(evChan chan<- interface{}, predicate interface{}) func(...interface{}) {
-	return func(ev ...interface{}) {
+func (w *waiter) createHandler(evChan chan<- any, predicate any) func(...any) {
+	return func(ev ...any) {
 		if w.fulfilled.Load() {
 			return
 		}

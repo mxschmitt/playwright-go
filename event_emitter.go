@@ -8,11 +8,11 @@ import (
 )
 
 type EventEmitter interface {
-	Emit(name string, payload ...interface{}) bool
+	Emit(name string, payload ...any) bool
 	ListenerCount(name string) int
-	On(name string, handler interface{})
-	Once(name string, handler interface{})
-	RemoveListener(name string, handler interface{})
+	On(name string, handler any)
+	Once(name string, handler any)
+	RemoveListener(name string, handler any)
 	RemoveListeners(name string)
 }
 
@@ -27,7 +27,7 @@ type (
 		listeners []listener
 	}
 	listener struct {
-		handler interface{}
+		handler any
 		once    bool
 	}
 )
@@ -36,7 +36,7 @@ func NewEventEmitter() EventEmitter {
 	return &eventEmitter{}
 }
 
-func (e *eventEmitter) Emit(name string, payload ...interface{}) (hasListener bool) {
+func (e *eventEmitter) Emit(name string, payload ...any) (hasListener bool) {
 	e.eventsMutex.Lock()
 	e.init()
 
@@ -49,15 +49,15 @@ func (e *eventEmitter) Emit(name string, payload ...interface{}) (hasListener bo
 	return evt.callHandlers(payload...) > 0
 }
 
-func (e *eventEmitter) Once(name string, handler interface{}) {
+func (e *eventEmitter) Once(name string, handler any) {
 	e.addEvent(name, handler, true)
 }
 
-func (e *eventEmitter) On(name string, handler interface{}) {
+func (e *eventEmitter) On(name string, handler any) {
 	e.addEvent(name, handler, false)
 }
 
-func (e *eventEmitter) RemoveListener(name string, handler interface{}) {
+func (e *eventEmitter) RemoveListener(name string, handler any) {
 	e.eventsMutex.Lock()
 	defer e.eventsMutex.Unlock()
 	e.init()
@@ -98,7 +98,7 @@ func (e *eventEmitter) ListenerCount(name string) int {
 	return count
 }
 
-func (e *eventEmitter) addEvent(name string, handler interface{}, once bool) {
+func (e *eventEmitter) addEvent(name string, handler any, once bool) {
 	e.eventsMutex.Lock()
 	defer e.eventsMutex.Unlock()
 	e.init()
@@ -118,7 +118,7 @@ func (e *eventEmitter) init() {
 	}
 }
 
-func (er *eventRegister) addHandler(handler interface{}, once bool) {
+func (er *eventRegister) addHandler(handler any, once bool) {
 	er.Lock()
 	defer er.Unlock()
 	er.listeners = append(er.listeners, listener{handler: handler, once: once})
@@ -130,7 +130,7 @@ func (er *eventRegister) count() int {
 	return len(er.listeners)
 }
 
-func (er *eventRegister) removeHandler(handler interface{}) {
+func (er *eventRegister) removeHandler(handler any) {
 	handlerPtr := reflect.ValueOf(handler).Pointer()
 
 	er.listeners = slices.DeleteFunc(er.listeners, func(l listener) bool {
@@ -138,7 +138,7 @@ func (er *eventRegister) removeHandler(handler interface{}) {
 	})
 }
 
-func (er *eventRegister) callHandlers(payloads ...interface{}) int {
+func (er *eventRegister) callHandlers(payloads ...any) int {
 	payloadV := make([]reflect.Value, 0)
 
 	for _, p := range payloads {

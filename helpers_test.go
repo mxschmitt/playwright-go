@@ -28,65 +28,65 @@ func TestTransformOptions(t *testing.T) {
 	var nilStrPtr *string
 	testCases := []struct {
 		name         string
-		firstOption  interface{}
-		secondOption interface{}
-		expected     interface{}
+		firstOption  any
+		secondOption any
+		expected     any
 	}{
 		{
 			name: "No options supplied",
-			firstOption: map[string]interface{}{
+			firstOption: map[string]any{
 				"1234": nilStrPtr,
 				"foo":  "bar",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"foo": "bar",
 			},
 		},
 		{
 			name: "Options are nil",
-			firstOption: map[string]interface{}{
+			firstOption: map[string]any{
 				"foo": "bar",
 			},
 			secondOption: nil,
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"foo": "bar",
 			},
 		},
 		{
 			name: "JSON serialization works",
-			firstOption: map[string]interface{}{
+			firstOption: map[string]any{
 				"foo":           "bar",
 				"stringPointer": 1,
 			},
 			secondOption: structVar,
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"foo":            "bar",
 				"stringPointer":  String("1"),
 				"normalString":   "2",
 				"WithoutJSONTag": "3",
 				"withJSONTag":    "4",
-				"overrideMe":     []interface{}{"5"},
+				"overrideMe":     []any{"5"},
 			},
 		},
 		{
 			name: "Second overwrites the first one",
-			firstOption: map[string]interface{}{
+			firstOption: map[string]any{
 				"foo": "1",
 			},
-			secondOption: map[string]interface{}{
+			secondOption: map[string]any{
 				"foo": "2",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"foo": "2",
 			},
 		},
 		{
 			name:        "Second overwrites the first one's value in different type",
 			firstOption: structVar,
-			secondOption: map[string]interface{}{
+			secondOption: map[string]any{
 				"overrideMe": "5",
 			},
-			expected: map[string]interface{}{
+			expected: map[string]any{
 				"stringPointer":  String("1"),
 				"normalString":   "2",
 				"WithoutJSONTag": "3",
@@ -106,23 +106,38 @@ func TestRemapMapToStruct(t *testing.T) {
 	ourStruct := struct {
 		V1 string `json:"v1"`
 	}{}
-	inMap := map[string]interface{}{
+	inMap := map[string]any{
 		"v1": "foobar",
 	}
 	remapMapToStruct(inMap, &ourStruct)
 	require.Equal(t, ourStruct.V1, "foobar")
 }
 
+func TestRemapMapToStructShouldKeepNilPointerForMissingField(t *testing.T) {
+	ourStruct := struct {
+		V1           string  `json:"v1"`
+		PartitionKey *string `json:"partitionKey"`
+	}{}
+	inMap := map[string]any{
+		"v1": "foobar",
+	}
+
+	remapMapToStruct(inMap, &ourStruct)
+
+	require.Equal(t, "foobar", ourStruct.V1)
+	require.Nil(t, ourStruct.PartitionKey)
+}
+
 func TestConvertSelectOptionSet(t *testing.T) {
 	testCases := []struct {
 		name         string
 		optionValues SelectOptionValues
-		expected     interface{}
+		expected     any
 	}{
 		{
 			name:         "SelectOptionValues is nil",
 			optionValues: SelectOptionValues{},
-			expected:     make(map[string]interface{}),
+			expected:     make(map[string]any),
 		},
 		{
 			name: "SelectOptionValues is supplied",
@@ -132,8 +147,8 @@ func TestConvertSelectOptionSet(t *testing.T) {
 				Indexes:        IntSlice(1),
 				Labels:         StringSlice("x"),
 			},
-			expected: map[string]interface{}{
-				"options": []map[string]interface{}{
+			expected: map[string]any{
+				"options": []map[string]any{
 					{"valueOrLabel": "c"}, {"valueOrLabel": "d"}, {"value": "a"}, {"value": "b"}, {"index": 1}, {"label": "x"},
 				},
 			},
@@ -143,8 +158,8 @@ func TestConvertSelectOptionSet(t *testing.T) {
 			optionValues: SelectOptionValues{
 				Values: StringSlice("a", "b"),
 			},
-			expected: map[string]interface{}{
-				"options": []map[string]interface{}{
+			expected: map[string]any{
+				"options": []map[string]any{
 					{"value": "a"}, {"value": "b"},
 				},
 			},
@@ -169,8 +184,8 @@ func TestAssignFields(t *testing.T) {
 			Field3 float64
 		}
 		args struct {
-			dest      interface{}
-			src       interface{}
+			dest      any
+			src       any
 			omitExtra bool
 		}
 	)

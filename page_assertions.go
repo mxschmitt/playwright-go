@@ -29,7 +29,7 @@ func newPageAssertions(page Page, isNot bool, defaultTimeout *float64) *pageAsse
 func (pa *pageAssertionsImpl) expectOnFrame(
 	expression string,
 	options frameExpectOptions,
-	expected interface{},
+	expected any,
 	message string,
 ) error {
 	options.IsNot = pa.isNot
@@ -41,7 +41,7 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 	}
 
 	frame := pa.actualPage.MainFrame().(*frameImpl)
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"expression": expression,
 	}
 	result, err := frame.channel.SendReturnAsDict("expect", options, overrides)
@@ -50,7 +50,7 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 	}
 
 	var (
-		received interface{}
+		received any
 		matches  bool
 		log      []string
 	)
@@ -62,7 +62,7 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 		matches = v.(bool)
 	}
 	if v, ok := result["log"]; ok {
-		for _, l := range v.([]interface{}) {
+		for _, l := range v.([]any) {
 			log = append(log, l.(string))
 		}
 	}
@@ -82,12 +82,12 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 	return nil
 }
 
-func (pa *pageAssertionsImpl) ToHaveTitle(titleOrRegExp interface{}, options ...PageAssertionsToHaveTitleOptions) error {
+func (pa *pageAssertionsImpl) ToHaveTitle(titleOrRegExp any, options ...PageAssertionsToHaveTitleOptions) error {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	expectedValues, err := toExpectedTextValues([]interface{}{titleOrRegExp}, false, true, nil)
+	expectedValues, err := toExpectedTextValues([]any{titleOrRegExp}, false, true, nil)
 	if err != nil {
 		return err
 	}
@@ -99,7 +99,7 @@ func (pa *pageAssertionsImpl) ToHaveTitle(titleOrRegExp interface{}, options ...
 	)
 }
 
-func (pa *pageAssertionsImpl) ToHaveURL(urlOrRegExp interface{}, options ...PageAssertionsToHaveURLOptions) error {
+func (pa *pageAssertionsImpl) ToHaveURL(urlOrRegExp any, options ...PageAssertionsToHaveURLOptions) error {
 	var timeout *float64
 	var ignoreCase *bool
 	if len(options) == 1 {
@@ -114,7 +114,7 @@ func (pa *pageAssertionsImpl) ToHaveURL(urlOrRegExp interface{}, options ...Page
 		urlOrRegExp = u.String()
 	}
 
-	expectedValues, err := toExpectedTextValues([]interface{}{urlOrRegExp}, false, false, ignoreCase)
+	expectedValues, err := toExpectedTextValues([]any{urlOrRegExp}, false, false, ignoreCase)
 	if err != nil {
 		return err
 	}

@@ -13,11 +13,11 @@ type localUtilsImpl struct {
 
 type (
 	localUtilsZipOptions struct {
-		ZipFile        string        `json:"zipFile"`
-		Entries        []interface{} `json:"entries"`
-		StacksId       string        `json:"stacksId"`
-		Mode           string        `json:"mode"`
-		IncludeSources bool          `json:"includeSources"`
+		ZipFile        string `json:"zipFile"`
+		Entries        []any  `json:"entries"`
+		StacksId       string `json:"stacksId"`
+		Mode           string `json:"mode"`
+		IncludeSources bool   `json:"includeSources"`
 	}
 
 	harLookupOptions struct {
@@ -26,7 +26,7 @@ type (
 		Method              string            `json:"method"`
 		Headers             map[string]string `json:"headers"`
 		IsNavigationRequest bool              `json:"isNavigationRequest"`
-		PostData            interface{}       `json:"postData,omitempty"`
+		PostData            any               `json:"postData,omitempty"`
 	}
 
 	harLookupResult struct {
@@ -39,12 +39,12 @@ type (
 	}
 )
 
-func (l *localUtilsImpl) Zip(options localUtilsZipOptions) (interface{}, error) {
+func (l *localUtilsImpl) Zip(options localUtilsZipOptions) (any, error) {
 	return l.channel.Send("zip", options)
 }
 
 func (l *localUtilsImpl) HarOpen(file string) (string, error) {
-	result, err := l.channel.SendReturnAsDict("harOpen", []map[string]interface{}{
+	result, err := l.channel.SendReturnAsDict("harOpen", []map[string]any{
 		{
 			"file": file,
 		},
@@ -61,7 +61,7 @@ func (l *localUtilsImpl) HarOpen(file string) (string, error) {
 }
 
 func (l *localUtilsImpl) HarLookup(option harLookupOptions) (*harLookupResult, error) {
-	overrides := make(map[string]interface{})
+	overrides := make(map[string]any)
 	overrides["harId"] = option.HarId
 	overrides["url"] = option.URL
 	overrides["method"] = option.Method
@@ -101,7 +101,7 @@ func (l *localUtilsImpl) HarLookup(option harLookupOptions) (*harLookupResult, e
 }
 
 func (l *localUtilsImpl) HarClose(harId string) error {
-	_, err := l.channel.Send("harClose", []map[string]interface{}{
+	_, err := l.channel.Send("harClose", []map[string]any{
 		{
 			"harId": harId,
 		},
@@ -110,7 +110,7 @@ func (l *localUtilsImpl) HarClose(harId string) error {
 }
 
 func (l *localUtilsImpl) HarUnzip(zipFile, harFile string) error {
-	_, err := l.channel.Send("harUnzip", []map[string]interface{}{
+	_, err := l.channel.Send("harUnzip", []map[string]any{
 		{
 			"zipFile": zipFile,
 			"harFile": harFile,
@@ -120,7 +120,7 @@ func (l *localUtilsImpl) HarUnzip(zipFile, harFile string) error {
 }
 
 func (l *localUtilsImpl) TracingStarted(traceName string, tracesDir ...string) (string, error) {
-	overrides := make(map[string]interface{})
+	overrides := make(map[string]any)
 	overrides["traceName"] = traceName
 	if len(tracesDir) > 0 {
 		overrides["tracesDir"] = tracesDir[0]
@@ -133,28 +133,28 @@ func (l *localUtilsImpl) TracingStarted(traceName string, tracesDir ...string) (
 }
 
 func (l *localUtilsImpl) TraceDiscarded(stacksId string) error {
-	_, err := l.channel.Send("traceDiscarded", map[string]interface{}{
+	_, err := l.channel.Send("traceDiscarded", map[string]any{
 		"stacksId": stacksId,
 	})
 	return err
 }
 
-func (l *localUtilsImpl) AddStackToTracingNoReply(id uint32, stack []map[string]interface{}) {
-	l.channel.SendNoReply("addStackToTracingNoReply", map[string]interface{}{
-		"callData": map[string]interface{}{
+func (l *localUtilsImpl) AddStackToTracingNoReply(id uint32, stack []map[string]any) {
+	l.channel.SendNoReply("addStackToTracingNoReply", map[string]any{
+		"callData": map[string]any{
 			"id":    id,
 			"stack": stack,
 		},
 	})
 }
 
-func newLocalUtils(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *localUtilsImpl {
+func newLocalUtils(parent *channelOwner, objectType string, guid string, initializer map[string]any) *localUtilsImpl {
 	l := &localUtilsImpl{
 		Devices: make(map[string]*DeviceDescriptor),
 	}
 	l.createChannelOwner(l, parent, objectType, guid, initializer)
-	for _, dd := range initializer["deviceDescriptors"].([]interface{}) {
-		entry := dd.(map[string]interface{})
+	for _, dd := range initializer["deviceDescriptors"].([]any) {
+		entry := dd.(map[string]any)
 		l.Devices[entry["name"].(string)] = &DeviceDescriptor{
 			Viewport: &Size{},
 		}

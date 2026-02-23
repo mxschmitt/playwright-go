@@ -23,15 +23,15 @@ type BindingSource struct {
 }
 
 // ExposedFunction represents the func signature of an exposed function
-type ExposedFunction = func(args ...interface{}) interface{}
+type ExposedFunction = func(args ...any) any
 
 // BindingCallFunction represents the func signature of an exposed binding call func
-type BindingCallFunction func(source *BindingSource, args ...interface{}) interface{}
+type BindingCallFunction func(source *BindingSource, args ...any) any
 
 func (b *bindingCallImpl) Call(f BindingCallFunction) {
 	defer func() {
 		if r := recover(); r != nil {
-			if _, err := b.channel.Send("reject", map[string]interface{}{
+			if _, err := b.channel.Send("reject", map[string]any{
 				"error": serializeError(r.(error)),
 			}); err != nil {
 				logger.Error("could not reject BindingCall", "error", err)
@@ -45,18 +45,18 @@ func (b *bindingCallImpl) Call(f BindingCallFunction) {
 		Page:    frame.Page(),
 		Frame:   frame,
 	}
-	var result interface{}
+	var result any
 	if handle, ok := b.initializer["handle"]; ok {
 		result = f(source, fromChannel(handle))
 	} else {
-		initializerArgs := b.initializer["args"].([]interface{})
-		funcArgs := []interface{}{}
-		for i := 0; i < len(initializerArgs); i++ {
+		initializerArgs := b.initializer["args"].([]any)
+		funcArgs := []any{}
+		for i := range initializerArgs {
 			funcArgs = append(funcArgs, parseResult(initializerArgs[i]))
 		}
 		result = f(source, funcArgs...)
 	}
-	_, err := b.channel.Send("resolve", map[string]interface{}{
+	_, err := b.channel.Send("resolve", map[string]any{
 		"result": serializeArgument(result),
 	})
 	if err != nil {
@@ -64,12 +64,12 @@ func (b *bindingCallImpl) Call(f BindingCallFunction) {
 	}
 }
 
-func serializeError(err error) map[string]interface{} {
+func serializeError(err error) map[string]any {
 	st := stack.Trace().TrimRuntime()
 	if len(st) == 0 { // https://github.com/go-stack/stack/issues/27
 		st = stack.Trace()
 	}
-	return map[string]interface{}{
+	return map[string]any{
 		"error": &Error{
 			Name:    "Playwright for Go Error",
 			Message: err.Error(),
@@ -80,7 +80,7 @@ func serializeError(err error) map[string]interface{} {
 	}
 }
 
-func newBindingCall(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *bindingCallImpl {
+func newBindingCall(parent *channelOwner, objectType string, guid string, initializer map[string]any) *bindingCallImpl {
 	bt := &bindingCallImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	return bt

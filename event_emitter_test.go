@@ -14,8 +14,8 @@ const (
 
 func TestEventEmitterListenerCount(t *testing.T) {
 	handler := &eventEmitter{}
-	wasCalled := make(chan interface{}, 1)
-	myHandler := func(payload ...interface{}) {
+	wasCalled := make(chan any, 1)
+	myHandler := func(payload ...any) {
 		wasCalled <- payload[0]
 	}
 	require.Nil(t, handler.events[testEventNameFoo])
@@ -31,9 +31,9 @@ func TestEventEmitterListenerCount(t *testing.T) {
 
 func TestEventEmitterOn(t *testing.T) {
 	handler := &eventEmitter{}
-	wasCalled := make(chan interface{}, 1)
+	wasCalled := make(chan any, 1)
 	require.Nil(t, handler.events[testEventName])
-	handler.On(testEventName, func(payload ...interface{}) {
+	handler.On(testEventName, func(payload ...any) {
 		wasCalled <- payload[0]
 	})
 	require.Equal(t, 1, handler.ListenerCount(testEventName))
@@ -46,9 +46,9 @@ func TestEventEmitterOn(t *testing.T) {
 
 func TestEventEmitterOnce(t *testing.T) {
 	handler := &eventEmitter{}
-	wasCalled := make(chan interface{}, 1)
+	wasCalled := make(chan any, 1)
 	require.Nil(t, handler.events[testEventName])
-	handler.Once(testEventName, func(payload ...interface{}) {
+	handler.Once(testEventName, func(payload ...any) {
 		wasCalled <- payload[0]
 	})
 	require.Equal(t, 1, handler.ListenerCount(testEventName))
@@ -61,9 +61,9 @@ func TestEventEmitterOnce(t *testing.T) {
 
 func TestEventEmitterRemove(t *testing.T) {
 	handler := &eventEmitter{}
-	wasCalled := make(chan interface{}, 1)
+	wasCalled := make(chan any, 1)
 	require.Nil(t, handler.events[testEventName])
-	myHandler := func(payload ...interface{}) {
+	myHandler := func(payload ...any) {
 		wasCalled <- payload[0]
 	}
 	handler.On(testEventName, myHandler)
@@ -80,16 +80,16 @@ func TestEventEmitterRemove(t *testing.T) {
 
 func TestEventEmitterRemoveEmpty(t *testing.T) {
 	handler := &eventEmitter{}
-	handler.RemoveListener(testEventName, func(...interface{}) {})
+	handler.RemoveListener(testEventName, func(...any) {})
 	require.Equal(t, 0, handler.ListenerCount(testEventName))
 }
 
 func TestEventEmitterRemoveKeepExisting(t *testing.T) {
 	handler := &eventEmitter{}
-	handler.On(testEventName, func(...interface{}) {})
-	handler.Once(testEventName, func(...interface{}) {})
-	handler.RemoveListener("abc123", func(...interface{}) {})
-	handler.RemoveListener(testEventName, func(...interface{}) {})
+	handler.On(testEventName, func(...any) {})
+	handler.Once(testEventName, func(...any) {})
+	handler.RemoveListener("abc123", func(...any) {})
+	handler.RemoveListener(testEventName, func(...any) {})
 	require.Equal(t, 2, handler.ListenerCount(testEventName))
 }
 
@@ -97,7 +97,7 @@ func TestEventEmitterOnLessArgsAcceptingReceiver(t *testing.T) {
 	handler := &eventEmitter{}
 	wasCalled := make(chan bool, 1)
 	require.Nil(t, handler.events[testEventName])
-	handler.Once(testEventName, func(ev ...interface{}) {
+	handler.Once(testEventName, func(ev ...any) {
 		wasCalled <- true
 	})
 	handler.Emit(testEventName)

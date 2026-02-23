@@ -8,7 +8,7 @@ type harRouter struct {
 	localUtils     *localUtilsImpl
 	harId          string
 	notFoundAction HarNotFound
-	urlOrPredicate interface{}
+	urlOrPredicate any
 	err            error
 }
 
@@ -94,9 +94,9 @@ func (r *harRouter) handle(route Route) error {
 	return route.Fallback()
 }
 
-func newHarRouter(localUtils *localUtilsImpl, file string, notFoundAction HarNotFound, urlOrPredicate interface{}) *harRouter {
+func newHarRouter(localUtils *localUtilsImpl, file string, notFoundAction HarNotFound, urlOrPredicate any) *harRouter {
 	harId, err := localUtils.HarOpen(file)
-	var url interface{} = "**/*"
+	var url any = "**/*"
 	if urlOrPredicate != nil {
 		url = urlOrPredicate
 	}

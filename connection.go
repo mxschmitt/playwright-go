@@ -106,7 +106,7 @@ func (c *connection) Dispatch(msg *message) {
 			if err != nil {
 				cb.SetError(fmt.Errorf("failed to resolve response objects: %w", err))
 			} else {
-				cb.SetResult(result.(map[string]interface{}))
+				cb.SetResult(result.(map[string]any))
 			}
 		}
 		return
@@ -162,16 +162,16 @@ func (c *connection) LocalUtils() *localUtilsImpl {
 	return c.localUtils
 }
 
-func (c *connection) createRemoteObject(parent *channelOwner, objectType string, guid string, initializer interface{}) (interface{}, error) {
+func (c *connection) createRemoteObject(parent *channelOwner, objectType string, guid string, initializer any) (any, error) {
 	resolved, err := c.replaceGuidsWithChannels(initializer)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve initializer for %s (guid=%s): %w", objectType, guid, err)
 	}
-	result := createObjectFactory(parent, objectType, guid, resolved.(map[string]interface{}))
+	result := createObjectFactory(parent, objectType, guid, resolved.(map[string]any))
 	return result, nil
 }
 
-func (c *connection) WrapAPICall(cb func() (interface{}, error), isInternal bool) (interface{}, error) {
+func (c *connection) WrapAPICall(cb func() (any, error), isInternal bool) (any, error) {
 	if _, ok := c.apiZone.Load("apiZone"); ok {
 		return cb()
 	}
@@ -179,14 +179,14 @@ func (c *connection) WrapAPICall(cb func() (interface{}, error), isInternal bool
 	return cb()
 }
 
-func (c *connection) replaceGuidsWithChannels(payload interface{}) (interface{}, error) {
+func (c *connection) replaceGuidsWithChannels(payload any) (any, error) {
 	if payload == nil {
 		return nil, nil
 	}
 	v := reflect.ValueOf(payload)
 	if v.Kind() == reflect.Slice {
-		listV := payload.([]interface{})
-		for i := 0; i < len(listV); i++ {
+		listV := payload.([]any)
+		for i := range listV {
 			resolved, err := c.replaceGuidsWithChannels(listV[i])
 			if err != nil {
 				return nil, fmt.Errorf("failed to resolve slice element at index %d: %w", i, err)
@@ -196,7 +196,7 @@ func (c *connection) replaceGuidsWithChannels(payload interface{}) (interface{},
 		return listV, nil
 	}
 	if v.Kind() == reflect.Map {
-		mapV := payload.(map[string]interface{})
+		mapV := payload.(map[string]any)
 		// Check if this map represents an object reference (has "guid" field)
 		if guid, hasGUID := mapV["guid"]; hasGUID {
 			guidStr, ok := guid.(string)
@@ -223,7 +223,7 @@ func (c *connection) replaceGuidsWithChannels(payload interface{}) (interface{},
 	return payload, nil
 }
 
-func (c *connection) sendMessageToServer(object *channelOwner, method string, params interface{}, noReply bool) (cb *protocolCallback) {
+func (c *connection) sendMessageToServer(object *channelOwner, method string, params any, noReply bool) (cb *protocolCallback) {
 	cb = newProtocolCallback(noReply, c.abort)
 
 	if err := c.closedError.Get(); err != nil {
@@ -238,8 +238,8 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 	id := c.lastID.Add(1)
 	c.callbacks.Store(id, cb)
 	var (
-		metadata = make(map[string]interface{}, 0)
-		stack    = make([]map[string]interface{}, 0)
+		metadata = make(map[string]any, 0)
+		stack    = make([]map[string]any, 0)
 	)
 	apiZone, ok := c.apiZone.LoadAndDelete("apiZone")
 	if ok {
@@ -249,7 +249,7 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 		stack = append(stack, apiZone.(parsedStackTrace).frames...)
 	}
 	metadata["wallTime"] = time.Now().UnixMilli()
-	message := map[string]interface{}{
+	message := map[string]any{
 		"id":       id,
 		"guid":     object.guid,
 		"method":   method,
@@ -277,8 +277,8 @@ func (c *connection) setInTracing(isTracing bool) {
 }
 
 type parsedStackTrace struct {
-	frames   []map[string]interface{}
-	metadata map[string]interface{}
+	frames   []map[string]any
+	metadata map[string]any
 }
 
 func serializeCallStack(isInternal bool) parsedStackTrace {
@@ -299,19 +299,19 @@ func serializeCallStack(isInternal bool) parsedStackTrace {
 	}
 	st = st.TrimBelow(st[lastInternalIndex])
 
-	callStack := make([]map[string]interface{}, 0)
+	callStack := make([]map[string]any, 0)
 	for i, s := range st {
 		if i == 0 {
 			continue
 		}
-		callStack = append(callStack, map[string]interface{}{
+		callStack = append(callStack, map[string]any{
 			"file":     s.Frame().File,
 			"line":     s.Frame().Line,
 			"column":   0,
 			"function": s.Frame().Function,
 		})
 	}
-	metadata := make(map[string]interface{})
+	metadata := make(map[string]any)
 	if len(st) > 1 {
 		metadata["location"] = serializeCallLocation(st[1])
 	}
@@ -327,9 +327,9 @@ func serializeCallStack(isInternal bool) parsedStackTrace {
 	}
 }
 
-func serializeCallLocation(caller stack.Call) map[string]interface{} {
+func serializeCallLocation(caller stack.Call) map[string]any {
 	line, _ := strconv.Atoi(fmt.Sprintf("%d", caller))
-	return map[string]interface{}{
+	return map[string]any{
 		"file": fmt.Sprintf("%s", caller),
 		"line": line,
 	}
@@ -353,24 +353,14 @@ func newConnection(transport transport, localUtils ...*localUtilsImpl) *connecti
 	return connection
 }
 
-func fromChannel(v interface{}) interface{} {
+func fromChannel(v any) any {
 	if ch, ok := v.(*channel); ok {
 		return ch.object
 	}
-	panic(fmt.Sprintf("fromChannel: expected *channel, got %T", v))
+	panic(fmt.Sprintf("fromChannel: expected *channel, got %T: %+v", v, v))
 }
 
-// fromChannelWithConnection resolves a value to a channel object
-// With the protocol fix, GUIDs are always eagerly resolved, so this behaves identically to fromChannel
-// The conn parameter is kept for API compatibility but is no longer used
-func fromChannelWithConnection(v interface{}, conn *connection) interface{} {
-	if ch, ok := v.(*channel); ok {
-		return ch.object
-	}
-	panic(fmt.Sprintf("fromChannelWithConnection: expected *channel, got %T: %+v", v, v))
-}
-
-func fromNullableChannel(v interface{}) interface{} {
+func fromNullableChannel(v any) any {
 	if v == nil {
 		return nil
 	}
@@ -382,11 +372,11 @@ type protocolCallback struct {
 	noReply bool
 	abort   <-chan struct{}
 	once    sync.Once
-	value   map[string]interface{}
+	value   map[string]any
 	err     error
 }
 
-func (pc *protocolCallback) setResultOnce(result map[string]interface{}, err error) {
+func (pc *protocolCallback) setResultOnce(result map[string]any, err error) {
 	pc.once.Do(func() {
 		pc.value = result
 		pc.err = err
@@ -418,17 +408,17 @@ func (pc *protocolCallback) SetError(err error) {
 	pc.setResultOnce(nil, err)
 }
 
-func (pc *protocolCallback) SetResult(result map[string]interface{}) {
+func (pc *protocolCallback) SetResult(result map[string]any) {
 	pc.setResultOnce(result, nil)
 }
 
-func (pc *protocolCallback) GetResult() (map[string]interface{}, error) {
+func (pc *protocolCallback) GetResult() (map[string]any, error) {
 	pc.waitResult()
 	return pc.value, pc.err
 }
 
 // GetResultValue returns value if the map has only one element
-func (pc *protocolCallback) GetResultValue() (interface{}, error) {
+func (pc *protocolCallback) GetResultValue() (any, error) {
 	pc.waitResult()
 	if len(pc.value) == 0 { // empty map treated as nil
 		return nil, pc.err

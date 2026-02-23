@@ -13,7 +13,7 @@ type channelOwner struct {
 	objects                    map[string]*channelOwner
 	eventToSubscriptionMapping map[string]string
 	connection                 *connection
-	initializer                map[string]interface{}
+	initializer                map[string]any
 	parent                     *channelOwner
 	wasCollected               bool
 	isInternalType             bool
@@ -49,36 +49,36 @@ func (c *channelOwner) setEventSubscriptionMapping(mapping map[string]string) {
 func (c *channelOwner) updateSubscription(event string, enabled bool) {
 	protocolEvent, ok := c.eventToSubscriptionMapping[event]
 	if ok {
-		c.channel.SendNoReplyInternal("updateSubscription", map[string]interface{}{
+		c.channel.SendNoReplyInternal("updateSubscription", map[string]any{
 			"event":   protocolEvent,
 			"enabled": enabled,
 		})
 	}
 }
 
-func (c *channelOwner) Once(name string, handler interface{}) {
+func (c *channelOwner) Once(name string, handler any) {
 	c.addEvent(name, handler, true)
 }
 
-func (c *channelOwner) On(name string, handler interface{}) {
+func (c *channelOwner) On(name string, handler any) {
 	c.addEvent(name, handler, false)
 }
 
-func (c *channelOwner) addEvent(name string, handler interface{}, once bool) {
+func (c *channelOwner) addEvent(name string, handler any, once bool) {
 	if c.ListenerCount(name) == 0 {
 		c.updateSubscription(name, true)
 	}
 	c.eventEmitter.addEvent(name, handler, once)
 }
 
-func (c *channelOwner) RemoveListener(name string, handler interface{}) {
+func (c *channelOwner) RemoveListener(name string, handler any) {
 	c.eventEmitter.RemoveListener(name, handler)
 	if c.ListenerCount(name) == 0 {
 		c.updateSubscription(name, false)
 	}
 }
 
-func (c *channelOwner) createChannelOwner(self interface{}, parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) {
+func (c *channelOwner) createChannelOwner(self any, parent *channelOwner, objectType string, guid string, initializer map[string]any) {
 	c.objectType = objectType
 	c.guid = guid
 	c.wasCollected = false
@@ -105,7 +105,7 @@ type rootChannelOwner struct {
 }
 
 func (r *rootChannelOwner) initialize() (*Playwright, error) {
-	ret, err := r.channel.SendReturnAsDict("initialize", map[string]interface{}{
+	ret, err := r.channel.SendReturnAsDict("initialize", map[string]any{
 		"sdkLanguage": "javascript",
 	})
 	if err != nil {
@@ -119,6 +119,6 @@ func (r *rootChannelOwner) initialize() (*Playwright, error) {
 func newRootChannelOwner(connection *connection) *rootChannelOwner {
 	c := &rootChannelOwner{}
 	c.connection = connection
-	c.createChannelOwner(c, nil, "Root", "", make(map[string]interface{}))
+	c.createChannelOwner(c, nil, "Root", "", make(map[string]any))
 	return c
 }

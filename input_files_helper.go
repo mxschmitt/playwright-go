@@ -30,7 +30,7 @@ type fileItem struct {
 //
 //   - files should be one of: string, []string, InputFile, []InputFile,
 //     string: local file path
-func convertInputFiles(files interface{}, context *browserContextImpl) (*inputFiles, error) {
+func convertInputFiles(files any, context *browserContextImpl) (*inputFiles, error) {
 	var (
 		converted = &inputFiles{}
 		paths     []string
@@ -66,7 +66,7 @@ func convertInputFiles(files interface{}, context *browserContextImpl) (*inputFi
 	}
 
 	// remote
-	params := map[string]interface{}{
+	params := map[string]any{
 		"items": []fileItem{},
 	}
 	allFiles := localPaths
@@ -96,16 +96,16 @@ func convertInputFiles(files interface{}, context *browserContextImpl) (*inputFi
 		})
 	}
 
-	ret, err := context.connection.WrapAPICall(func() (interface{}, error) {
+	ret, err := context.connection.WrapAPICall(func() (any, error) {
 		return context.channel.SendReturnAsDict("createTempFiles", params)
 	}, true)
 	if err != nil {
 		return nil, err
 	}
-	result := ret.(map[string]interface{})
+	result := ret.(map[string]any)
 
 	streams := make([]*channel, 0)
-	items := result["writableStreams"].([]interface{})
+	items := result["writableStreams"].([]any)
 	for i := 0; i < len(allFiles); i++ {
 		stream := fromChannel(items[i]).(*writableStream)
 		if err := stream.Copy(allFiles[i]); err != nil {

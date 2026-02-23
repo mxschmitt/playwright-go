@@ -89,7 +89,7 @@ func (p *pageImpl) onLocatorHandlerTriggered(uid float64) {
 		if remove != nil && *remove {
 			delete(p.locatorHandlers, uid)
 		}
-		_, _ = p.connection.WrapAPICall(func() (interface{}, error) {
+		_, _ = p.connection.WrapAPICall(func() (any, error) {
 			_, err := p.channel.Send("resolveLocatorHandlerNoReply", map[string]any{
 				"uid":    uid,
 				"remove": remove,
@@ -194,14 +194,14 @@ func (p *pageImpl) Frames() []Frame {
 
 func (p *pageImpl) SetDefaultNavigationTimeout(timeout float64) {
 	p.timeoutSettings.SetDefaultNavigationTimeout(&timeout)
-	p.channel.SendNoReplyInternal("setDefaultNavigationTimeoutNoReply", map[string]interface{}{
+	p.channel.SendNoReplyInternal("setDefaultNavigationTimeoutNoReply", map[string]any{
 		"timeout": timeout,
 	})
 }
 
 func (p *pageImpl) SetDefaultTimeout(timeout float64) {
 	p.timeoutSettings.SetDefaultTimeout(&timeout)
-	p.channel.SendNoReplyInternal("setDefaultTimeoutNoReply", map[string]interface{}{
+	p.channel.SendNoReplyInternal("setDefaultTimeoutNoReply", map[string]any{
 		"timeout": timeout,
 	})
 }
@@ -224,29 +224,29 @@ func (p *pageImpl) WaitForSelector(selector string, options ...PageWaitForSelect
 	return p.mainFrame.WaitForSelector(selector)
 }
 
-func (p *pageImpl) DispatchEvent(selector string, typ string, eventInit interface{}, options ...PageDispatchEventOptions) error {
+func (p *pageImpl) DispatchEvent(selector string, typ string, eventInit any, options ...PageDispatchEventOptions) error {
 	if len(options) == 1 {
 		return p.mainFrame.DispatchEvent(selector, typ, eventInit, FrameDispatchEventOptions(options[0]))
 	}
 	return p.mainFrame.DispatchEvent(selector, typ, eventInit)
 }
 
-func (p *pageImpl) Evaluate(expression string, arg ...interface{}) (interface{}, error) {
+func (p *pageImpl) Evaluate(expression string, arg ...any) (any, error) {
 	return p.mainFrame.Evaluate(expression, arg...)
 }
 
-func (p *pageImpl) EvaluateHandle(expression string, arg ...interface{}) (JSHandle, error) {
+func (p *pageImpl) EvaluateHandle(expression string, arg ...any) (JSHandle, error) {
 	return p.mainFrame.EvaluateHandle(expression, arg...)
 }
 
-func (p *pageImpl) EvalOnSelector(selector string, expression string, arg interface{}, options ...PageEvalOnSelectorOptions) (interface{}, error) {
+func (p *pageImpl) EvalOnSelector(selector string, expression string, arg any, options ...PageEvalOnSelectorOptions) (any, error) {
 	if len(options) == 1 {
 		return p.mainFrame.EvalOnSelector(selector, expression, arg, FrameEvalOnSelectorOptions(options[0]))
 	}
 	return p.mainFrame.EvalOnSelector(selector, expression, arg)
 }
 
-func (p *pageImpl) EvalOnSelectorAll(selector string, expression string, arg ...interface{}) (interface{}, error) {
+func (p *pageImpl) EvalOnSelectorAll(selector string, expression string, arg ...any) (any, error) {
 	return p.mainFrame.EvalOnSelectorAll(selector, expression, arg...)
 }
 
@@ -259,7 +259,7 @@ func (p *pageImpl) AddStyleTag(options PageAddStyleTagOptions) (ElementHandle, e
 }
 
 func (p *pageImpl) SetExtraHTTPHeaders(headers map[string]string) error {
-	_, err := p.channel.Send("setExtraHTTPHeaders", map[string]interface{}{
+	_, err := p.channel.Send("setExtraHTTPHeaders", map[string]any{
 		"headers": serializeMapToNameAndValue(headers),
 	})
 	return err
@@ -269,7 +269,7 @@ func (p *pageImpl) URL() string {
 	return p.mainFrame.URL()
 }
 
-func (p *pageImpl) Unroute(url interface{}, handlers ...routeHandler) error {
+func (p *pageImpl) Unroute(url any, handlers ...routeHandler) error {
 	p.Lock()
 	defer p.Unlock()
 
@@ -391,8 +391,8 @@ func (p *pageImpl) EmulateMedia(options ...PageEmulateMediaOptions) error {
 }
 
 func (p *pageImpl) SetViewportSize(width, height int) error {
-	_, err := p.channel.Send("setViewportSize", map[string]interface{}{
-		"viewportSize": map[string]interface{}{
+	_, err := p.channel.Send("setViewportSize", map[string]any{
+		"viewportSize": map[string]any{
 			"width":  width,
 			"height": height,
 		},
@@ -449,19 +449,19 @@ func (p *pageImpl) Request() APIRequestContext {
 
 func (p *pageImpl) Screenshot(options ...PageScreenshotOptions) ([]byte, error) {
 	var path *string
-	overrides := map[string]interface{}{}
+	overrides := map[string]any{}
 	if len(options) == 1 {
 		path = options[0].Path
 		options[0].Path = nil
 		if options[0].Mask != nil {
-			masks := make([]map[string]interface{}, 0)
+			masks := make([]map[string]any, 0)
 			for _, m := range options[0].Mask {
 				if m.Err() != nil { // ErrLocatorNotSameFrame
 					return nil, m.Err()
 				}
 				l, ok := m.(*locatorImpl)
 				if ok {
-					masks = append(masks, map[string]interface{}{
+					masks = append(masks, map[string]any{
 						"selector": l.selector,
 						"frame":    l.frame.channel,
 					})
@@ -514,13 +514,13 @@ func (p *pageImpl) Click(selector string, options ...PageClickOptions) error {
 	return p.mainFrame.Click(selector)
 }
 
-func (p *pageImpl) WaitForEvent(event string, options ...PageWaitForEventOptions) (interface{}, error) {
+func (p *pageImpl) WaitForEvent(event string, options ...PageWaitForEventOptions) (any, error) {
 	return p.waiterForEvent(event, options...).Wait()
 }
 
 func (p *pageImpl) waiterForEvent(event string, options ...PageWaitForEventOptions) *waiter {
 	timeout := p.timeoutSettings.Timeout()
-	var predicate interface{} = nil
+	var predicate any = nil
 	if len(options) == 1 {
 		if options[0].Timeout != nil {
 			timeout = *options[0].Timeout
@@ -533,7 +533,7 @@ func (p *pageImpl) waiterForEvent(event string, options ...PageWaitForEventOptio
 	return waiter.WaitForEvent(p, event, predicate)
 }
 
-func (p *pageImpl) waiterForRequest(url interface{}, options ...PageExpectRequestOptions) *waiter {
+func (p *pageImpl) waiterForRequest(url any, options ...PageExpectRequestOptions) *waiter {
 	option := PageExpectRequestOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -556,7 +556,7 @@ func (p *pageImpl) waiterForRequest(url interface{}, options ...PageExpectReques
 	return waiter.WaitForEvent(p, "request", predicate)
 }
 
-func (p *pageImpl) waiterForResponse(url interface{}, options ...PageExpectResponseOptions) *waiter {
+func (p *pageImpl) waiterForResponse(url any, options ...PageExpectResponseOptions) *waiter {
 	option := PageExpectResponseOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -579,7 +579,7 @@ func (p *pageImpl) waiterForResponse(url interface{}, options ...PageExpectRespo
 	return waiter.WaitForEvent(p, "response", predicate)
 }
 
-func (p *pageImpl) ExpectEvent(event string, cb func() error, options ...PageExpectEventOptions) (interface{}, error) {
+func (p *pageImpl) ExpectEvent(event string, cb func() error, options ...PageExpectEventOptions) (any, error) {
 	if len(options) == 1 {
 		return p.waiterForEvent(event, PageWaitForEventOptions(options[0])).RunAndWait(cb)
 	}
@@ -645,7 +645,7 @@ func (p *pageImpl) ExpectPopup(cb func() error, options ...PageExpectPopupOption
 	return ret.(*pageImpl), err
 }
 
-func (p *pageImpl) ExpectResponse(url interface{}, cb func() error, options ...PageExpectResponseOptions) (Response, error) {
+func (p *pageImpl) ExpectResponse(url any, cb func() error, options ...PageExpectResponseOptions) (Response, error) {
 	ret, err := p.waiterForResponse(url, options...).RunAndWait(cb)
 	if ret == nil {
 		return nil, err
@@ -653,7 +653,7 @@ func (p *pageImpl) ExpectResponse(url interface{}, cb func() error, options ...P
 	return ret.(*responseImpl), err
 }
 
-func (p *pageImpl) ExpectRequest(url interface{}, cb func() error, options ...PageExpectRequestOptions) (Request, error) {
+func (p *pageImpl) ExpectRequest(url any, cb func() error, options ...PageExpectRequestOptions) (Request, error) {
 	ret, err := p.waiterForRequest(url, options...).RunAndWait(cb)
 	if ret == nil {
 		return nil, err
@@ -700,7 +700,7 @@ func (p *pageImpl) ExpectWorker(cb func() error, options ...PageExpectWorkerOpti
 	return ret.(*workerImpl), err
 }
 
-func (p *pageImpl) Route(url interface{}, handler routeHandler, times ...int) error {
+func (p *pageImpl) Route(url any, handler routeHandler, times ...int) error {
 	p.Lock()
 	defer p.Unlock()
 	p.routes = slices.Insert(p.routes, 0, newRouteHandlerEntry(newURLMatcher(url, p.browserContext.options.BaseURL), handler, times...))
@@ -737,7 +737,7 @@ func (p *pageImpl) AddInitScript(script Script) error {
 		}
 		source = string(content)
 	}
-	_, err := p.channel.Send("addInitScript", map[string]interface{}{
+	_, err := p.channel.Send("addInitScript", map[string]any{
 		"source": source,
 	})
 	return err
@@ -752,10 +752,10 @@ func (p *pageImpl) ConsoleMessages() ([]ConsoleMessage, error) {
 	if err != nil {
 		return nil, err
 	}
-	messages := result.([]interface{})
+	messages := result.([]any)
 	consoleMessages := make([]ConsoleMessage, len(messages))
 	for i, m := range messages {
-		consoleMessages[i] = newConsoleMessage(m.(map[string]interface{}))
+		consoleMessages[i] = newConsoleMessage(m.(map[string]any))
 	}
 	return consoleMessages, nil
 }
@@ -765,7 +765,7 @@ func (p *pageImpl) Requests() ([]Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	requests := result.([]interface{})
+	requests := result.([]any)
 	reqs := make([]Request, len(requests))
 	for i, r := range requests {
 		reqs[i] = fromChannel(r).(*requestImpl)
@@ -801,11 +801,11 @@ func (p *pageImpl) Touchscreen() Touchscreen {
 	return p.touchscreen
 }
 
-func newPage(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *pageImpl {
+func newPage(parent *channelOwner, objectType string, guid string, initializer map[string]any) *pageImpl {
 	viewportSize := &Size{}
-	if _, ok := initializer["viewportSize"].(map[string]interface{}); ok {
-		viewportSize.Height = int(initializer["viewportSize"].(map[string]interface{})["height"].(float64))
-		viewportSize.Width = int(initializer["viewportSize"].(map[string]interface{})["width"].(float64))
+	if _, ok := initializer["viewportSize"].(map[string]any); ok {
+		viewportSize.Height = int(initializer["viewportSize"].(map[string]any)["height"].(float64))
+		viewportSize.Width = int(initializer["viewportSize"].(map[string]any)["width"].(float64))
 	}
 	bt := &pageImpl{
 		workers:         make([]Worker, 0),
@@ -825,7 +825,7 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 	bt.mouse = newMouse(bt.channel)
 	bt.keyboard = newKeyboard(bt.channel)
 	bt.touchscreen = newTouchscreen(bt.channel)
-	bt.channel.On("bindingCall", func(params map[string]interface{}) {
+	bt.channel.On("bindingCall", func(params map[string]any) {
 		bt.onBinding(fromChannel(params["binding"]).(*bindingCallImpl))
 	})
 	bt.channel.On("close", bt.onClose)
@@ -835,53 +835,53 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 	bt.channel.On("domcontentloaded", func() {
 		bt.Emit("domcontentloaded", bt)
 	})
-	bt.channel.On("fileChooser", func(ev map[string]interface{}) {
+	bt.channel.On("fileChooser", func(ev map[string]any) {
 		bt.Emit("filechooser", newFileChooser(bt, fromChannel(ev["element"]).(*elementHandleImpl), ev["isMultiple"].(bool)))
 	})
-	bt.channel.On("frameAttached", func(ev map[string]interface{}) {
+	bt.channel.On("frameAttached", func(ev map[string]any) {
 		bt.onFrameAttached(fromChannel(ev["frame"]).(*frameImpl))
 	})
-	bt.channel.On("frameDetached", func(ev map[string]interface{}) {
+	bt.channel.On("frameDetached", func(ev map[string]any) {
 		bt.onFrameDetached(fromChannel(ev["frame"]).(*frameImpl))
 	})
-	bt.channel.On("locatorHandlerTriggered", func(ev map[string]interface{}) {
+	bt.channel.On("locatorHandlerTriggered", func(ev map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onLocatorHandlerTriggered(ev["uid"].(float64))
 		})
 	})
 	bt.channel.On(
-		"load", func(ev map[string]interface{}) {
+		"load", func(ev map[string]any) {
 			bt.Emit("load", bt)
 		},
 	)
-	bt.channel.On("popup", func(ev map[string]interface{}) {
+	bt.channel.On("popup", func(ev map[string]any) {
 		bt.Emit("popup", fromChannel(ev["page"]).(*pageImpl))
 	})
-	bt.channel.On("route", func(ev map[string]interface{}) {
+	bt.channel.On("route", func(ev map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onRoute(fromChannel(ev["route"]).(*routeImpl))
 		})
 	})
-	bt.channel.On("download", func(ev map[string]interface{}) {
+	bt.channel.On("download", func(ev map[string]any) {
 		url := ev["url"].(string)
 		suggestedFilename := ev["suggestedFilename"].(string)
 		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
 		bt.Emit("download", newDownload(bt, url, suggestedFilename, artifact))
 	})
-	bt.channel.On("video", func(params map[string]interface{}) {
+	bt.channel.On("video", func(params map[string]any) {
 		artifact := fromChannel(params["artifact"]).(*artifactImpl)
 		bt.Video().(*videoImpl).artifactReady(artifact)
 	})
-	bt.channel.On("webSocket", func(ev map[string]interface{}) {
+	bt.channel.On("webSocket", func(ev map[string]any) {
 		bt.Emit("websocket", fromChannel(ev["webSocket"]).(*webSocketImpl))
 	})
-	bt.channel.On("webSocketRoute", func(ev map[string]interface{}) {
+	bt.channel.On("webSocketRoute", func(ev map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onWebSocketRoute(fromChannel(ev["webSocketRoute"]).(*webSocketRouteImpl))
 		})
 	})
 
-	bt.channel.On("worker", func(ev map[string]interface{}) {
+	bt.channel.On("worker", func(ev map[string]any) {
 		bt.onWorker(fromChannel(ev["worker"]).(*workerImpl))
 	})
 	bt.closedOrCrashed = make(chan error, 1)
@@ -956,7 +956,7 @@ func (p *pageImpl) onRoute(route *routeImpl) {
 		p.Lock()
 		defer p.Unlock()
 		if len(p.routes) == 0 {
-			_, err := p.connection.WrapAPICall(func() (interface{}, error) {
+			_, err := p.connection.WrapAPICall(func() (any, error) {
 				err := p.updateInterceptionPatterns()
 				return nil, err
 			}, true)
@@ -997,7 +997,7 @@ func (p *pageImpl) onRoute(route *routeImpl) {
 
 func (p *pageImpl) updateInterceptionPatterns() error {
 	patterns := prepareInterceptionPatterns(p.routes)
-	_, err := p.channel.Send("setNetworkInterceptionPatterns", map[string]interface{}{
+	_, err := p.channel.Send("setNetworkInterceptionPatterns", map[string]any{
 		"patterns": patterns,
 	})
 	return err
@@ -1033,7 +1033,7 @@ func (p *pageImpl) onClose() {
 	p.Emit("close", p)
 }
 
-func (p *pageImpl) SetInputFiles(selector string, files interface{}, options ...PageSetInputFilesOptions) error {
+func (p *pageImpl) SetInputFiles(selector string, files any, options ...PageSetInputFilesOptions) error {
 	if len(options) == 1 {
 		return p.mainFrame.SetInputFiles(selector, files, FrameSetInputFilesOptions(options[0]))
 	}
@@ -1058,7 +1058,7 @@ func (p *pageImpl) WaitForTimeout(timeout float64) {
 	p.mainFrame.WaitForTimeout(timeout)
 }
 
-func (p *pageImpl) WaitForFunction(expression string, arg interface{}, options ...PageWaitForFunctionOptions) (JSHandle, error) {
+func (p *pageImpl) WaitForFunction(expression string, arg any, options ...PageWaitForFunctionOptions) (JSHandle, error) {
 	if len(options) == 1 {
 		return p.mainFrame.WaitForFunction(expression, arg, FrameWaitForFunctionOptions(options[0]))
 	}
@@ -1104,7 +1104,7 @@ func (p *pageImpl) Tap(selector string, options ...PageTapOptions) error {
 }
 
 func (p *pageImpl) ExposeFunction(name string, binding ExposedFunction) error {
-	return p.ExposeBinding(name, func(source *BindingSource, args ...interface{}) interface{} {
+	return p.ExposeBinding(name, func(source *BindingSource, args ...any) any {
 		return binding(args...)
 	})
 }
@@ -1120,7 +1120,7 @@ func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction, handl
 	if _, ok := p.browserContext.bindings.Load(name); ok {
 		return fmt.Errorf("Function '%s' has been already registered in the browser context", name)
 	}
-	_, err := p.channel.Send("exposeBinding", map[string]interface{}{
+	_, err := p.channel.Send("exposeBinding", map[string]any{
 		"name":        name,
 		"needsHandle": needsHandle,
 	})
@@ -1211,7 +1211,7 @@ func (p *pageImpl) InputValue(selector string, options ...PageInputValueOptions)
 	return p.mainFrame.InputValue(selector)
 }
 
-func (p *pageImpl) WaitForURL(url interface{}, options ...PageWaitForURLOptions) error {
+func (p *pageImpl) WaitForURL(url any, options ...PageWaitForURLOptions) error {
 	if len(options) == 1 {
 		return p.mainFrame.WaitForURL(url, FrameWaitForURLOptions(options[0]))
 	}
@@ -1233,7 +1233,7 @@ func (p *pageImpl) Locator(selector string, options ...PageLocatorOptions) Locat
 	return p.mainFrame.Locator(selector, option)
 }
 
-func (p *pageImpl) GetByAltText(text interface{}, options ...PageGetByAltTextOptions) Locator {
+func (p *pageImpl) GetByAltText(text any, options ...PageGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -1243,7 +1243,7 @@ func (p *pageImpl) GetByAltText(text interface{}, options ...PageGetByAltTextOpt
 	return p.Locator(getByAltTextSelector(text, exact))
 }
 
-func (p *pageImpl) GetByLabel(text interface{}, options ...PageGetByLabelOptions) Locator {
+func (p *pageImpl) GetByLabel(text any, options ...PageGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -1253,7 +1253,7 @@ func (p *pageImpl) GetByLabel(text interface{}, options ...PageGetByLabelOptions
 	return p.Locator(getByLabelSelector(text, exact))
 }
 
-func (p *pageImpl) GetByPlaceholder(text interface{}, options ...PageGetByPlaceholderOptions) Locator {
+func (p *pageImpl) GetByPlaceholder(text any, options ...PageGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -1270,11 +1270,11 @@ func (p *pageImpl) GetByRole(role AriaRole, options ...PageGetByRoleOptions) Loc
 	return p.Locator(getByRoleSelector(role))
 }
 
-func (p *pageImpl) GetByTestId(testId interface{}) Locator {
+func (p *pageImpl) GetByTestId(testId any) Locator {
 	return p.Locator(getByTestIdSelector(getTestIdAttributeName(), testId))
 }
 
-func (p *pageImpl) GetByText(text interface{}, options ...PageGetByTextOptions) Locator {
+func (p *pageImpl) GetByText(text any, options ...PageGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -1284,7 +1284,7 @@ func (p *pageImpl) GetByText(text interface{}, options ...PageGetByTextOptions) 
 	return p.Locator(getByTextSelector(text, exact))
 }
 
-func (p *pageImpl) GetByTitle(text interface{}, options ...PageGetByTitleOptions) Locator {
+func (p *pageImpl) GetByTitle(text any, options ...PageGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -1379,7 +1379,7 @@ func (p *pageImpl) RequestGC() error {
 	return err
 }
 
-func (p *pageImpl) RouteWebSocket(url interface{}, handler func(WebSocketRoute)) error {
+func (p *pageImpl) RouteWebSocket(url any, handler func(WebSocketRoute)) error {
 	p.Lock()
 	defer p.Unlock()
 	p.webSocketRoutes = slices.Insert(p.webSocketRoutes, 0, newWebSocketRouteHandler(newURLMatcher(url, p.browserContext.options.BaseURL, true), handler))
@@ -1404,7 +1404,7 @@ func (p *pageImpl) onWebSocketRoute(wr WebSocketRoute) {
 
 func (p *pageImpl) updateWebSocketInterceptionPatterns() error {
 	patterns := prepareWebSocketRouteHandlerInterceptionPatterns(p.webSocketRoutes)
-	_, err := p.channel.Send("setWebSocketInterceptionPatterns", map[string]interface{}{
+	_, err := p.channel.Send("setWebSocketInterceptionPatterns", map[string]any{
 		"patterns": patterns,
 	})
 	return err

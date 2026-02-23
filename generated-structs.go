@@ -63,14 +63,14 @@ type APIRequestContextDeleteOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -89,9 +89,9 @@ type APIRequestContextDeleteOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -105,14 +105,14 @@ type APIRequestContextFetchOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -137,9 +137,9 @@ type APIRequestContextFetchOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -148,14 +148,14 @@ type APIRequestContextGetOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -174,9 +174,9 @@ type APIRequestContextGetOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -185,14 +185,14 @@ type APIRequestContextHeadOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -211,9 +211,9 @@ type APIRequestContextHeadOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -222,14 +222,14 @@ type APIRequestContextPatchOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -248,9 +248,9 @@ type APIRequestContextPatchOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -259,14 +259,14 @@ type APIRequestContextPostOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -285,9 +285,9 @@ type APIRequestContextPostOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
@@ -296,14 +296,14 @@ type APIRequestContextPutOptions struct {
 	// Allows to set post data of the request. If the data parameter is an object, it will be serialized to json string
 	// and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type`
 	// header will be set to `application/octet-stream` if not explicitly set.
-	Data interface{} `json:"data"`
+	Data any `json:"data"`
 	// Whether to throw on response codes other than 2xx and 3xx. By default response object is returned for all status
 	// codes.
 	FailOnStatusCode *bool `json:"failOnStatusCode"`
 	// Provides an object that will be serialized as html form using `application/x-www-form-urlencoded` encoding and sent
 	// as this request body. If this parameter is specified `content-type` header will be set to
 	// `application/x-www-form-urlencoded` unless explicitly provided.
-	Form interface{} `json:"form"`
+	Form any `json:"form"`
 	// Allows to set HTTP headers. These headers will apply to the fetched request as well as any redirects initiated by
 	// it.
 	Headers map[string]string `json:"headers"`
@@ -322,16 +322,16 @@ type APIRequestContextPutOptions struct {
 	// name, mime-type and its content.
 	//
 	// [`fs.ReadStream`]: https://nodejs.org/api/fs.html#fs_class_fs_readstream
-	Multipart interface{} `json:"multipart"`
+	Multipart any `json:"multipart"`
 	// Query parameters to be sent with the URL.
-	Params map[string]interface{} `json:"params"`
+	Params map[string]any `json:"params"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 }
 
 type StorageState struct {
-	Cookies []StorageStateCookie `json:"cookies"`
-	Origins []Origin             `json:"origins"`
+	Cookies []Cookie `json:"cookies"`
+	Origins []Origin `json:"origins"`
 }
 
 type NameValue struct {
@@ -448,8 +448,8 @@ type BrowserNewContextOptions struct {
 	// to be saved.
 	//
 	// [HAR]: http://www.softwareishard.com/blog/har-12-spec
-	RecordHarPath      *string     `json:"recordHarPath"`
-	RecordHarURLFilter interface{} `json:"recordHarUrlFilter"`
+	RecordHarPath      *string `json:"recordHarPath"`
+	RecordHarURLFilter any     `json:"recordHarUrlFilter"`
 	// Enables video recording for all pages into `recordVideo.dir` directory. If not specified videos are not recorded.
 	// Make sure to await [BrowserContext.Close] for videos to be saved.
 	RecordVideo *RecordVideo `json:"recordVideo"`
@@ -598,8 +598,8 @@ type BrowserNewPageOptions struct {
 	// to be saved.
 	//
 	// [HAR]: http://www.softwareishard.com/blog/har-12-spec
-	RecordHarPath      *string     `json:"recordHarPath"`
-	RecordHarURLFilter interface{} `json:"recordHarUrlFilter"`
+	RecordHarPath      *string `json:"recordHarPath"`
+	RecordHarURLFilter any     `json:"recordHarUrlFilter"`
 	// Enables video recording for all pages into `recordVideo.dir` directory. If not specified videos are not recorded.
 	// Make sure to await [BrowserContext.Close] for videos to be saved.
 	RecordVideo *RecordVideo `json:"recordVideo"`
@@ -693,11 +693,11 @@ type Script struct {
 
 type BrowserContextClearCookiesOptions struct {
 	// Only removes cookies with the given domain.
-	Domain interface{} `json:"domain"`
+	Domain any `json:"domain"`
 	// Only removes cookies with the given name.
-	Name interface{} `json:"name"`
+	Name any `json:"name"`
 	// Only removes cookies with the given path.
-	Path interface{} `json:"path"`
+	Path any `json:"path"`
 }
 
 type BrowserContextCloseOptions struct {
@@ -740,7 +740,7 @@ type BrowserContextRouteFromHAROptions struct {
 	UpdateMode *HarMode `json:"updateMode"`
 	// A glob pattern, regular expression or predicate to match the request URL. Only requests with URL matching the
 	// pattern will be served from the HAR file. If not specified, all requests are served from the HAR file.
-	URL interface{} `json:"url"`
+	URL any `json:"url"`
 }
 
 type Geolocation struct {
@@ -772,7 +772,7 @@ type BrowserContextExpectConsoleMessageOptions struct {
 
 type BrowserContextExpectEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -788,7 +788,7 @@ type BrowserContextExpectPageOptions struct {
 
 type BrowserContextWaitForEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -868,7 +868,7 @@ type BrowserTypeLaunchOptions struct {
 	//
 	// [`about:config`]: https://support.mozilla.org/en-US/kb/about-config-editor-firefox
 	// [`policies.json` file]: https://mozilla.github.io/policy-templates/
-	FirefoxUserPrefs map[string]interface{} `json:"firefoxUserPrefs"`
+	FirefoxUserPrefs map[string]any `json:"firefoxUserPrefs"`
 	// Close the browser process on SIGHUP. Defaults to `true`.
 	HandleSIGHUP *bool `json:"handleSIGHUP"`
 	// Close the browser process on Ctrl-C. Defaults to `true`.
@@ -984,7 +984,7 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	//
 	// [`about:config`]: https://support.mozilla.org/en-US/kb/about-config-editor-firefox
 	// [`policies.json` file]: https://mozilla.github.io/policy-templates/
-	FirefoxUserPrefs map[string]interface{} `json:"firefoxUserPrefs"`
+	FirefoxUserPrefs map[string]any `json:"firefoxUserPrefs"`
 	// Emulates `forced-colors` media feature, supported values are `active`, `none`. See [Page.EmulateMedia] for
 	// more details. Passing `no-override` resets emulation to system defaults. Defaults to `none`.
 	ForcedColors *ForcedColors `json:"forcedColors"`
@@ -1064,8 +1064,8 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	// to be saved.
 	//
 	// [HAR]: http://www.softwareishard.com/blog/har-12-spec
-	RecordHarPath      *string     `json:"recordHarPath"`
-	RecordHarURLFilter interface{} `json:"recordHarUrlFilter"`
+	RecordHarPath      *string `json:"recordHarPath"`
+	RecordHarURLFilter any     `json:"recordHarUrlFilter"`
 	// Enables video recording for all pages into `recordVideo.dir` directory. If not specified videos are not recorded.
 	// Make sure to await [BrowserContext.Close] for videos to be saved.
 	RecordVideo *RecordVideo `json:"recordVideo"`
@@ -1113,7 +1113,7 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 
 type ClockInstallOptions struct {
 	// Time to initialize with, current system time by default.
-	Time interface{} `json:"time"`
+	Time any `json:"time"`
 }
 
 type ConsoleMessageLocation struct {
@@ -1755,7 +1755,7 @@ type FrameGetByRoleOptions struct {
 	//
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
-	Name interface{} `json:"name"`
+	Name any `json:"name"`
 	// An attribute that is usually set by `aria-pressed`.
 	// Learn more about [`aria-pressed`].
 	//
@@ -1925,11 +1925,11 @@ type FrameLocatorOptions struct {
 	HasNot Locator `json:"hasNot"`
 	// Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
 	// When passed a [string], matching is case-insensitive and searches for a substring.
-	HasNotText interface{} `json:"hasNotText"`
+	HasNotText any `json:"hasNotText"`
 	// Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
-	HasText interface{} `json:"hasText"`
+	HasText any `json:"hasText"`
 }
 
 type FramePressOptions struct {
@@ -2109,7 +2109,7 @@ type FrameWaitForFunctionOptions struct {
 	// If “[object Object]” is `raf`, then “[object Object]” is constantly executed in `requestAnimationFrame` callback.
 	// If “[object Object]” is a number, then it is treated as an interval in milliseconds at which the function would be
 	// executed. Defaults to `raf`.
-	Polling interface{} `json:"polling"`
+	Polling any `json:"polling"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -2137,7 +2137,7 @@ type FrameExpectNavigationOptions struct {
 	// A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	// the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	// equal to the string.
-	URL interface{} `json:"url"`
+	URL any `json:"url"`
 	// When to consider operation succeeded, defaults to `load`. Events can be either:
 	//  - `domcontentloaded` - consider operation to be finished when the `DOMContentLoaded` event is fired.
 	//  - `load` - consider operation to be finished when the `load` event is fired.
@@ -2237,7 +2237,7 @@ type FrameLocatorGetByRoleOptions struct {
 	//
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
-	Name interface{} `json:"name"`
+	Name any `json:"name"`
 	// An attribute that is usually set by `aria-pressed`.
 	// Learn more about [`aria-pressed`].
 	//
@@ -2277,11 +2277,11 @@ type FrameLocatorLocatorOptions struct {
 	HasNot Locator `json:"hasNot"`
 	// Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
 	// When passed a [string], matching is case-insensitive and searches for a substring.
-	HasNotText interface{} `json:"hasNotText"`
+	HasNotText any `json:"hasNotText"`
 	// Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
-	HasText interface{} `json:"hasText"`
+	HasText any `json:"hasText"`
 }
 
 type KeyboardPressOptions struct {
@@ -2503,11 +2503,11 @@ type LocatorFilterOptions struct {
 	HasNot Locator `json:"hasNot"`
 	// Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
 	// When passed a [string], matching is case-insensitive and searches for a substring.
-	HasNotText interface{} `json:"hasNotText"`
+	HasNotText any `json:"hasNotText"`
 	// Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
-	HasText interface{} `json:"hasText"`
+	HasText any `json:"hasText"`
 	// Only matches visible or invisible elements.
 	Visible *bool `json:"visible"`
 }
@@ -2581,7 +2581,7 @@ type LocatorGetByRoleOptions struct {
 	//
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
-	Name interface{} `json:"name"`
+	Name any `json:"name"`
 	// An attribute that is usually set by `aria-pressed`.
 	// Learn more about [`aria-pressed`].
 	//
@@ -2703,11 +2703,11 @@ type LocatorLocatorOptions struct {
 	HasNot Locator `json:"hasNot"`
 	// Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
 	// When passed a [string], matching is case-insensitive and searches for a substring.
-	HasNotText interface{} `json:"hasNotText"`
+	HasNotText any `json:"hasNotText"`
 	// Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
-	HasText interface{} `json:"hasText"`
+	HasText any `json:"hasText"`
 }
 
 type LocatorPressOptions struct {
@@ -3362,7 +3362,7 @@ type PageFrameOptions struct {
 	// Frame name specified in the `iframe`'s `name` attribute. Optional.
 	Name *string `json:"name"`
 	// A glob pattern, regex pattern or predicate receiving frame's `url` as a [URL] object. Optional.
-	URL interface{} `json:"url"`
+	URL any `json:"url"`
 }
 
 type PageGetAttributeOptions struct {
@@ -3431,7 +3431,7 @@ type PageGetByRoleOptions struct {
 	//
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
-	Name interface{} `json:"name"`
+	Name any `json:"name"`
 	// An attribute that is usually set by `aria-pressed`.
 	// Learn more about [`aria-pressed`].
 	//
@@ -3631,11 +3631,11 @@ type PageLocatorOptions struct {
 	HasNot Locator `json:"hasNot"`
 	// Matches elements that do not contain specified text somewhere inside, possibly in a child or a descendant element.
 	// When passed a [string], matching is case-insensitive and searches for a substring.
-	HasNotText interface{} `json:"hasNotText"`
+	HasNotText any `json:"hasNotText"`
 	// Matches elements containing specified text somewhere inside, possibly in a child or a descendant element. When
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
-	HasText interface{} `json:"hasText"`
+	HasText any `json:"hasText"`
 }
 
 type PagePdfOptions struct {
@@ -3744,7 +3744,7 @@ type PageRouteFromHAROptions struct {
 	UpdateMode *HarMode `json:"updateMode"`
 	// A glob pattern, regular expression or predicate to match the request URL. Only requests with URL matching the
 	// pattern will be served from the HAR file. If not specified, all requests are served from the HAR file.
-	URL interface{} `json:"url"`
+	URL any `json:"url"`
 }
 
 type PageScreenshotOptions struct {
@@ -3984,7 +3984,7 @@ type PageExpectDownloadOptions struct {
 
 type PageExpectEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -4002,7 +4002,7 @@ type PageWaitForFunctionOptions struct {
 	// If “[object Object]” is `raf`, then “[object Object]” is constantly executed in `requestAnimationFrame` callback.
 	// If “[object Object]” is a number, then it is treated as an interval in milliseconds at which the function would be
 	// executed. Defaults to `raf`.
-	Polling interface{} `json:"polling"`
+	Polling any `json:"polling"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -4030,7 +4030,7 @@ type PageExpectNavigationOptions struct {
 	// A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	// the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	// equal to the string.
-	URL interface{} `json:"url"`
+	URL any `json:"url"`
 	// When to consider operation succeeded, defaults to `load`. Events can be either:
 	//  - `domcontentloaded` - consider operation to be finished when the `DOMContentLoaded` event is fired.
 	//  - `load` - consider operation to be finished when the `load` event is fired.
@@ -4119,7 +4119,7 @@ type PageExpectWorkerOptions struct {
 
 type PageWaitForEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -4208,7 +4208,7 @@ type RouteContinueOptions struct {
 	// If set changes the request method (e.g. GET or POST).
 	Method *string `json:"method"`
 	// If set changes the post data of request.
-	PostData interface{} `json:"postData"`
+	PostData any `json:"postData"`
 	// If set changes the request URL. New URL must have same protocol as original one.
 	URL *string `json:"url"`
 }
@@ -4219,7 +4219,7 @@ type RouteFallbackOptions struct {
 	// If set changes the request method (e.g. GET or POST).
 	Method *string `json:"method"`
 	// If set changes the post data of request.
-	PostData interface{} `json:"postData"`
+	PostData any `json:"postData"`
 	// If set changes the request URL. New URL must have same protocol as original one. Changing the URL won't affect the
 	// route matching, all the routes are matched using the original request URL.
 	URL *string `json:"url"`
@@ -4237,7 +4237,7 @@ type RouteFetchOptions struct {
 	// If set changes the request method (e.g. GET or POST).
 	Method *string `json:"method"`
 	// If set changes the post data of request.
-	PostData interface{} `json:"postData"`
+	PostData any `json:"postData"`
 	// Request timeout in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
 	Timeout *float64 `json:"timeout"`
 	// If set changes the request URL. New URL must have same protocol as original one.
@@ -4246,7 +4246,7 @@ type RouteFetchOptions struct {
 
 type RouteFulfillOptions struct {
 	// Response body.
-	Body interface{} `json:"body"`
+	Body any `json:"body"`
 	// If set, equals to setting `Content-Type` response header.
 	ContentType *string `json:"contentType"`
 	// Response headers. Header values will be converted to a string.
@@ -4302,7 +4302,7 @@ type TracingGroupOptions struct {
 
 type WebSocketExpectEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -4310,7 +4310,7 @@ type WebSocketExpectEventOptions struct {
 
 type WebSocketWaitForEventOptions struct {
 	// Receives the event data and resolves to truthy value when the waiting should resolve.
-	Predicate interface{} `json:"predicate"`
+	Predicate any `json:"predicate"`
 	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
 	// default value can be changed by using the [BrowserContext.SetDefaultTimeout].
 	Timeout *float64 `json:"timeout"`
@@ -4370,18 +4370,6 @@ type Proxy struct {
 	Password *string `json:"password"`
 }
 
-type StorageStateCookie struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Domain string `json:"domain"`
-	Path   string `json:"path"`
-	// Unix time in seconds.
-	Expires  float64            `json:"expires"`
-	HttpOnly bool               `json:"httpOnly"`
-	Secure   bool               `json:"secure"`
-	SameSite *SameSiteAttribute `json:"sameSite"`
-}
-
 type Origin struct {
 	Origin       string      `json:"origin"`
 	LocalStorage []NameValue `json:"localStorage"`
@@ -4398,7 +4386,7 @@ type RecordVideo struct {
 
 type OptionalStorageState struct {
 	// Cookies to set for context
-	Cookies []OptionalStorageStateOptionalCookie `json:"cookies"`
+	Cookies []OptionalCookie `json:"cookies"`
 	// localStorage to set for context
 	Origins []Origin `json:"origins"`
 }
@@ -4423,24 +4411,4 @@ type TracingGroupOptionsLocation struct {
 	File   string `json:"file"`
 	Line   *int   `json:"line"`
 	Column *int   `json:"column"`
-}
-
-type OptionalStorageStateOptionalCookie struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-	// Either url or domain / path are required. Optional.
-	URL *string `json:"url"`
-	// For the cookie to apply to all subdomains as well, prefix domain with a dot, like this: ".example.com". Either url
-	// or domain / path are required. Optional.
-	Domain *string `json:"domain"`
-	// Either url or domain / path are required Optional.
-	Path *string `json:"path"`
-	// Unix time in seconds. Optional.
-	Expires *float64 `json:"expires"`
-	// Optional.
-	HttpOnly *bool `json:"httpOnly"`
-	// Optional.
-	Secure *bool `json:"secure"`
-	// Optional.
-	SameSite *SameSiteAttribute `json:"sameSite"`
 }

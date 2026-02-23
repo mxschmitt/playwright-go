@@ -15,7 +15,7 @@ func newClock(bCtx *browserContextImpl) Clock {
 	}
 }
 
-func (c *clockImpl) FastForward(ticks interface{}) error {
+func (c *clockImpl) FastForward(ticks any) error {
 	params, err := parseTicks(ticks)
 	if err != nil {
 		return err
@@ -41,7 +41,7 @@ func (c *clockImpl) Install(options ...ClockInstallOptions) (err error) {
 	return err
 }
 
-func (c *clockImpl) PauseAt(time interface{}) error {
+func (c *clockImpl) PauseAt(time any) error {
 	params, err := parseTime(time)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (c *clockImpl) Resume() error {
 	return err
 }
 
-func (c *clockImpl) RunFor(ticks interface{}) error {
+func (c *clockImpl) RunFor(ticks any) error {
 	params, err := parseTicks(ticks)
 	if err != nil {
 		return err
@@ -66,7 +66,7 @@ func (c *clockImpl) RunFor(ticks interface{}) error {
 	return err
 }
 
-func (c *clockImpl) SetFixedTime(time interface{}) error {
+func (c *clockImpl) SetFixedTime(time any) error {
 	params, err := parseTime(time)
 	if err != nil {
 		return err
@@ -76,7 +76,7 @@ func (c *clockImpl) SetFixedTime(time interface{}) error {
 	return err
 }
 
-func (c *clockImpl) SetSystemTime(time interface{}) error {
+func (c *clockImpl) SetSystemTime(time any) error {
 	params, err := parseTime(time)
 	if err != nil {
 		return err
@@ -86,7 +86,7 @@ func (c *clockImpl) SetSystemTime(time interface{}) error {
 	return err
 }
 
-func parseTime(t interface{}) (map[string]any, error) {
+func parseTime(t any) (map[string]any, error) {
 	switch v := t.(type) {
 	case int, int64:
 		return map[string]any{"timeNumber": v}, nil
@@ -99,7 +99,7 @@ func parseTime(t interface{}) (map[string]any, error) {
 	}
 }
 
-func parseTicks(ticks interface{}) (map[string]any, error) {
+func parseTicks(ticks any) (map[string]any, error) {
 	switch v := ticks.(type) {
 	case int, int64:
 		return map[string]any{"ticksNumber": v}, nil

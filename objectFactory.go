@@ -5,13 +5,13 @@ type dummyObject struct {
 	channelOwner
 }
 
-func newDummyObject(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *dummyObject {
+func newDummyObject(parent *channelOwner, objectType string, guid string, initializer map[string]any) *dummyObject {
 	d := &dummyObject{}
 	d.createChannelOwner(d, parent, objectType, guid, initializer)
 	return d
 }
 
-func createObjectFactory(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) interface{} {
+func createObjectFactory(parent *channelOwner, objectType string, guid string, initializer map[string]any) any {
 	switch objectType {
 	case "Android":
 		return newDummyObject(parent, objectType, guid, initializer)

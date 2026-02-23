@@ -11,8 +11,8 @@ type jsonPipe struct {
 	msgChan chan *message
 }
 
-func (j *jsonPipe) Send(message map[string]interface{}) error {
-	_, err := j.channel.Send("send", map[string]interface{}{
+func (j *jsonPipe) Send(message map[string]any) error {
+	_, err := j.channel.Send("send", map[string]any{
 		"message": message,
 	})
 	return err
@@ -31,12 +31,12 @@ func (j *jsonPipe) Poll() (*message, error) {
 	return msg, nil
 }
 
-func newJsonPipe(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *jsonPipe {
+func newJsonPipe(parent *channelOwner, objectType string, guid string, initializer map[string]any) *jsonPipe {
 	j := &jsonPipe{
 		msgChan: make(chan *message, 10),
 	}
 	j.createChannelOwner(j, parent, objectType, guid, initializer)
-	j.channel.On("message", func(ev map[string]interface{}) {
+	j.channel.On("message", func(ev map[string]any) {
 		var msg message
 		m, err := json.Marshal(ev["message"])
 		if err == nil {

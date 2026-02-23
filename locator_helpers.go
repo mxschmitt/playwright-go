@@ -19,7 +19,7 @@ func convertRegexp(reg *regexp.Regexp) (pattern, flags string) {
 	return
 }
 
-func escapeForAttributeSelector(text interface{}, exact bool) string {
+func escapeForAttributeSelector(text any, exact bool) string {
 	switch text := text.(type) {
 	case *regexp.Regexp:
 		return escapeRegexForSelector(text)
@@ -32,7 +32,7 @@ func escapeForAttributeSelector(text interface{}, exact bool) string {
 	}
 }
 
-func escapeForTextSelector(text interface{}, exact bool) string {
+func escapeForTextSelector(text any, exact bool) string {
 	switch text := text.(type) {
 	case *regexp.Regexp:
 		return escapeRegexForSelector(text)
@@ -57,19 +57,19 @@ func escapeText(s string) string {
 	return strings.TrimSpace(builder.String())
 }
 
-func getByAltTextSelector(text interface{}, exact bool) string {
+func getByAltTextSelector(text any, exact bool) string {
 	return getByAttributeTextSelector("alt", text, exact)
 }
 
-func getByAttributeTextSelector(attrName string, text interface{}, exact bool) string {
+func getByAttributeTextSelector(attrName string, text any, exact bool) string {
 	return fmt.Sprintf(`internal:attr=[%s=%s]`, attrName, escapeForAttributeSelector(text, exact))
 }
 
-func getByLabelSelector(text interface{}, exact bool) string {
+func getByLabelSelector(text any, exact bool) string {
 	return fmt.Sprintf(`internal:label=%s`, escapeForTextSelector(text, exact))
 }
 
-func getByPlaceholderSelector(text interface{}, exact bool) string {
+func getByPlaceholderSelector(text any, exact bool) string {
 	return getByAttributeTextSelector("placeholder", text, exact)
 }
 
@@ -105,22 +105,22 @@ func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) string
 			props["pressed"] = fmt.Sprintf("%t", *options[0].Pressed)
 		}
 	}
-	propsStr := ""
+	var propsStr strings.Builder
 	for k, v := range props {
-		propsStr += "[" + k + "=" + v + "]"
+		propsStr.WriteString("[" + k + "=" + v + "]")
 	}
-	return fmt.Sprintf("internal:role=%s%s", role, propsStr)
+	return fmt.Sprintf("internal:role=%s%s", role, propsStr.String())
 }
 
-func getByTextSelector(text interface{}, exact bool) string {
+func getByTextSelector(text any, exact bool) string {
 	return fmt.Sprintf(`internal:text=%s`, escapeForTextSelector(text, exact))
 }
 
-func getByTestIdSelector(testIdAttributeName string, testId interface{}) string {
+func getByTestIdSelector(testIdAttributeName string, testId any) string {
 	return fmt.Sprintf(`internal:testid=[%s=%s]`, testIdAttributeName, escapeForAttributeSelector(testId, true))
 }
 
-func getByTitleSelector(text interface{}, exact bool) string {
+func getByTitleSelector(text any, exact bool) string {
 	return getByAttributeTextSelector("title", text, exact)
 }
 

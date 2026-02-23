@@ -11,12 +11,12 @@ type selectorsOwnerImpl struct {
 }
 
 func (s *selectorsOwnerImpl) setTestIdAttributeName(name string) {
-	s.channel.SendNoReply("setTestIdAttributeName", map[string]interface{}{
+	s.channel.SendNoReply("setTestIdAttributeName", map[string]any{
 		"testIdAttributeName": name,
 	})
 }
 
-func newSelectorsOwner(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *selectorsOwnerImpl {
+func newSelectorsOwner(parent *channelOwner, objectType string, guid string, initializer map[string]any) *selectorsOwnerImpl {
 	obj := &selectorsOwnerImpl{}
 	obj.createChannelOwner(obj, parent, objectType, guid, initializer)
 	return obj
@@ -25,7 +25,7 @@ func newSelectorsOwner(parent *channelOwner, objectType string, guid string, ini
 type selectorsImpl struct {
 	mu            sync.RWMutex // protects registrations slice
 	contexts      sync.Map     // map of BrowserContext channels
-	registrations []map[string]interface{}
+	registrations []map[string]any
 }
 
 func (s *selectorsImpl) Register(name string, script Script, options ...SelectorsRegisterOptions) error {
@@ -42,14 +42,14 @@ func (s *selectorsImpl) Register(name string, script Script, options ...Selector
 	} else {
 		source = *script.Content
 	}
-	selectorEngine := map[string]interface{}{
+	selectorEngine := map[string]any{
 		"name":   name,
 		"source": source,
 	}
 	if len(options) == 1 && options[0].ContentScript != nil {
 		selectorEngine["contentScript"] = *options[0].ContentScript
 	}
-	params := map[string]interface{}{
+	params := map[string]any{
 		"selectorEngine": selectorEngine,
 	}
 	// Register with all active contexts, ignoring contexts that have been closed
@@ -67,7 +67,7 @@ func (s *selectorsImpl) Register(name string, script Script, options ...Selector
 func (s *selectorsImpl) SetTestIdAttribute(name string) {
 	setTestIdAttributeName(name)
 	s.contexts.Range(func(key, value any) bool {
-		value.(*browserContextImpl).channel.SendNoReply("setTestIdAttributeName", map[string]interface{}{
+		value.(*browserContextImpl).channel.SendNoReply("setTestIdAttributeName", map[string]any{
 			"testIdAttributeName": name,
 		})
 		return true
@@ -79,7 +79,7 @@ func (s *selectorsImpl) addChannel(channel *selectorsOwnerImpl) {
 	s.contexts.Store(channel.guid, channel)
 	s.mu.RLock()
 	for _, selectorEngine := range s.registrations {
-		params := map[string]interface{}{
+		params := map[string]any{
 			"selectorEngine": selectorEngine,
 		}
 		channel.channel.SendNoReply("registerSelectorEngine", params)
@@ -97,7 +97,7 @@ func (s *selectorsImpl) addContext(context *browserContextImpl) {
 	s.contexts.Store(context.guid, context)
 	s.mu.RLock()
 	for _, selectorEngine := range s.registrations {
-		params := map[string]interface{}{
+		params := map[string]any{
 			"selectorEngine": selectorEngine,
 		}
 		context.channel.SendNoReply("registerSelectorEngine", params)
@@ -105,7 +105,7 @@ func (s *selectorsImpl) addContext(context *browserContextImpl) {
 	s.mu.RUnlock()
 	testIdAttr := getTestIdAttributeName()
 	if testIdAttr != "" {
-		context.channel.SendNoReply("setTestIdAttributeName", map[string]interface{}{
+		context.channel.SendNoReply("setTestIdAttributeName", map[string]any{
 			"testIdAttributeName": testIdAttr,
 		})
 	}
@@ -118,6 +118,6 @@ func (s *selectorsImpl) removeContext(context *browserContextImpl) {
 func newSelectorsImpl() *selectorsImpl {
 	return &selectorsImpl{
 		contexts:      sync.Map{},
-		registrations: make([]map[string]interface{}, 0),
+		registrations: make([]map[string]any, 0),
 	}
 }

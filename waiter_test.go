@@ -37,7 +37,7 @@ func TestWaiterWaitForEventWithPredicate(t *testing.T) {
 	timeout := 500.0
 	emitter := &eventEmitter{}
 	waiter := newWaiter().WithTimeout(timeout)
-	waiter.WaitForEvent(emitter, testEventNameFoobar, func(payload interface{}) bool {
+	waiter.WaitForEvent(emitter, testEventNameFoobar, func(payload any) bool {
 		content, ok := payload.(string)
 		if ok && content == testEventPayload {
 			return true
@@ -73,7 +73,7 @@ func TestWaiterRejectOnEvent(t *testing.T) {
 	errPredicate := fmt.Errorf("payload on event")
 	emitter := &eventEmitter{}
 	waiter := newWaiter().RejectOnEvent(emitter, testEventNameReject, errCause)
-	waiter.RejectOnEvent(emitter, testEventNameFoobar, errPredicate, func(payload interface{}) bool {
+	waiter.RejectOnEvent(emitter, testEventNameFoobar, errPredicate, func(payload any) bool {
 		content, ok := payload.(string)
 		if ok && content == "testEventPayload" {
 			return true
@@ -98,7 +98,7 @@ func TestWaiterRejectOnEventWithPredicate(t *testing.T) {
 	errPredicate := fmt.Errorf("payload on event")
 	emitter := &eventEmitter{}
 	waiter := newWaiter().RejectOnEvent(emitter, testEventNameReject, errCause)
-	waiter.RejectOnEvent(emitter, testEventNameFoobar, errPredicate, func(payload interface{}) bool {
+	waiter.RejectOnEvent(emitter, testEventNameFoobar, errPredicate, func(payload any) bool {
 		content, ok := payload.(string)
 		if ok && content == testEventPayload {
 			return true

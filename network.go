@@ -41,12 +41,12 @@ func (r *rawHeaders) HeadersArray() []NameValue {
 	return r.headersArray
 }
 
-func newRawHeaders(headers interface{}) *rawHeaders {
+func newRawHeaders(headers any) *rawHeaders {
 	r := &rawHeaders{}
 	r.headersArray = make([]NameValue, 0)
 	r.headersMap = make(map[string][]string)
-	for _, header := range headers.([]interface{}) {
-		entry := header.(map[string]interface{})
+	for _, header := range headers.([]any) {
+		entry := header.(map[string]any)
 		name := entry["name"].(string)
 		value := entry["value"].(string)
 		r.headersArray = append(r.headersArray, NameValue{

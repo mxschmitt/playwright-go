@@ -23,7 +23,7 @@ func (a *artifactImpl) PathAfterFinished() (string, error) {
 
 func (a *artifactImpl) SaveAs(path string) error {
 	if !a.connection.isRemote {
-		_, err := a.channel.Send("saveAs", map[string]interface{}{
+		_, err := a.channel.Send("saveAs", map[string]any{
 			"path": path,
 		})
 		return err
@@ -63,7 +63,7 @@ func (a *artifactImpl) ReadIntoBuffer() ([]byte, error) {
 	return stream.(*streamImpl).ReadAll()
 }
 
-func newArtifact(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *artifactImpl {
+func newArtifact(parent *channelOwner, objectType string, guid string, initializer map[string]any) *artifactImpl {
 	artifact := &artifactImpl{}
 	artifact.createChannelOwner(artifact, parent, objectType, guid, initializer)
 	return artifact

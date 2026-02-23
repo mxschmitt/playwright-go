@@ -28,7 +28,7 @@ type InputFile struct {
 	Buffer   []byte `json:"buffer"`
 }
 
-func (f *fileChooserImpl) SetFiles(files interface{}, options ...FileChooserSetFilesOptions) error {
+func (f *fileChooserImpl) SetFiles(files any, options ...FileChooserSetFilesOptions) error {
 	if len(options) == 1 {
 		return f.elementHandle.SetInputFiles(files, ElementHandleSetInputFilesOptions(options[0]))
 	}

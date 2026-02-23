@@ -89,7 +89,7 @@ func (l *locatorImpl) All() ([]Locator, error) {
 	if err != nil {
 		return nil, err
 	}
-	for i := 0; i < count; i++ {
+	for i := range count {
 		result = append(result, l.Nth(i))
 	}
 	return result, nil
@@ -103,7 +103,7 @@ func (l *locatorImpl) AllInnerTexts() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	texts := innerTexts.([]interface{})
+	texts := innerTexts.([]any)
 	result := make([]string, len(texts))
 	for i := range texts {
 		result[i] = texts[i].(string)
@@ -119,7 +119,7 @@ func (l *locatorImpl) AllTextContents() ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	texts := textContents.([]interface{})
+	texts := textContents.([]any)
 	result := make([]string, len(texts))
 	for i := range texts {
 		result[i] = texts[i].(string)
@@ -139,7 +139,7 @@ func (l *locatorImpl) Blur(options ...LocatorBlurOptions) error {
 	if l.err != nil {
 		return l.err
 	}
-	params := map[string]interface{}{
+	params := map[string]any{
 		"selector": l.selector,
 		"strict":   true,
 	}
@@ -158,7 +158,7 @@ func (l *locatorImpl) AriaSnapshot(options ...LocatorAriaSnapshotOptions) (strin
 		option = options[0]
 	}
 	ret, err := l.frame.channel.Send("ariaSnapshot", option,
-		map[string]interface{}{"selector": l.selector})
+		map[string]any{"selector": l.selector})
 	if err != nil {
 		return "", err
 	}
@@ -174,7 +174,7 @@ func (l *locatorImpl) BoundingBox(options ...LocatorBoundingBoxOptions) (*Rect, 
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (interface{}, error) {
+	result, err := l.withElement(func(handle ElementHandle) (any, error) {
 		return handle.BoundingBox()
 	}, option)
 	if err != nil {
@@ -254,7 +254,7 @@ func (l *locatorImpl) Dblclick(options ...LocatorDblclickOptions) error {
 	return l.frame.Dblclick(l.selector, opt)
 }
 
-func (l *locatorImpl) DispatchEvent(typ string, eventInit interface{}, options ...LocatorDispatchEventOptions) error {
+func (l *locatorImpl) DispatchEvent(typ string, eventInit any, options ...LocatorDispatchEventOptions) error {
 	if l.err != nil {
 		return l.err
 	}
@@ -307,7 +307,7 @@ func (l *locatorImpl) ElementHandles() ([]ElementHandle, error) {
 	return l.frame.QuerySelectorAll(l.selector)
 }
 
-func (l *locatorImpl) Evaluate(expression string, arg interface{}, options ...LocatorEvaluateOptions) (interface{}, error) {
+func (l *locatorImpl) Evaluate(expression string, arg any, options ...LocatorEvaluateOptions) (any, error) {
 	if l.err != nil {
 		return nil, l.err
 	}
@@ -316,19 +316,19 @@ func (l *locatorImpl) Evaluate(expression string, arg interface{}, options ...Lo
 		option.Timeout = options[0].Timeout
 	}
 
-	return l.withElement(func(handle ElementHandle) (interface{}, error) {
+	return l.withElement(func(handle ElementHandle) (any, error) {
 		return handle.Evaluate(expression, arg)
 	}, option)
 }
 
-func (l *locatorImpl) EvaluateAll(expression string, options ...interface{}) (interface{}, error) {
+func (l *locatorImpl) EvaluateAll(expression string, options ...any) (any, error) {
 	if l.err != nil {
 		return nil, l.err
 	}
 	return l.frame.EvalOnSelectorAll(l.selector, expression, options...)
 }
 
-func (l *locatorImpl) EvaluateHandle(expression string, arg interface{}, options ...LocatorEvaluateHandleOptions) (JSHandle, error) {
+func (l *locatorImpl) EvaluateHandle(expression string, arg any, options ...LocatorEvaluateHandleOptions) (JSHandle, error) {
 	if l.err != nil {
 		return nil, l.err
 	}
@@ -337,7 +337,7 @@ func (l *locatorImpl) EvaluateHandle(expression string, arg interface{}, options
 		option.Timeout = options[0].Timeout
 	}
 
-	h, err := l.withElement(func(handle ElementHandle) (interface{}, error) {
+	h, err := l.withElement(func(handle ElementHandle) (any, error) {
 		return handle.EvaluateHandle(expression, arg)
 	}, option)
 	if err != nil {
@@ -406,7 +406,7 @@ func (l *locatorImpl) GetAttribute(name string, options ...LocatorGetAttributeOp
 	return l.frame.GetAttribute(l.selector, name, opt)
 }
 
-func (l *locatorImpl) GetByAltText(text interface{}, options ...LocatorGetByAltTextOptions) Locator {
+func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -416,7 +416,7 @@ func (l *locatorImpl) GetByAltText(text interface{}, options ...LocatorGetByAltT
 	return l.Locator(getByAltTextSelector(text, exact))
 }
 
-func (l *locatorImpl) GetByLabel(text interface{}, options ...LocatorGetByLabelOptions) Locator {
+func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -426,7 +426,7 @@ func (l *locatorImpl) GetByLabel(text interface{}, options ...LocatorGetByLabelO
 	return l.Locator(getByLabelSelector(text, exact))
 }
 
-func (l *locatorImpl) GetByPlaceholder(text interface{}, options ...LocatorGetByPlaceholderOptions) Locator {
+func (l *locatorImpl) GetByPlaceholder(text any, options ...LocatorGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -440,11 +440,11 @@ func (l *locatorImpl) GetByRole(role AriaRole, options ...LocatorGetByRoleOption
 	return l.Locator(getByRoleSelector(role, options...))
 }
 
-func (l *locatorImpl) GetByTestId(testId interface{}) Locator {
+func (l *locatorImpl) GetByTestId(testId any) Locator {
 	return l.Locator(getByTestIdSelector(getTestIdAttributeName(), testId))
 }
 
-func (l *locatorImpl) GetByText(text interface{}, options ...LocatorGetByTextOptions) Locator {
+func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -454,7 +454,7 @@ func (l *locatorImpl) GetByText(text interface{}, options ...LocatorGetByTextOpt
 	return l.Locator(getByTextSelector(text, exact))
 }
 
-func (l *locatorImpl) GetByTitle(text interface{}, options ...LocatorGetByTitleOptions) Locator {
+func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
 		if *options[0].Exact {
@@ -625,7 +625,7 @@ func (l *locatorImpl) Last() Locator {
 	return newLocator(l.frame, l.selector+" >> nth=-1")
 }
 
-func (l *locatorImpl) Locator(selectorOrLocator interface{}, options ...LocatorLocatorOptions) Locator {
+func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOptions) Locator {
 	var option LocatorOptions
 	if len(options) == 1 {
 		option = LocatorOptions{
@@ -701,7 +701,7 @@ func (l *locatorImpl) Screenshot(options ...LocatorScreenshotOptions) ([]byte, e
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (interface{}, error) {
+	result, err := l.withElement(func(handle ElementHandle) (any, error) {
 		var screenshotOption ElementHandleScreenshotOptions
 		if len(options) == 1 {
 			screenshotOption = ElementHandleScreenshotOptions(options[0])
@@ -724,7 +724,7 @@ func (l *locatorImpl) ScrollIntoViewIfNeeded(options ...LocatorScrollIntoViewIfN
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (interface{}, error) {
+	_, err := l.withElement(func(handle ElementHandle) (any, error) {
 		var opt ElementHandleScrollIntoViewIfNeededOptions
 		if len(options) == 1 {
 			opt.Timeout = options[0].Timeout
@@ -759,7 +759,7 @@ func (l *locatorImpl) SelectText(options ...LocatorSelectTextOptions) error {
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (interface{}, error) {
+	_, err := l.withElement(func(handle ElementHandle) (any, error) {
 		var opt ElementHandleSelectTextOptions
 		if len(options) == 1 {
 			opt = ElementHandleSelectTextOptions(options[0])
@@ -785,7 +785,7 @@ func (l *locatorImpl) SetChecked(checked bool, options ...LocatorSetCheckedOptio
 	return l.frame.SetChecked(l.selector, checked, opt)
 }
 
-func (l *locatorImpl) SetInputFiles(files interface{}, options ...LocatorSetInputFilesOptions) error {
+func (l *locatorImpl) SetInputFiles(files any, options ...LocatorSetInputFilesOptions) error {
 	if l.err != nil {
 		return l.err
 	}
@@ -877,9 +877,9 @@ func (l *locatorImpl) WaitFor(options ...LocatorWaitForOptions) error {
 }
 
 func (l *locatorImpl) withElement(
-	callback func(handle ElementHandle) (interface{}, error),
+	callback func(handle ElementHandle) (any, error),
 	options ...FrameWaitForSelectorOptions,
-) (interface{}, error) {
+) (any, error) {
 	if l.err != nil {
 		return nil, l.err
 	}
@@ -899,7 +899,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 	if l.err != nil {
 		return nil, l.err
 	}
-	overrides := map[string]interface{}{
+	overrides := map[string]any{
 		"selector":   l.selector,
 		"expression": expression,
 	}
@@ -912,7 +912,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		return nil, err
 	}
 	var (
-		received interface{}
+		received any
 		matches  bool
 		log      []string
 	)
@@ -924,7 +924,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		matches = v.(bool)
 	}
 	if v, ok := result["log"]; ok {
-		for _, l := range v.([]interface{}) {
+		for _, l := range v.([]any) {
 			log = append(log, l.(string))
 		}
 	}

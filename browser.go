@@ -30,7 +30,7 @@ func (b *browserImpl) IsConnected() bool {
 }
 
 func (b *browserImpl) NewContext(options ...BrowserNewContextOptions) (BrowserContext, error) {
-	overrides := map[string]interface{}{}
+	overrides := map[string]any{}
 	option := BrowserNewContextOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -142,7 +142,7 @@ func (b *browserImpl) Close(options ...BrowserCloseOptions) (err error) {
 	if b.shouldCloseConnectionOnClose {
 		err = b.connection.Stop()
 	} else if b.closeReason != nil {
-		_, err = b.channel.Send("close", map[string]interface{}{
+		_, err = b.channel.Send("close", map[string]any{
 			"reason": b.closeReason,
 		})
 	} else {
@@ -159,7 +159,7 @@ func (b *browserImpl) Version() string {
 }
 
 func (b *browserImpl) StartTracing(options ...BrowserStartTracingOptions) error {
-	overrides := map[string]interface{}{}
+	overrides := map[string]any{}
 	option := BrowserStartTracingOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -218,7 +218,7 @@ func (b *browserImpl) OnDisconnected(fn func(Browser)) {
 	b.On("disconnected", fn)
 }
 
-func newBrowser(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *browserImpl {
+func newBrowser(parent *channelOwner, objectType string, guid string, initializer map[string]any) *browserImpl {
 	b := &browserImpl{
 		isConnected: true,
 		contexts:    make([]BrowserContext, 0),
@@ -230,11 +230,11 @@ func newBrowser(parent *channelOwner, objectType string, guid string, initialize
 	return b
 }
 
-func transformClientCertificate(clientCertificates []ClientCertificate) ([]map[string]interface{}, error) {
-	results := make([]map[string]interface{}, 0)
+func transformClientCertificate(clientCertificates []ClientCertificate) ([]map[string]any, error) {
+	results := make([]map[string]any, 0)
 
 	for _, cert := range clientCertificates {
-		data := map[string]interface{}{
+		data := map[string]any{
 			"origin":     cert.Origin,
 			"passphrase": cert.Passphrase,
 		}

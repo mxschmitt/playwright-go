@@ -1,7 +1,7 @@
 package playwright
 
 type consoleMessageImpl struct {
-	event  map[string]interface{}
+	event  map[string]any
 	page   Page
 	worker Worker
 }
@@ -19,7 +19,7 @@ func (c *consoleMessageImpl) String() string {
 }
 
 func (c *consoleMessageImpl) Args() []JSHandle {
-	args := c.event["args"].([]interface{})
+	args := c.event["args"].([]any)
 	out := []JSHandle{}
 	for idx := range args {
 		out = append(out, fromChannel(args[idx]).(*jsHandleImpl))
@@ -41,7 +41,7 @@ func (c *consoleMessageImpl) Worker() (Worker, error) {
 	return c.worker, nil
 }
 
-func newConsoleMessage(event map[string]interface{}) *consoleMessageImpl {
+func newConsoleMessage(event map[string]any) *consoleMessageImpl {
 	bt := &consoleMessageImpl{}
 	bt.event = event
 	page := fromNullableChannel(event["page"])

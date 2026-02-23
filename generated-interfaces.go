@@ -40,7 +40,7 @@ type APIRequestContext interface {
 	// update context cookies from the response. The method will automatically follow redirects.
 	//
 	//  urlOrRequest: Target URL or Request to get all parameters from.
-	Fetch(urlOrRequest interface{}, options ...APIRequestContextFetchOptions) (APIResponse, error)
+	Fetch(urlOrRequest any, options ...APIRequestContextFetchOptions) (APIResponse, error)
 
 	// Sends HTTP(S) [GET] request and returns its
 	// response. The method will populate request cookies from the context and update context cookies from the response.
@@ -109,7 +109,7 @@ type APIResponse interface {
 
 	// Returns the JSON representation of response body.
 	// This method will throw if the response body is not parsable via `JSON.parse`.
-	JSON(v interface{}) error
+	JSON(v any) error
 
 	// Contains a boolean stating whether the response was successful (status in the range 200-299) or not.
 	Ok() bool
@@ -370,7 +370,7 @@ type BrowserContext interface {
 	//
 	//  page: Target to create new session for. For backwards-compatibility, this parameter is named `page`, but it can be a
 	//    `Page` or `Frame` type.
-	NewCDPSession(page interface{}) (CDPSession, error)
+	NewCDPSession(page any) (CDPSession, error)
 
 	// Creates a new page in the browser context.
 	NewPage() (Page, error)
@@ -393,7 +393,7 @@ type BrowserContext interface {
 	// 2. handler: handler function to route the request.
 	//
 	// [this]: https://github.com/microsoft/playwright/issues/1090
-	Route(url interface{}, handler routeHandler, times ...int) error
+	Route(url any, handler routeHandler, times ...int) error
 
 	// If specified the network requests that are made in the context will be served from the HAR file. Read more about
 	// [Replaying from HAR].
@@ -415,7 +415,7 @@ type BrowserContext interface {
 	// 1. url: Only WebSockets with the url matching this pattern will be routed. A string pattern can be relative to the
 	//    “[object Object]” context option.
 	// 2. handler: Handler function to route the WebSocket.
-	RouteWebSocket(url interface{}, handler func(WebSocketRoute)) error
+	RouteWebSocket(url any, handler func(WebSocketRoute)) error
 
 	// **NOTE** Service workers are only supported on Chromium-based browsers.
 	// All existing service workers in the context.
@@ -470,7 +470,7 @@ type BrowserContext interface {
 	//
 	// 1. url: A glob pattern, regex pattern or predicate receiving [URL] used to register a routing with [BrowserContext.Route].
 	// 2. handler: Optional handler function used to register a routing with [BrowserContext.Route].
-	Unroute(url interface{}, handler ...routeHandler) error
+	Unroute(url any, handler ...routeHandler) error
 
 	// Performs action and waits for a [ConsoleMessage] to be logged by in the pages in the context. If predicate is
 	// provided, it passes [ConsoleMessage] value into the `predicate` function and waits for `predicate(message)` to
@@ -482,7 +482,7 @@ type BrowserContext interface {
 	// value. Will throw an error if the context closes before the event is fired. Returns the event data value.
 	//
 	//  event: Event name, same one would pass into `browserContext.on(event)`.
-	ExpectEvent(event string, cb func() error, options ...BrowserContextExpectEventOptions) (interface{}, error)
+	ExpectEvent(event string, cb func() error, options ...BrowserContextExpectEventOptions) (any, error)
 
 	// Performs action and waits for a new [Page] to be created in the context. If predicate is provided, it passes [Page]
 	// value into the `predicate` function and waits for `predicate(event)` to return a truthy value. Will throw an error
@@ -495,7 +495,7 @@ type BrowserContext interface {
 	// before the `event` is fired.
 	//
 	//  event: Event name, same one typically passed into `*.on(event)`.
-	WaitForEvent(event string, options ...BrowserContextWaitForEventOptions) (interface{}, error)
+	WaitForEvent(event string, options ...BrowserContextWaitForEventOptions) (any, error)
 }
 
 // BrowserType provides methods to launch a specific browser instance or connect to an existing one. The following is
@@ -575,7 +575,7 @@ type CDPSession interface {
 	//
 	// 1. method: Protocol method name.
 	// 2. params: Optional method parameters.
-	Send(method string, params map[string]interface{}) (interface{}, error)
+	Send(method string, params map[string]any) (any, error)
 }
 
 // Accurately simulating time-dependent behavior is essential for verifying the correctness of applications. Learn
@@ -590,7 +590,7 @@ type Clock interface {
 	//
 	//  ticks: Time may be the number of milliseconds to advance the clock by or a human-readable string. Valid string formats are
 	//    "08" for eight seconds, "01:00" for one minute and "02:34:10" for two hours, 34 minutes and ten seconds.
-	FastForward(ticks interface{}) error
+	FastForward(ticks any) error
 
 	// Install fake implementations for the following time-related functions:
 	//  - `Date`
@@ -612,7 +612,7 @@ type Clock interface {
 	//
 	//  ticks: Time may be the number of milliseconds to advance the clock by or a human-readable string. Valid string formats are
 	//    "08" for eight seconds, "01:00" for one minute and "02:34:10" for two hours, 34 minutes and ten seconds.
-	RunFor(ticks interface{}) error
+	RunFor(ticks any) error
 
 	// Advance the clock by jumping forward in time and pause the time. Once this method is called, no timers are fired
 	// unless [Clock.RunFor], [Clock.FastForward], [Clock.PauseAt] or [Clock.Resume] is called.
@@ -620,7 +620,7 @@ type Clock interface {
 	// at the specified time and pausing.
 	//
 	//  time: Time to pause at.
-	PauseAt(time interface{}) error
+	PauseAt(time any) error
 
 	// Resumes timers. Once this method is called, time resumes flowing, timers are fired as usual.
 	Resume() error
@@ -632,13 +632,13 @@ type Clock interface {
 	//  time: Time to be set.
 	//
 	// [clock emulation]: https://playwright.dev/docs/clock
-	SetFixedTime(time interface{}) error
+	SetFixedTime(time any) error
 
 	// Sets system time, but does not trigger any timers. Use this to test how the web page reacts to a time shift, for
 	// example switching from summer to winter time, or changing time zones.
 	//
 	//  time: Time to be set.
-	SetSystemTime(time interface{}) error
+	SetSystemTime(time any) error
 }
 
 // [ConsoleMessage] objects are dispatched by page via the [Page.OnConsole] event. For each console message logged in
@@ -840,7 +840,7 @@ type ElementHandle interface {
 	// [TouchEvent]: https://developer.mozilla.org/en-US/docs/Web/API/TouchEvent/TouchEvent
 	// [WheelEvent]: https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent/WheelEvent
 	// [locators]: https://playwright.dev/docs/locators
-	DispatchEvent(typ string, eventInit ...interface{}) error
+	DispatchEvent(typ string, eventInit ...any) error
 
 	// Returns the return value of “[object Object]”.
 	// The method finds an element matching the specified selector in the `ElementHandle`s subtree and passes it as a
@@ -854,7 +854,7 @@ type ElementHandle interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelector(selector string, expression string, arg ...interface{}) (interface{}, error)
+	EvalOnSelector(selector string, expression string, arg ...any) (any, error)
 
 	// Returns the return value of “[object Object]”.
 	// The method finds all elements matching the specified selector in the `ElementHandle`'s subtree and passes an array
@@ -868,7 +868,7 @@ type ElementHandle interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelectorAll(selector string, expression string, arg ...interface{}) (interface{}, error)
+	EvalOnSelectorAll(selector string, expression string, arg ...any) (any, error)
 
 	// This method waits for [actionability] checks, focuses the element, fills it and triggers an
 	// `input` event after filling. Note that you can pass an empty string to clear the input field.
@@ -1128,7 +1128,7 @@ type ElementHandle interface {
 	// [input element]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
 	// [control]: https://developer.mozilla.org/en-US/docs/Web/API/HTMLLabelElement/control
 	// [locators]: https://playwright.dev/docs/locators
-	SetInputFiles(files interface{}, options ...ElementHandleSetInputFilesOptions) error
+	SetInputFiles(files any, options ...ElementHandleSetInputFilesOptions) error
 
 	// This method taps the element by performing the following steps:
 	//  1. Wait for [actionability] checks on the element, unless “[object Object]” option is set.
@@ -1230,7 +1230,7 @@ type FileChooser interface {
 
 	// Sets the value of the file input this chooser is associated with. If some of the `filePaths` are relative paths,
 	// then they are resolved relative to the current working directory. For empty array, clears the selected files.
-	SetFiles(files interface{}, options ...FileChooserSetFilesOptions) error
+	SetFiles(files any, options ...FileChooserSetFilesOptions) error
 }
 
 // At every point of time, page exposes its current frame tree via the [Page.MainFrame] and [Frame.ChildFrames]
@@ -1344,7 +1344,7 @@ type Frame interface {
 	// [TouchEvent]: https://developer.mozilla.org/en-US/docs/Web/API/TouchEvent/TouchEvent
 	// [WheelEvent]: https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent/WheelEvent
 	// [locators]: https://playwright.dev/docs/locators
-	DispatchEvent(selector string, typ string, eventInit interface{}, options ...FrameDispatchEventOptions) error
+	DispatchEvent(selector string, typ string, eventInit any, options ...FrameDispatchEventOptions) error
 
 	//
 	// 1. source: A selector to search for an element to drag. If there are multiple elements satisfying the selector, the first will
@@ -1365,7 +1365,7 @@ type Frame interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelector(selector string, expression string, arg interface{}, options ...FrameEvalOnSelectorOptions) (interface{}, error)
+	EvalOnSelector(selector string, expression string, arg any, options ...FrameEvalOnSelectorOptions) (any, error)
 
 	// Returns the return value of “[object Object]”.
 	// The method finds all elements matching the specified selector within the frame and passes an array of matched
@@ -1379,7 +1379,7 @@ type Frame interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelectorAll(selector string, expression string, arg ...interface{}) (interface{}, error)
+	EvalOnSelectorAll(selector string, expression string, arg ...any) (any, error)
 
 	// Returns the return value of “[object Object]”.
 	// If the function passed to the [Frame.Evaluate] returns a [Promise], then [Frame.Evaluate] would wait for the
@@ -1391,7 +1391,7 @@ type Frame interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	Evaluate(expression string, arg ...interface{}) (interface{}, error)
+	Evaluate(expression string, arg ...any) (any, error)
 
 	// Returns the return value of “[object Object]” as a [JSHandle].
 	// The only difference between [Frame.Evaluate] and [Frame.EvaluateHandle] is that [Frame.EvaluateHandle] returns
@@ -1402,7 +1402,7 @@ type Frame interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateHandle(expression string, arg ...interface{}) (JSHandle, error)
+	EvaluateHandle(expression string, arg ...any) (JSHandle, error)
 
 	// This method waits for an element matching “[object Object]”, waits for [actionability] checks,
 	// focuses the element, fills it and triggers an `input` event after filling. Note that you can pass an empty string
@@ -1460,18 +1460,18 @@ type Frame interface {
 	// Allows locating elements by their alt text.
 	//
 	//  text: Text to locate the element for.
-	GetByAltText(text interface{}, options ...FrameGetByAltTextOptions) Locator
+	GetByAltText(text any, options ...FrameGetByAltTextOptions) Locator
 
 	// Allows locating input elements by the text of the associated `<label>` or `aria-labelledby` element, or by the
 	// `aria-label` attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByLabel(text interface{}, options ...FrameGetByLabelOptions) Locator
+	GetByLabel(text any, options ...FrameGetByLabelOptions) Locator
 
 	// Allows locating input elements by the placeholder text.
 	//
 	//  text: Text to locate the element for.
-	GetByPlaceholder(text interface{}, options ...FrameGetByPlaceholderOptions) Locator
+	GetByPlaceholder(text any, options ...FrameGetByPlaceholderOptions) Locator
 
 	// Allows locating elements by their [ARIA role],
 	// [ARIA attributes] and
@@ -1503,7 +1503,7 @@ type Frame interface {
 	// different test id attribute if necessary.
 	//
 	//  testId: Id to locate the element by.
-	GetByTestId(testId interface{}) Locator
+	GetByTestId(testId any) Locator
 
 	// Allows locating elements that contain given text.
 	// See also [Locator.Filter] that allows to match by another criteria, like an accessible role, and then filter by the
@@ -1517,12 +1517,12 @@ type Frame interface {
 	// example, locating by text `"Log in"` matches `<input type=button value="Log in">`.
 	//
 	//  text: Text to locate the element for.
-	GetByText(text interface{}, options ...FrameGetByTextOptions) Locator
+	GetByText(text any, options ...FrameGetByTextOptions) Locator
 
 	// Allows locating elements by their title attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByTitle(text interface{}, options ...FrameGetByTitleOptions) Locator
+	GetByTitle(text any, options ...FrameGetByTitleOptions) Locator
 
 	// Returns the main resource response. In case of multiple redirects, the navigation will resolve with the response of
 	// the last redirect.
@@ -1803,7 +1803,7 @@ type Frame interface {
 	// [input element]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
 	// [control]: https://developer.mozilla.org/en-US/docs/Web/API/HTMLLabelElement/control
 	// [locators]: https://playwright.dev/docs/locators
-	SetInputFiles(selector string, files interface{}, options ...FrameSetInputFilesOptions) error
+	SetInputFiles(selector string, files any, options ...FrameSetInputFilesOptions) error
 
 	// This method taps an element matching “[object Object]” by performing the following steps:
 	//  1. Find an element matching “[object Object]”. If there is none, wait until a matching element is attached to
@@ -1879,7 +1879,7 @@ type Frame interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	WaitForFunction(expression string, arg interface{}, options ...FrameWaitForFunctionOptions) (JSHandle, error)
+	WaitForFunction(expression string, arg any, options ...FrameWaitForFunctionOptions) (JSHandle, error)
 
 	// Waits for the required load state to be reached.
 	// This returns when the frame reaches a required load state, `load` by default. The navigation must have been
@@ -1930,7 +1930,7 @@ type Frame interface {
 	//  url: A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	//    the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	//    equal to the string.
-	WaitForURL(url interface{}, options ...FrameWaitForURLOptions) error
+	WaitForURL(url any, options ...FrameWaitForURLOptions) error
 }
 
 // FrameLocator represents a view to the `iframe` on the page. It captures the logic sufficient to retrieve the
@@ -1960,18 +1960,18 @@ type FrameLocator interface {
 	// Allows locating elements by their alt text.
 	//
 	//  text: Text to locate the element for.
-	GetByAltText(text interface{}, options ...FrameLocatorGetByAltTextOptions) Locator
+	GetByAltText(text any, options ...FrameLocatorGetByAltTextOptions) Locator
 
 	// Allows locating input elements by the text of the associated `<label>` or `aria-labelledby` element, or by the
 	// `aria-label` attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByLabel(text interface{}, options ...FrameLocatorGetByLabelOptions) Locator
+	GetByLabel(text any, options ...FrameLocatorGetByLabelOptions) Locator
 
 	// Allows locating input elements by the placeholder text.
 	//
 	//  text: Text to locate the element for.
-	GetByPlaceholder(text interface{}, options ...FrameLocatorGetByPlaceholderOptions) Locator
+	GetByPlaceholder(text any, options ...FrameLocatorGetByPlaceholderOptions) Locator
 
 	// Allows locating elements by their [ARIA role],
 	// [ARIA attributes] and
@@ -2003,7 +2003,7 @@ type FrameLocator interface {
 	// different test id attribute if necessary.
 	//
 	//  testId: Id to locate the element by.
-	GetByTestId(testId interface{}) Locator
+	GetByTestId(testId any) Locator
 
 	// Allows locating elements that contain given text.
 	// See also [Locator.Filter] that allows to match by another criteria, like an accessible role, and then filter by the
@@ -2017,12 +2017,12 @@ type FrameLocator interface {
 	// example, locating by text `"Log in"` matches `<input type=button value="Log in">`.
 	//
 	//  text: Text to locate the element for.
-	GetByText(text interface{}, options ...FrameLocatorGetByTextOptions) Locator
+	GetByText(text any, options ...FrameLocatorGetByTextOptions) Locator
 
 	// Allows locating elements by their title attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByTitle(text interface{}, options ...FrameLocatorGetByTitleOptions) Locator
+	GetByTitle(text any, options ...FrameLocatorGetByTitleOptions) Locator
 
 	// Returns locator to the last matching frame.
 	//
@@ -2036,7 +2036,7 @@ type FrameLocator interface {
 	//  selectorOrLocator: A selector or locator to use when resolving DOM element.
 	//
 	// [Learn more about locators]: https://playwright.dev/docs/locators
-	Locator(selectorOrLocator interface{}, options ...FrameLocatorLocatorOptions) Locator
+	Locator(selectorOrLocator any, options ...FrameLocatorLocatorOptions) Locator
 
 	// Returns locator to the n-th matching frame. It's zero based, `nth(0)` selects the first frame.
 	//
@@ -2071,7 +2071,7 @@ type JSHandle interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	Evaluate(expression string, arg ...interface{}) (interface{}, error)
+	Evaluate(expression string, arg ...any) (any, error)
 
 	// Returns the return value of “[object Object]” as a [JSHandle].
 	// This method passes this handle as the first argument to “[object Object]”.
@@ -2084,7 +2084,7 @@ type JSHandle interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateHandle(expression string, arg ...interface{}) (JSHandle, error)
+	EvaluateHandle(expression string, arg ...any) (JSHandle, error)
 
 	// The method returns a map with **own property names** as keys and JSHandle instances for the property values.
 	GetProperties() (map[string]JSHandle, error)
@@ -2097,7 +2097,7 @@ type JSHandle interface {
 	// Returns a JSON representation of the object. If the object has a `toJSON` function, it **will not be called**.
 	// **NOTE** The method will return an empty JSON object if the referenced object is not stringifiable. It will throw
 	// an error if the object has circular references.
-	JSONValue() (interface{}, error)
+	JSONValue() (any, error)
 
 	String() string
 }
@@ -2387,7 +2387,7 @@ type Locator interface {
 	// [PointerEvent]: https://developer.mozilla.org/en-US/docs/Web/API/PointerEvent/PointerEvent
 	// [TouchEvent]: https://developer.mozilla.org/en-US/docs/Web/API/TouchEvent/TouchEvent
 	// [WheelEvent]: https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent/WheelEvent
-	DispatchEvent(typ string, eventInit interface{}, options ...LocatorDispatchEventOptions) error
+	DispatchEvent(typ string, eventInit any, options ...LocatorDispatchEventOptions) error
 
 	// Drag the source element towards the target element and drop it.
 	//
@@ -2428,7 +2428,7 @@ type Locator interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	Evaluate(expression string, arg interface{}, options ...LocatorEvaluateOptions) (interface{}, error)
+	Evaluate(expression string, arg any, options ...LocatorEvaluateOptions) (any, error)
 
 	// Execute JavaScript code in the page, taking all matching elements as an argument.
 	//
@@ -2442,7 +2442,7 @@ type Locator interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateAll(expression string, arg ...interface{}) (interface{}, error)
+	EvaluateAll(expression string, arg ...any) (any, error)
 
 	// Execute JavaScript code in the page, taking the matching element as an argument, and return a [JSHandle] with the
 	// result.
@@ -2460,7 +2460,7 @@ type Locator interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateHandle(expression string, arg interface{}, options ...LocatorEvaluateHandleOptions) (JSHandle, error)
+	EvaluateHandle(expression string, arg any, options ...LocatorEvaluateHandleOptions) (JSHandle, error)
 
 	// Set a value to the input field.
 	//
@@ -2510,18 +2510,18 @@ type Locator interface {
 	// Allows locating elements by their alt text.
 	//
 	//  text: Text to locate the element for.
-	GetByAltText(text interface{}, options ...LocatorGetByAltTextOptions) Locator
+	GetByAltText(text any, options ...LocatorGetByAltTextOptions) Locator
 
 	// Allows locating input elements by the text of the associated `<label>` or `aria-labelledby` element, or by the
 	// `aria-label` attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByLabel(text interface{}, options ...LocatorGetByLabelOptions) Locator
+	GetByLabel(text any, options ...LocatorGetByLabelOptions) Locator
 
 	// Allows locating input elements by the placeholder text.
 	//
 	//  text: Text to locate the element for.
-	GetByPlaceholder(text interface{}, options ...LocatorGetByPlaceholderOptions) Locator
+	GetByPlaceholder(text any, options ...LocatorGetByPlaceholderOptions) Locator
 
 	// Allows locating elements by their [ARIA role],
 	// [ARIA attributes] and
@@ -2553,7 +2553,7 @@ type Locator interface {
 	// different test id attribute if necessary.
 	//
 	//  testId: Id to locate the element by.
-	GetByTestId(testId interface{}) Locator
+	GetByTestId(testId any) Locator
 
 	// Allows locating elements that contain given text.
 	// See also [Locator.Filter] that allows to match by another criteria, like an accessible role, and then filter by the
@@ -2567,12 +2567,12 @@ type Locator interface {
 	// example, locating by text `"Log in"` matches `<input type=button value="Log in">`.
 	//
 	//  text: Text to locate the element for.
-	GetByText(text interface{}, options ...LocatorGetByTextOptions) Locator
+	GetByText(text any, options ...LocatorGetByTextOptions) Locator
 
 	// Allows locating elements by their title attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByTitle(text interface{}, options ...LocatorGetByTitleOptions) Locator
+	GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator
 
 	// Highlight the corresponding element(s) on the screen. Useful for debugging, don't commit the code that uses
 	// [Locator.Highlight].
@@ -2680,7 +2680,7 @@ type Locator interface {
 	//  selectorOrLocator: A selector or locator to use when resolving DOM element.
 	//
 	// [Learn more about locators]: https://playwright.dev/docs/locators
-	Locator(selectorOrLocator interface{}, options ...LocatorLocatorOptions) Locator
+	Locator(selectorOrLocator any, options ...LocatorLocatorOptions) Locator
 
 	// Returns locator to the n-th matching element. It's zero based, `nth(0)` selects the first element.
 	Nth(index int) Locator
@@ -2818,7 +2818,7 @@ type Locator interface {
 	//
 	// [input element]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
 	// [control]: https://developer.mozilla.org/en-US/docs/Web/API/HTMLLabelElement/control
-	SetInputFiles(files interface{}, options ...LocatorSetInputFilesOptions) error
+	SetInputFiles(files any, options ...LocatorSetInputFilesOptions) error
 
 	// Perform a tap gesture on the element matching the locator. For examples of emulating other gestures by manually
 	// dispatching touch events, see the [emulating legacy touch events] page.
@@ -2944,7 +2944,7 @@ type LocatorAssertions interface {
 	//    elements.
 	//
 	// [Element.ClassList]: https://developer.mozilla.org/en-US/docs/Web/API/Element/classList
-	ToContainClass(expected interface{}, options ...LocatorAssertionsToContainClassOptions) error
+	ToContainClass(expected any, options ...LocatorAssertionsToContainClassOptions) error
 
 	// Ensures the [Locator] points to an element that contains the given text. All nested elements will be considered
 	// when computing the text content of the element. You can use regular expressions for the value as well.
@@ -2955,7 +2955,7 @@ type LocatorAssertions interface {
 	// text and in the expected string before matching. When regular expression is used, the actual text is matched as is.
 	//
 	//  expected: Expected substring or RegExp or a list of those.
-	ToContainText(expected interface{}, options ...LocatorAssertionsToContainTextOptions) error
+	ToContainText(expected any, options ...LocatorAssertionsToContainTextOptions) error
 
 	// Ensures the [Locator] points to an element with a given
 	// [accessible description].
@@ -2963,7 +2963,7 @@ type LocatorAssertions interface {
 	//  description: Expected accessible description.
 	//
 	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
-	ToHaveAccessibleDescription(description interface{}, options ...LocatorAssertionsToHaveAccessibleDescriptionOptions) error
+	ToHaveAccessibleDescription(description any, options ...LocatorAssertionsToHaveAccessibleDescriptionOptions) error
 
 	// Ensures the [Locator] points to an element with a given
 	// [aria errormessage].
@@ -2971,7 +2971,7 @@ type LocatorAssertions interface {
 	//  errorMessage: Expected accessible error message.
 	//
 	// [aria errormessage]: https://w3c.github.io/aria/#aria-errormessage
-	ToHaveAccessibleErrorMessage(errorMessage interface{}, options ...LocatorAssertionsToHaveAccessibleErrorMessageOptions) error
+	ToHaveAccessibleErrorMessage(errorMessage any, options ...LocatorAssertionsToHaveAccessibleErrorMessageOptions) error
 
 	// Ensures the [Locator] points to an element with a given
 	// [accessible name].
@@ -2979,19 +2979,19 @@ type LocatorAssertions interface {
 	//  name: Expected accessible name.
 	//
 	// [accessible name]: https://w3c.github.io/accname/#dfn-accessible-name
-	ToHaveAccessibleName(name interface{}, options ...LocatorAssertionsToHaveAccessibleNameOptions) error
+	ToHaveAccessibleName(name any, options ...LocatorAssertionsToHaveAccessibleNameOptions) error
 
 	// Ensures the [Locator] points to an element with given attribute.
 	//
 	// 1. name: Attribute name.
 	// 2. value: Expected attribute value.
-	ToHaveAttribute(name string, value interface{}, options ...LocatorAssertionsToHaveAttributeOptions) error
+	ToHaveAttribute(name string, value any, options ...LocatorAssertionsToHaveAttributeOptions) error
 
 	// Ensures the [Locator] points to an element with given CSS classes. When a string is provided, it must fully match
 	// the element's `class` attribute. To match individual classes use [LocatorAssertions.ToContainClass].
 	//
 	//  expected: Expected class or RegExp or a list of those.
-	ToHaveClass(expected interface{}, options ...LocatorAssertionsToHaveClassOptions) error
+	ToHaveClass(expected any, options ...LocatorAssertionsToHaveClassOptions) error
 
 	// Ensures the [Locator] resolves to an exact number of DOM nodes.
 	//
@@ -3002,19 +3002,19 @@ type LocatorAssertions interface {
 	//
 	// 1. name: CSS property name.
 	// 2. value: CSS property value.
-	ToHaveCSS(name string, value interface{}, options ...LocatorAssertionsToHaveCSSOptions) error
+	ToHaveCSS(name string, value any, options ...LocatorAssertionsToHaveCSSOptions) error
 
 	// Ensures the [Locator] points to an element with the given DOM Node ID.
 	//
 	//  id: Element id.
-	ToHaveId(id interface{}, options ...LocatorAssertionsToHaveIdOptions) error
+	ToHaveId(id any, options ...LocatorAssertionsToHaveIdOptions) error
 
 	// Ensures the [Locator] points to an element with given JavaScript property. Note that this property can be of a
 	// primitive type as well as a plain serializable JavaScript object.
 	//
 	// 1. name: Property name.
 	// 2. value: Property value.
-	ToHaveJSProperty(name string, value interface{}, options ...LocatorAssertionsToHaveJSPropertyOptions) error
+	ToHaveJSProperty(name string, value any, options ...LocatorAssertionsToHaveJSPropertyOptions) error
 
 	// Ensures the [Locator] points to an element with a given [ARIA role].
 	// Note that role is matched as a string, disregarding the ARIA role hierarchy. For example, asserting  a superclass
@@ -3034,19 +3034,19 @@ type LocatorAssertions interface {
 	// text and in the expected string before matching. When regular expression is used, the actual text is matched as is.
 	//
 	//  expected: Expected string or RegExp or a list of those.
-	ToHaveText(expected interface{}, options ...LocatorAssertionsToHaveTextOptions) error
+	ToHaveText(expected any, options ...LocatorAssertionsToHaveTextOptions) error
 
 	// Ensures the [Locator] points to an element with the given input value. You can use regular expressions for the
 	// value as well.
 	//
 	//  value: Expected value.
-	ToHaveValue(value interface{}, options ...LocatorAssertionsToHaveValueOptions) error
+	ToHaveValue(value any, options ...LocatorAssertionsToHaveValueOptions) error
 
 	// Ensures the [Locator] points to multi-select/combobox (i.e. a `select` with the `multiple` attribute) and the
 	// specified values are selected.
 	//
 	//  values: Expected options currently selected.
-	ToHaveValues(values []interface{}, options ...LocatorAssertionsToHaveValuesOptions) error
+	ToHaveValues(values []any, options ...LocatorAssertionsToHaveValuesOptions) error
 
 	// Asserts that the target element matches the given [accessibility snapshot].
 	//
@@ -3325,7 +3325,7 @@ type Page interface {
 	// [TouchEvent]: https://developer.mozilla.org/en-US/docs/Web/API/TouchEvent/TouchEvent
 	// [WheelEvent]: https://developer.mozilla.org/en-US/docs/Web/API/WheelEvent/WheelEvent
 	// [locators]: https://playwright.dev/docs/locators
-	DispatchEvent(selector string, typ string, eventInit interface{}, options ...PageDispatchEventOptions) error
+	DispatchEvent(selector string, typ string, eventInit any, options ...PageDispatchEventOptions) error
 
 	// This method drags the source element to the target element. It will first move to the source element, perform a
 	// `mousedown`, then move to the target element and perform a `mouseup`.
@@ -3352,7 +3352,7 @@ type Page interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelector(selector string, expression string, arg interface{}, options ...PageEvalOnSelectorOptions) (interface{}, error)
+	EvalOnSelector(selector string, expression string, arg any, options ...PageEvalOnSelectorOptions) (any, error)
 
 	// The method finds all elements matching the specified selector within the page and passes an array of matched
 	// elements as a first argument to “[object Object]”. Returns the result of “[object Object]” invocation.
@@ -3365,7 +3365,7 @@ type Page interface {
 	// 2. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 3. arg: Optional argument to pass to “[object Object]”.
-	EvalOnSelectorAll(selector string, expression string, arg ...interface{}) (interface{}, error)
+	EvalOnSelectorAll(selector string, expression string, arg ...any) (any, error)
 
 	// Returns the value of the “[object Object]” invocation.
 	// If the function passed to the [Page.Evaluate] returns a [Promise], then [Page.Evaluate] would wait for the promise
@@ -3377,7 +3377,7 @@ type Page interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	Evaluate(expression string, arg ...interface{}) (interface{}, error)
+	Evaluate(expression string, arg ...any) (any, error)
 
 	// Returns the value of the “[object Object]” invocation as a [JSHandle].
 	// The only difference between [Page.Evaluate] and [Page.EvaluateHandle] is that [Page.EvaluateHandle] returns
@@ -3388,7 +3388,7 @@ type Page interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateHandle(expression string, arg ...interface{}) (JSHandle, error)
+	EvaluateHandle(expression string, arg ...any) (JSHandle, error)
 
 	// The method adds a function called “[object Object]” on the `window` object of every frame in this page. When
 	// called, the function executes “[object Object]” and returns a [Promise] which resolves to the return value of
@@ -3470,18 +3470,18 @@ type Page interface {
 	// Allows locating elements by their alt text.
 	//
 	//  text: Text to locate the element for.
-	GetByAltText(text interface{}, options ...PageGetByAltTextOptions) Locator
+	GetByAltText(text any, options ...PageGetByAltTextOptions) Locator
 
 	// Allows locating input elements by the text of the associated `<label>` or `aria-labelledby` element, or by the
 	// `aria-label` attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByLabel(text interface{}, options ...PageGetByLabelOptions) Locator
+	GetByLabel(text any, options ...PageGetByLabelOptions) Locator
 
 	// Allows locating input elements by the placeholder text.
 	//
 	//  text: Text to locate the element for.
-	GetByPlaceholder(text interface{}, options ...PageGetByPlaceholderOptions) Locator
+	GetByPlaceholder(text any, options ...PageGetByPlaceholderOptions) Locator
 
 	// Allows locating elements by their [ARIA role],
 	// [ARIA attributes] and
@@ -3513,7 +3513,7 @@ type Page interface {
 	// different test id attribute if necessary.
 	//
 	//  testId: Id to locate the element by.
-	GetByTestId(testId interface{}) Locator
+	GetByTestId(testId any) Locator
 
 	// Allows locating elements that contain given text.
 	// See also [Locator.Filter] that allows to match by another criteria, like an accessible role, and then filter by the
@@ -3527,12 +3527,12 @@ type Page interface {
 	// example, locating by text `"Log in"` matches `<input type=button value="Log in">`.
 	//
 	//  text: Text to locate the element for.
-	GetByText(text interface{}, options ...PageGetByTextOptions) Locator
+	GetByText(text any, options ...PageGetByTextOptions) Locator
 
 	// Allows locating elements by their title attribute.
 	//
 	//  text: Text to locate the element for.
-	GetByTitle(text interface{}, options ...PageGetByTitleOptions) Locator
+	GetByTitle(text any, options ...PageGetByTitleOptions) Locator
 
 	// Returns the main resource response. In case of multiple redirects, the navigation will resolve with the response of
 	// the last redirect. If cannot go back, returns `null`.
@@ -3859,7 +3859,7 @@ type Page interface {
 	// 2. handler: handler function to route the request.
 	//
 	// [this]: https://github.com/microsoft/playwright/issues/1090
-	Route(url interface{}, handler routeHandler, times ...int) error
+	Route(url any, handler routeHandler, times ...int) error
 
 	// If specified the network requests that are made in the page will be served from the HAR file. Read more about
 	// [Replaying from HAR].
@@ -3881,7 +3881,7 @@ type Page interface {
 	// 1. url: Only WebSockets with the url matching this pattern will be routed. A string pattern can be relative to the
 	//    “[object Object]” context option.
 	// 2. handler: Handler function to route the WebSocket.
-	RouteWebSocket(url interface{}, handler func(WebSocketRoute)) error
+	RouteWebSocket(url any, handler func(WebSocketRoute)) error
 
 	// Returns the buffer with the captured screenshot.
 	Screenshot(options ...PageScreenshotOptions) ([]byte, error)
@@ -3978,7 +3978,7 @@ type Page interface {
 	// [input element]: https://developer.mozilla.org/en-US/docs/Web/HTML/Element/input
 	// [control]: https://developer.mozilla.org/en-US/docs/Web/API/HTMLLabelElement/control
 	// [locators]: https://playwright.dev/docs/locators
-	SetInputFiles(selector string, files interface{}, options ...PageSetInputFilesOptions) error
+	SetInputFiles(selector string, files any, options ...PageSetInputFilesOptions) error
 
 	// In the case of multiple pages in a single browser, each page can have its own viewport size. However,
 	// [Browser.NewContext] allows to set viewport size (and more) for all pages in the context at once.
@@ -4066,7 +4066,7 @@ type Page interface {
 	//
 	// 1. url: A glob pattern, regex pattern or predicate receiving [URL] to match while routing.
 	// 2. handler: Optional handler function to route the request.
-	Unroute(url interface{}, handler ...routeHandler) error
+	Unroute(url any, handler ...routeHandler) error
 
 	URL() string
 
@@ -4089,7 +4089,7 @@ type Page interface {
 	// value. Will throw an error if the page is closed before the event is fired. Returns the event data value.
 	//
 	//  event: Event name, same one typically passed into `*.on(event)`.
-	ExpectEvent(event string, cb func() error, options ...PageExpectEventOptions) (interface{}, error)
+	ExpectEvent(event string, cb func() error, options ...PageExpectEventOptions) (any, error)
 
 	// Performs action and waits for a new [FileChooser] to be created. If predicate is provided, it passes [FileChooser]
 	// value into the `predicate` function and waits for `predicate(fileChooser)` to return a truthy value. Will throw an
@@ -4101,7 +4101,7 @@ type Page interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	WaitForFunction(expression string, arg interface{}, options ...PageWaitForFunctionOptions) (JSHandle, error)
+	WaitForFunction(expression string, arg any, options ...PageWaitForFunctionOptions) (JSHandle, error)
 
 	// Returns when the required load state has been reached.
 	// This resolves when the page reaches a required load state, `load` by default. The navigation must have been
@@ -4135,7 +4135,7 @@ type Page interface {
 	//    [`new URL()`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL) constructor.
 	//
 	// [waiting for event]: https://playwright.dev/docs/events#waiting-for-event
-	ExpectRequest(urlOrPredicate interface{}, cb func() error, options ...PageExpectRequestOptions) (Request, error)
+	ExpectRequest(urlOrPredicate any, cb func() error, options ...PageExpectRequestOptions) (Request, error)
 
 	// Performs action and waits for a [Request] to finish loading. If predicate is provided, it passes [Request] value
 	// into the `predicate` function and waits for `predicate(request)` to return a truthy value. Will throw an error if
@@ -4150,7 +4150,7 @@ type Page interface {
 	//    [`new URL()`](https://developer.mozilla.org/en-US/docs/Web/API/URL/URL) constructor.
 	//
 	// [waiting for event]: https://playwright.dev/docs/events#waiting-for-event
-	ExpectResponse(urlOrPredicate interface{}, cb func() error, options ...PageExpectResponseOptions) (Response, error)
+	ExpectResponse(urlOrPredicate any, cb func() error, options ...PageExpectResponseOptions) (Response, error)
 
 	// Returns when element specified by selector satisfies “[object Object]” option. Returns `null` if waiting for
 	// `hidden` or `detached`.
@@ -4182,7 +4182,7 @@ type Page interface {
 	//  url: A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	//    the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	//    equal to the string.
-	WaitForURL(url interface{}, options ...PageWaitForURLOptions) error
+	WaitForURL(url any, options ...PageWaitForURLOptions) error
 
 	// Performs action and waits for a new [WebSocket]. If predicate is provided, it passes [WebSocket] value into the
 	// `predicate` function and waits for `predicate(webSocket)` to return a truthy value. Will throw an error if the page
@@ -4207,7 +4207,7 @@ type Page interface {
 	// `event` is fired.
 	//
 	//  event: Event name, same one typically passed into `*.on(event)`.
-	WaitForEvent(event string, options ...PageWaitForEventOptions) (interface{}, error)
+	WaitForEvent(event string, options ...PageWaitForEventOptions) (any, error)
 }
 
 // The [PageAssertions] class provides assertion methods that can be used to make assertions about the [Page] state in
@@ -4220,12 +4220,12 @@ type PageAssertions interface {
 	// Ensures the page has the given title.
 	//
 	//  titleOrRegExp: Expected title or RegExp.
-	ToHaveTitle(titleOrRegExp interface{}, options ...PageAssertionsToHaveTitleOptions) error
+	ToHaveTitle(titleOrRegExp any, options ...PageAssertionsToHaveTitleOptions) error
 
 	// Ensures the page is navigated to the given URL.
 	//
 	//  urlOrRegExp: Expected URL string or RegExp.
-	ToHaveURL(urlOrRegExp interface{}, options ...PageAssertionsToHaveURLOptions) error
+	ToHaveURL(urlOrRegExp any, options ...PageAssertionsToHaveURLOptions) error
 }
 
 // Playwright gives you Web-First Assertions with convenience methods for creating assertions that will wait and retry
@@ -4312,7 +4312,7 @@ type Request interface {
 	// Returns parsed request's body for `form-urlencoded` and JSON as a fallback if any.
 	// When the response is `application/x-www-form-urlencoded` then a key/value object of the values will be returned.
 	// Otherwise it will be parsed as JSON.
-	PostDataJSON(v interface{}) error
+	PostDataJSON(v any) error
 
 	// Request that was redirected by the server to this one, if any.
 	// When the server responds with a redirect, Playwright creates a new [Request] object. The two requests are connected
@@ -4388,7 +4388,7 @@ type Response interface {
 
 	// Returns the JSON representation of response body.
 	// This method will throw if the response body is not parsable via `JSON.parse`.
-	JSON(v interface{}) error
+	JSON(v any) error
 
 	// Contains a boolean stating whether the response was successful (status in the range 200-299) or not.
 	Ok() bool
@@ -4594,7 +4594,7 @@ type WebSocket interface {
 	// value. Will throw an error if the webSocket is closed before the event is fired. Returns the event data value.
 	//
 	//  event: Event name, same one would pass into `webSocket.on(event)`.
-	ExpectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (interface{}, error)
+	ExpectEvent(event string, cb func() error, options ...WebSocketExpectEventOptions) (any, error)
 
 	// **NOTE** In most cases, you should use [WebSocket.ExpectEvent].
 	// Waits for given `event` to fire. If predicate is provided, it passes event's value into the `predicate` function
@@ -4602,7 +4602,7 @@ type WebSocket interface {
 	// `event` is fired.
 	//
 	//  event: Event name, same one typically passed into `*.on(event)`.
-	WaitForEvent(event string, options ...WebSocketWaitForEventOptions) (interface{}, error)
+	WaitForEvent(event string, options ...WebSocketWaitForEventOptions) (any, error)
 }
 
 // Whenever a [`WebSocket`] route is set up with
@@ -4668,14 +4668,14 @@ type WebSocketRoute interface {
 	// Calling this method again will override the handler with a new one.
 	//
 	//  handler: Function that will handle messages.
-	OnMessage(handler func(interface{}))
+	OnMessage(handler func(any))
 
 	// Sends a message to the WebSocket. When called on the original WebSocket, sends the message to the page. When called
 	// on the result of [WebSocketRoute.ConnectToServer], sends the message to the server. See examples at the top for
 	// more details.
 	//
 	//  message: Message to send.
-	Send(message interface{})
+	Send(message any)
 
 	// URL of the WebSocket created in the page.
 	URL() string
@@ -4706,7 +4706,7 @@ type Worker interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	Evaluate(expression string, arg ...interface{}) (interface{}, error)
+	Evaluate(expression string, arg ...any) (any, error)
 
 	// Returns the return value of “[object Object]” as a [JSHandle].
 	// The only difference between [Worker.Evaluate] and [Worker.EvaluateHandle] is that [Worker.EvaluateHandle] returns
@@ -4717,7 +4717,7 @@ type Worker interface {
 	// 1. expression: JavaScript expression to be evaluated in the browser context. If the expression evaluates to a function, the
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
-	EvaluateHandle(expression string, arg ...interface{}) (JSHandle, error)
+	EvaluateHandle(expression string, arg ...any) (JSHandle, error)
 
 	URL() string
 }

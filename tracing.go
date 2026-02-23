@@ -19,7 +19,7 @@ func (t *tracingImpl) Start(options ...TracingStartOptions) error {
 		chunkOption.Name = options[0].Name
 		chunkOption.Title = options[0].Title
 	}
-	innerStart := func() (interface{}, error) {
+	innerStart := func() (any, error) {
 		if _, err := t.channel.Send("tracingStart", options); err != nil {
 			return "", err
 		}
@@ -67,7 +67,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	}
 	if filePath == "" {
 		// Not interested in artifacts.
-		_, err = t.channel.Send("tracingStopChunk", map[string]interface{}{
+		_, err = t.channel.Send("tracingStopChunk", map[string]any{
 			"mode": "discard",
 		})
 		if t.stacksId != "" {
@@ -78,7 +78,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 
 	isLocal := !t.connection.isRemote
 	if isLocal {
-		result, err := t.channel.SendReturnAsDict("tracingStopChunk", map[string]interface{}{
+		result, err := t.channel.SendReturnAsDict("tracingStopChunk", map[string]any{
 			"mode": "entries",
 		})
 		if err != nil {
@@ -90,7 +90,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		}
 		_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
 			ZipFile:        filePath,
-			Entries:        entries.([]interface{}),
+			Entries:        entries.([]any),
 			StacksId:       t.stacksId,
 			Mode:           "write",
 			IncludeSources: t.includeSources,
@@ -98,7 +98,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		return err
 	}
 
-	result, err := t.channel.SendReturnAsDict("tracingStopChunk", map[string]interface{}{
+	result, err := t.channel.SendReturnAsDict("tracingStopChunk", map[string]any{
 		"mode": "archive",
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	}
 	_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
 		ZipFile:        filePath,
-		Entries:        []interface{}{},
+		Entries:        []any{},
 		StacksId:       t.stacksId,
 		Mode:           "append",
 		IncludeSources: t.includeSources,
@@ -147,7 +147,7 @@ func (t *tracingImpl) Group(name string, options ...TracingGroupOptions) error {
 	if len(options) == 1 {
 		option = options[0]
 	}
-	_, err := t.channel.Send("tracingGroup", option, map[string]interface{}{"name": name})
+	_, err := t.channel.Send("tracingGroup", option, map[string]any{"name": name})
 	return err
 }
 
@@ -156,7 +156,7 @@ func (t *tracingImpl) GroupEnd() error {
 	return err
 }
 
-func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *tracingImpl {
+func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]any) *tracingImpl {
 	bt := &tracingImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.markAsInternalType()

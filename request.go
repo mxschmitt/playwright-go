@@ -50,7 +50,7 @@ func (r *requestImpl) PostData() (string, error) {
 	return string(body), err
 }
 
-func (r *requestImpl) PostDataJSON(v interface{}) error {
+func (r *requestImpl) PostDataJSON(v any) error {
 	body, err := r.PostDataBuffer()
 	if err != nil {
 		return err
@@ -250,7 +250,7 @@ func (r *requestImpl) safePage() *pageImpl {
 	return frame.page
 }
 
-func newRequest(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *requestImpl {
+func newRequest(parent *channelOwner, objectType string, guid string, initializer map[string]any) *requestImpl {
 	req := &requestImpl{}
 	req.createChannelOwner(req, parent, objectType, guid, initializer)
 	redirectedFrom := fromNullableChannel(initializer["redirectedFrom"])

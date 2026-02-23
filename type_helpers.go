@@ -26,7 +26,7 @@ func Float(v float64) *float64 {
 
 // Null will be used in certain scenarios where a strict nil pointer
 // check is not possible
-func Null() interface{} {
+func Null() any {
 	return "PW_NULL"
 }
 
@@ -48,26 +48,13 @@ func IntSlice(v ...int) *[]int {
 
 // ToOptionalStorageState converts StorageState to OptionalStorageState for use directly in [Browser.NewContext]
 func (s StorageState) ToOptionalStorageState() *OptionalStorageState {
-	cookies := make([]OptionalStorageStateOptionalCookie, len(s.Cookies))
+	cookies := make([]OptionalCookie, len(s.Cookies))
 	for i, c := range s.Cookies {
-		cookies[i] = c.ToOptionalStorageStateOptionalCookie()
+		cookies[i] = c.ToOptionalCookie()
 	}
 	return &OptionalStorageState{
 		Origins: s.Origins,
 		Cookies: cookies,
-	}
-}
-
-func (c StorageStateCookie) ToOptionalStorageStateOptionalCookie() OptionalStorageStateOptionalCookie {
-	return OptionalStorageStateOptionalCookie{
-		Name:     c.Name,
-		Value:    c.Value,
-		Domain:   String(c.Domain),
-		Path:     String(c.Path),
-		Expires:  Float(c.Expires),
-		HttpOnly: Bool(c.HttpOnly),
-		Secure:   Bool(c.Secure),
-		SameSite: c.SameSite,
 	}
 }
 

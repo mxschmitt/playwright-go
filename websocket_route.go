@@ -11,13 +11,13 @@ type webSocketRouteImpl struct {
 	channelOwner
 	connected       *atomic.Bool
 	server          WebSocketRoute
-	onPageMessage   func(interface{})
+	onPageMessage   func(any)
 	onPageClose     func(code *int, reason *string)
-	onServerMessage func(interface{})
+	onServerMessage func(any)
 	onServerClose   func(code *int, reason *string)
 }
 
-func newWebSocketRoute(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *webSocketRouteImpl {
+func newWebSocketRoute(parent *channelOwner, objectType string, guid string, initializer map[string]any) *webSocketRouteImpl {
 	route := &webSocketRouteImpl{
 		connected: &atomic.Bool{},
 	}
@@ -26,7 +26,7 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 
 	route.server = newServerWebSocketRoute(route)
 
-	route.channel.On("messageFromPage", func(event map[string]interface{}) {
+	route.channel.On("messageFromPage", func(event map[string]any) {
 		msg, err := untransformWebSocketMessage(event)
 		if err != nil {
 			panic(fmt.Errorf("Could not decode WebSocket message: %w", err))
@@ -38,7 +38,7 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 		}
 	})
 
-	route.channel.On("messageFromServer", func(event map[string]interface{}) {
+	route.channel.On("messageFromServer", func(event map[string]any) {
 		msg, err := untransformWebSocketMessage(event)
 		if err != nil {
 			panic(fmt.Errorf("Could not decode WebSocket message: %w", err))
@@ -50,7 +50,7 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 		}
 	})
 
-	route.channel.On("closePage", func(event map[string]interface{}) {
+	route.channel.On("closePage", func(event map[string]any) {
 		if route.onPageClose != nil {
 			route.onPageClose(event["code"].(*int), event["reason"].(*string))
 		} else {
@@ -58,7 +58,7 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 		}
 	})
 
-	route.channel.On("closeServer", func(event map[string]interface{}) {
+	route.channel.On("closeServer", func(event map[string]any) {
 		if route.onServerClose != nil {
 			route.onServerClose(event["code"].(*int), event["reason"].(*string))
 		} else {
@@ -70,7 +70,7 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 }
 
 func (r *webSocketRouteImpl) Close(options ...WebSocketRouteCloseOptions) {
-	r.channel.SendNoReply("closePage", options, map[string]interface{}{"wasClean": true})
+	r.channel.SendNoReply("closePage", options, map[string]any{"wasClean": true})
 }
 
 func (r *webSocketRouteImpl) ConnectToServer() (WebSocketRoute, error) {
@@ -86,11 +86,11 @@ func (r *webSocketRouteImpl) OnClose(handler func(code *int, reason *string)) {
 	r.onPageClose = handler
 }
 
-func (r *webSocketRouteImpl) OnMessage(handler func(interface{})) {
+func (r *webSocketRouteImpl) OnMessage(handler func(any)) {
 	r.onPageMessage = handler
 }
 
-func (r *webSocketRouteImpl) Send(message interface{}) {
+func (r *webSocketRouteImpl) Send(message any) {
 	data, err := transformWebSocketMessage(message)
 	if err != nil {
 		panic(fmt.Errorf("Could not encode WebSocket message: %w", err))
@@ -119,7 +119,7 @@ func newServerWebSocketRoute(route *webSocketRouteImpl) *serverWebSocketRouteImp
 	return &serverWebSocketRouteImpl{webSocketRoute: route}
 }
 
-func (s *serverWebSocketRouteImpl) OnMessage(handler func(interface{})) {
+func (s *serverWebSocketRouteImpl) OnMessage(handler func(any)) {
 	s.webSocketRoute.onServerMessage = handler
 }
 
@@ -136,10 +136,10 @@ func (s *serverWebSocketRouteImpl) URL() string {
 }
 
 func (s *serverWebSocketRouteImpl) Close(options ...WebSocketRouteCloseOptions) {
-	go s.webSocketRoute.channel.SendNoReply("close", options, map[string]interface{}{"wasClean": true})
+	go s.webSocketRoute.channel.SendNoReply("close", options, map[string]any{"wasClean": true})
 }
 
-func (s *serverWebSocketRouteImpl) Send(message interface{}) {
+func (s *serverWebSocketRouteImpl) Send(message any) {
 	data, err := transformWebSocketMessage(message)
 	if err != nil {
 		panic(fmt.Errorf("Could not encode WebSocket message: %w", err))
@@ -147,8 +147,8 @@ func (s *serverWebSocketRouteImpl) Send(message interface{}) {
 	go s.webSocketRoute.channel.SendNoReply("sendToServer", data)
 }
 
-func transformWebSocketMessage(message interface{}) (map[string]interface{}, error) {
-	data := map[string]interface{}{}
+func transformWebSocketMessage(message any) (map[string]any, error) {
+	data := map[string]any{}
 	switch v := message.(type) {
 	case []byte:
 		data["isBase64"] = true
@@ -162,7 +162,7 @@ func transformWebSocketMessage(message interface{}) (map[string]interface{}, err
 	return data, nil
 }
 
-func untransformWebSocketMessage(data map[string]interface{}) (interface{}, error) {
+func untransformWebSocketMessage(data map[string]any) (any, error) {
 	if data["isBase64"].(bool) {
 		return base64.StdEncoding.DecodeString(data["message"].(string))
 	}
@@ -190,19 +190,19 @@ func (h *webSocketRouteHandler) Matches(wsURL string) bool {
 	return h.matcher.Matches(wsURL)
 }
 
-func prepareWebSocketRouteHandlerInterceptionPatterns(handlers []*webSocketRouteHandler) []map[string]interface{} {
-	patterns := []map[string]interface{}{}
+func prepareWebSocketRouteHandlerInterceptionPatterns(handlers []*webSocketRouteHandler) []map[string]any {
+	patterns := []map[string]any{}
 	all := false
 	for _, handler := range handlers {
 		switch handler.matcher.raw.(type) {
 		case *regexp.Regexp:
 			pattern, flags := convertRegexp(handler.matcher.raw.(*regexp.Regexp))
-			patterns = append(patterns, map[string]interface{}{
+			patterns = append(patterns, map[string]any{
 				"regexSource": pattern,
 				"regexFlags":  flags,
 			})
 		case string:
-			patterns = append(patterns, map[string]interface{}{
+			patterns = append(patterns, map[string]any{
 				"glob": handler.matcher.raw.(string),
 			})
 		default:
@@ -210,7 +210,7 @@ func prepareWebSocketRouteHandlerInterceptionPatterns(handlers []*webSocketRoute
 		}
 	}
 	if all {
-		return []map[string]interface{}{
+		return []map[string]any{
 			{
 				"glob": "**/*",
 			},

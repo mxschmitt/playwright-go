@@ -18,15 +18,15 @@ type (
 
 func skipFieldSerialization(val reflect.Value) bool {
 	typ := val.Type()
-	return (typ.Kind() == reflect.Ptr ||
+	return (typ.Kind() == reflect.Pointer ||
 		typ.Kind() == reflect.Interface ||
 		typ.Kind() == reflect.Map ||
-		typ.Kind() == reflect.Slice) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Ptr && val.Elem().IsNil())
+		typ.Kind() == reflect.Slice) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Pointer && val.Elem().IsNil())
 }
 
-func transformStructValues(in interface{}) interface{} {
+func transformStructValues(in any) any {
 	v := reflect.ValueOf(in)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	if _, ok := in.(*channel); ok {
@@ -36,7 +36,7 @@ func transformStructValues(in interface{}) interface{} {
 		return transformStructIntoMapIfNeeded(in)
 	}
 	if v.Kind() == reflect.Slice {
-		outSlice := []interface{}{}
+		outSlice := []any{}
 		for i := 0; i < v.Len(); i++ {
 			if !skipFieldSerialization(v.Index(i)) {
 				outSlice = append(outSlice, transformStructValues(v.Index(i).Interface()))
@@ -50,10 +50,10 @@ func transformStructValues(in interface{}) interface{} {
 	return in
 }
 
-func transformStructIntoMapIfNeeded(inStruct interface{}) map[string]interface{} {
-	out := make(map[string]interface{})
+func transformStructIntoMapIfNeeded(inStruct any) map[string]any {
+	out := make(map[string]any)
 	v := reflect.ValueOf(inStruct)
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 	typ := v.Type()
@@ -91,16 +91,16 @@ func transformStructIntoMapIfNeeded(inStruct interface{}) map[string]interface{}
 }
 
 // transformOptions handles the parameter data transformation
-func transformOptions(options ...interface{}) map[string]interface{} {
-	var base map[string]interface{}
-	var option interface{}
+func transformOptions(options ...any) map[string]any {
+	var base map[string]any
+	var option any
 	// Case 1: No options are given
 	if len(options) == 0 {
-		return make(map[string]interface{})
+		return make(map[string]any)
 	}
 	if len(options) == 1 {
 		// Case 2: a single value (either struct or map) is given.
-		base = make(map[string]interface{})
+		base = make(map[string]any)
 		option = options[0]
 	} else if len(options) == 2 {
 		// Case 3: two values are given. The first one needs to be transformed
@@ -136,7 +136,7 @@ func transformOptions(options ...interface{}) map[string]interface{} {
 	}
 	v = reflect.ValueOf(option)
 
-	if v.Kind() == reflect.Ptr {
+	if v.Kind() == reflect.Pointer {
 		v = v.Elem()
 	}
 
@@ -168,34 +168,39 @@ func remapValue(inMapValue reflect.Value, outStructValue reflect.Value) {
 			fi := structTyp.Field(i)
 			key := strings.Split(fi.Tag.Get("json"), ",")[0]
 			structField := outStructValue.Field(i)
-			structFieldDeref := outStructValue.Field(i)
-			if structField.Type().Kind() == reflect.Ptr {
+			value := inMapValue.MapIndex(reflect.ValueOf(key))
+			if !value.IsValid() {
+				continue
+			}
+			if value.Kind() == reflect.Interface {
+				if value.IsNil() {
+					continue
+				}
+				value = value.Elem()
+			}
+			structFieldDeref := structField
+			if structField.Type().Kind() == reflect.Pointer {
 				structField.Set(reflect.New(structField.Type().Elem()))
 				structFieldDeref = structField.Elem()
 			}
-			for _, e := range inMapValue.MapKeys() {
-				if key == e.String() {
-					value := inMapValue.MapIndex(e)
-					remapValue(value.Elem(), structFieldDeref)
-				}
-			}
+			remapValue(value, structFieldDeref)
 		}
 	default:
 		panic(inMapValue.Interface())
 	}
 }
 
-func remapMapToStruct(inputMap interface{}, outStruct interface{}) {
+func remapMapToStruct(inputMap any, outStruct any) {
 	remapValue(reflect.ValueOf(inputMap), reflect.ValueOf(outStruct).Elem())
 }
 
 type urlMatcher struct {
-	raw     interface{}
+	raw     any
 	pattern *regexp.Regexp
 	matchFn func(url string) bool
 }
 
-func newURLMatcher(urlOrPredicate interface{}, baseURL *string, isWsUrl ...bool) *urlMatcher {
+func newURLMatcher(urlOrPredicate any, baseURL *string, isWsUrl ...bool) *urlMatcher {
 	switch v := urlOrPredicate.(type) {
 	case *regexp.Regexp:
 		return &urlMatcher{pattern: v, raw: urlOrPredicate}
@@ -226,7 +231,7 @@ func (u *urlMatcher) Matches(url string) bool {
 }
 
 // SameWith compares String() if urlOrPredicate is *regexp.Regexp
-func (u *urlMatcher) SameWith(urlOrPredicate interface{}) bool {
+func (u *urlMatcher) SameWith(urlOrPredicate any) bool {
 	switch v := urlOrPredicate.(type) {
 	case *regexp.Regexp:
 		return u.pattern.String() == v.String()
@@ -336,19 +341,19 @@ func newRouteHandlerEntry(matcher *urlMatcher, handler routeHandler, times ...in
 	}
 }
 
-func prepareInterceptionPatterns(handlers []*routeHandlerEntry) []map[string]interface{} {
-	patterns := []map[string]interface{}{}
+func prepareInterceptionPatterns(handlers []*routeHandlerEntry) []map[string]any {
+	patterns := []map[string]any{}
 	all := false
 	for _, h := range handlers {
 		switch h.matcher.raw.(type) {
 		case *regexp.Regexp:
 			pattern, flags := convertRegexp(h.matcher.raw.(*regexp.Regexp))
-			patterns = append(patterns, map[string]interface{}{
+			patterns = append(patterns, map[string]any{
 				"regexSource": pattern,
 				"regexFlags":  flags,
 			})
 		case string:
-			patterns = append(patterns, map[string]interface{}{
+			patterns = append(patterns, map[string]any{
 				"glob": h.matcher.raw.(string),
 			})
 		default:
@@ -356,7 +361,7 @@ func prepareInterceptionPatterns(handlers []*routeHandlerEntry) []map[string]int
 		}
 	}
 	if all {
-		return []map[string]interface{}{
+		return []map[string]any{
 			{
 				"glob": "**/*",
 			},
@@ -442,34 +447,34 @@ type SelectOptionValues struct {
 	Elements       *[]ElementHandle
 }
 
-func convertSelectOptionSet(values SelectOptionValues) map[string]interface{} {
-	out := make(map[string]interface{})
+func convertSelectOptionSet(values SelectOptionValues) map[string]any {
+	out := make(map[string]any)
 	if values == (SelectOptionValues{}) {
 		return out
 	}
 
-	var o []map[string]interface{}
+	var o []map[string]any
 	if values.ValuesOrLabels != nil {
 		for _, v := range *values.ValuesOrLabels {
-			m := map[string]interface{}{"valueOrLabel": v}
+			m := map[string]any{"valueOrLabel": v}
 			o = append(o, m)
 		}
 	}
 	if values.Values != nil {
 		for _, v := range *values.Values {
-			m := map[string]interface{}{"value": v}
+			m := map[string]any{"value": v}
 			o = append(o, m)
 		}
 	}
 	if values.Indexes != nil {
 		for _, i := range *values.Indexes {
-			m := map[string]interface{}{"index": i}
+			m := map[string]any{"index": i}
 			o = append(o, m)
 		}
 	}
 	if values.Labels != nil {
 		for _, l := range *values.Labels {
-			m := map[string]interface{}{"label": l}
+			m := map[string]any{"label": l}
 			o = append(o, m)
 		}
 	}
@@ -490,7 +495,7 @@ func convertSelectOptionSet(values SelectOptionValues) map[string]interface{} {
 	return out
 }
 
-func unroute(inRoutes []*routeHandlerEntry, url interface{}, handlers ...routeHandler) ([]*routeHandlerEntry, []*routeHandlerEntry, error) {
+func unroute(inRoutes []*routeHandlerEntry, url any, handlers ...routeHandler) ([]*routeHandlerEntry, []*routeHandlerEntry, error) {
 	var handler routeHandler
 	if len(handlers) == 1 {
 		handler = handlers[0]
@@ -528,9 +533,9 @@ func serializeMapToNameAndValue(headers map[string]string) []map[string]string {
 // assignStructFields assigns fields from src to dest,
 //
 //	omitExtra determines whether to omit src's extra fields
-func assignStructFields(dest, src interface{}, omitExtra bool) error {
+func assignStructFields(dest, src any, omitExtra bool) error {
 	destValue := reflect.ValueOf(dest)
-	if destValue.Kind() != reflect.Ptr || destValue.IsNil() {
+	if destValue.Kind() != reflect.Pointer || destValue.IsNil() {
 		return fmt.Errorf("dest must be a non-nil pointer")
 	}
 	destValue = destValue.Elem()
@@ -539,7 +544,7 @@ func assignStructFields(dest, src interface{}, omitExtra bool) error {
 	}
 
 	srcValue := reflect.ValueOf(src)
-	if srcValue.Kind() == reflect.Ptr {
+	if srcValue.Kind() == reflect.Pointer {
 		srcValue = srcValue.Elem()
 	}
 	if srcValue.Kind() != reflect.Struct {
@@ -590,7 +595,7 @@ type recordHarOptions struct {
 
 type recordHarInputOptions struct {
 	Path        string
-	URL         interface{}
+	URL         any
 	Mode        *HarMode
 	Content     *HarContentPolicy
 	OmitContent *bool

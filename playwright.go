@@ -52,7 +52,7 @@ func (p *Playwright) setSelectors(selectors Selectors) {
 	}
 }
 
-func newPlaywright(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *Playwright {
+func newPlaywright(parent *channelOwner, objectType string, guid string, initializer map[string]any) *Playwright {
 	pw := &Playwright{
 		Selectors: newSelectorsImpl(),
 		Chromium:  fromChannel(initializer["chromium"]).(*browserTypeImpl),

@@ -26,7 +26,7 @@ func (s *writableStream) Copy(file string) error {
 		if n == 0 {
 			break
 		}
-		_, err = s.channel.Send("write", map[string]interface{}{
+		_, err = s.channel.Send("write", map[string]any{
 			"binary": base64.StdEncoding.EncodeToString(buf[:n]),
 		})
 		if err != nil {
@@ -37,7 +37,7 @@ func (s *writableStream) Copy(file string) error {
 	return err
 }
 
-func newWritableStream(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *writableStream {
+func newWritableStream(parent *channelOwner, objectType string, guid string, initializer map[string]any) *writableStream {
 	stream := &writableStream{}
 	stream.createChannelOwner(stream, parent, objectType, guid, initializer)
 	return stream

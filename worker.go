@@ -10,12 +10,12 @@ func (w *workerImpl) URL() string {
 	return w.initializer["url"].(string)
 }
 
-func (w *workerImpl) Evaluate(expression string, options ...interface{}) (interface{}, error) {
-	var arg interface{}
+func (w *workerImpl) Evaluate(expression string, options ...any) (any, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := w.channel.Send("evaluateExpression", map[string]interface{}{
+	result, err := w.channel.Send("evaluateExpression", map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
 	})
@@ -25,12 +25,12 @@ func (w *workerImpl) Evaluate(expression string, options ...interface{}) (interf
 	return parseResult(result), nil
 }
 
-func (w *workerImpl) EvaluateHandle(expression string, options ...interface{}) (JSHandle, error) {
-	var arg interface{}
+func (w *workerImpl) EvaluateHandle(expression string, options ...any) (JSHandle, error) {
+	var arg any
 	if len(options) == 1 {
 		arg = options[0]
 	}
-	result, err := w.channel.Send("evaluateExpressionHandle", map[string]interface{}{
+	result, err := w.channel.Send("evaluateExpressionHandle", map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
 	})
@@ -74,11 +74,11 @@ func (w *workerImpl) OnConsole(fn func(ConsoleMessage)) {
 	w.On("console", fn)
 }
 
-func newWorker(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *workerImpl {
+func newWorker(parent *channelOwner, objectType string, guid string, initializer map[string]any) *workerImpl {
 	bt := &workerImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.channel.On("close", bt.onClose)
-	bt.channel.On("console", func(ev map[string]interface{}) {
+	bt.channel.On("console", func(ev map[string]any) {
 		bt.Emit("console", newConsoleMessage(ev))
 	})
 	return bt

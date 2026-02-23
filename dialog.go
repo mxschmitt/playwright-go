@@ -22,7 +22,7 @@ func (d *dialogImpl) Accept(promptTextInput ...string) error {
 	if len(promptTextInput) == 1 {
 		promptText = &promptTextInput[0]
 	}
-	_, err := d.channel.Send("accept", map[string]interface{}{
+	_, err := d.channel.Send("accept", map[string]any{
 		"promptText": promptText,
 	})
 	return err
@@ -37,7 +37,7 @@ func (d *dialogImpl) Page() Page {
 	return d.page
 }
 
-func newDialog(parent *channelOwner, objectType string, guid string, initializer map[string]interface{}) *dialogImpl {
+func newDialog(parent *channelOwner, objectType string, guid string, initializer map[string]any) *dialogImpl {
 	bt := &dialogImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	page := fromNullableChannel(initializer["page"])

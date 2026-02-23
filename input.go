@@ -11,7 +11,7 @@ func newMouse(channel *channel) *mouseImpl {
 }
 
 func (m *mouseImpl) Move(x float64, y float64, options ...MouseMoveOptions) error {
-	_, err := m.channel.Send("mouseMove", map[string]interface{}{
+	_, err := m.channel.Send("mouseMove", map[string]any{
 		"x": x,
 		"y": y,
 	}, options)
@@ -29,7 +29,7 @@ func (m *mouseImpl) Up(options ...MouseUpOptions) error {
 }
 
 func (m *mouseImpl) Click(x, y float64, options ...MouseClickOptions) error {
-	_, err := m.channel.Send("mouseClick", map[string]interface{}{
+	_, err := m.channel.Send("mouseClick", map[string]any{
 		"x": x,
 		"y": y,
 	}, options)
@@ -49,7 +49,7 @@ func (m *mouseImpl) Dblclick(x, y float64, options ...MouseDblclickOptions) erro
 }
 
 func (m *mouseImpl) Wheel(deltaX, deltaY float64) error {
-	_, err := m.channel.Send("mouseWheel", map[string]interface{}{
+	_, err := m.channel.Send("mouseWheel", map[string]any{
 		"deltaX": deltaX,
 		"deltaY": deltaY,
 	})
@@ -67,35 +67,35 @@ func newKeyboard(channel *channel) *keyboardImpl {
 }
 
 func (m *keyboardImpl) Down(key string) error {
-	_, err := m.channel.Send("keyboardDown", map[string]interface{}{
+	_, err := m.channel.Send("keyboardDown", map[string]any{
 		"key": key,
 	})
 	return err
 }
 
 func (m *keyboardImpl) Up(key string) error {
-	_, err := m.channel.Send("keyboardUp", map[string]interface{}{
+	_, err := m.channel.Send("keyboardUp", map[string]any{
 		"key": key,
 	})
 	return err
 }
 
 func (m *keyboardImpl) InsertText(text string) error {
-	_, err := m.channel.Send("keyboardInsertText", map[string]interface{}{
+	_, err := m.channel.Send("keyboardInsertText", map[string]any{
 		"text": text,
 	})
 	return err
 }
 
 func (m *keyboardImpl) Type(text string, options ...KeyboardTypeOptions) error {
-	_, err := m.channel.Send("keyboardInsertText", map[string]interface{}{
+	_, err := m.channel.Send("keyboardInsertText", map[string]any{
 		"text": text,
 	}, options)
 	return err
 }
 
 func (m *keyboardImpl) Press(key string, options ...KeyboardPressOptions) error {
-	_, err := m.channel.Send("keyboardPress", map[string]interface{}{
+	_, err := m.channel.Send("keyboardPress", map[string]any{
 		"key": key,
 	}, options)
 	return err
@@ -112,6 +112,6 @@ func newTouchscreen(channel *channel) *touchscreenImpl {
 }
 
 func (t *touchscreenImpl) Tap(x int, y int) error {
-	_, err := t.channel.Send("touchscreenTap", map[string]interface{}{"x": x, "y": y})
+	_, err := t.channel.Send("touchscreenTap", map[string]any{"x": x, "y": y})
 	return err
 }
