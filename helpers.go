@@ -194,6 +194,21 @@ func remapMapToStruct(inputMap any, outStruct any) {
 	remapValue(reflect.ValueOf(inputMap), reflect.ValueOf(outStruct).Elem())
 }
 
+func remapNullableMapToStruct(inputMap any, outStruct any) bool {
+	if inputMap == nil {
+		return false
+	}
+	value := reflect.ValueOf(inputMap)
+	switch value.Kind() {
+	case reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
+		if value.IsNil() {
+			return false
+		}
+	}
+	remapMapToStruct(inputMap, outStruct)
+	return true
+}
+
 type urlMatcher struct {
 	raw     any
 	pattern *regexp.Regexp

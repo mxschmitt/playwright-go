@@ -128,6 +128,33 @@ func TestRemapMapToStructShouldKeepNilPointerForMissingField(t *testing.T) {
 	require.Nil(t, ourStruct.PartitionKey)
 }
 
+func TestRemapNullableMapToStruct(t *testing.T) {
+	ourStruct := struct {
+		V1 string `json:"v1"`
+	}{}
+	inMap := map[string]any{
+		"v1": "foobar",
+	}
+
+	mapped := remapNullableMapToStruct(inMap, &ourStruct)
+
+	require.True(t, mapped)
+	require.Equal(t, "foobar", ourStruct.V1)
+}
+
+func TestRemapNullableMapToStructShouldReturnFalseForNil(t *testing.T) {
+	ourStruct := struct {
+		V1 string `json:"v1"`
+	}{
+		V1: "keep-me",
+	}
+
+	mapped := remapNullableMapToStruct(nil, &ourStruct)
+
+	require.False(t, mapped)
+	require.Equal(t, "keep-me", ourStruct.V1)
+}
+
 func TestConvertSelectOptionSet(t *testing.T) {
 	testCases := []struct {
 		name         string

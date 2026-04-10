@@ -127,7 +127,9 @@ func (r *responseImpl) SecurityDetails() (*ResponseSecurityDetailsResult, error)
 		return nil, err
 	}
 	result := &ResponseSecurityDetailsResult{}
-	remapMapToStruct(details.(map[string]any), result)
+	if !remapNullableMapToStruct(details, result) {
+		return nil, nil
+	}
 	return result, nil
 }
 
@@ -137,7 +139,9 @@ func (r *responseImpl) ServerAddr() (*ResponseServerAddrResult, error) {
 		return nil, err
 	}
 	result := &ResponseServerAddrResult{}
-	remapMapToStruct(addr, result)
+	if !remapNullableMapToStruct(addr, result) {
+		return nil, nil
+	}
 	return result, nil
 }
 
