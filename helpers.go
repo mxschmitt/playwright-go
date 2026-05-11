@@ -21,7 +21,8 @@ func skipFieldSerialization(val reflect.Value) bool {
 	return (typ.Kind() == reflect.Pointer ||
 		typ.Kind() == reflect.Interface ||
 		typ.Kind() == reflect.Map ||
-		typ.Kind() == reflect.Slice) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Pointer && val.Elem().IsNil())
+		typ.Kind() == reflect.Slice ||
+		typ.Kind() == reflect.Func) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Pointer && val.Elem().IsNil())
 }
 
 func transformStructValues(in any) any {

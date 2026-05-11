@@ -109,7 +109,7 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 
 func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConnectOptions) (Browser, error) {
 	overrides := map[string]any{
-		"wsEndpoint": wsEndpoint,
+		"endpoint": wsEndpoint,
 		"headers": map[string]string{
 			"x-playwright-browser":        b.Name(),
 			"x-playwright-launch-options": "{}",

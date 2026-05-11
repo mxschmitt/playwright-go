@@ -22,6 +22,7 @@ type requestImpl struct {
 	redirectedTo       Request
 	failureText        string
 	fallbackOverrides  *serializedFallbackOverrides
+	hasResponse        bool
 }
 
 func (r *requestImpl) URL() string {
@@ -272,6 +273,9 @@ func newRequest(parent *channelOwner, objectType string, guid string, initialize
 		ResponseEnd:           -1,
 	}
 	req.provisionalHeaders = newRawHeaders(req.initializer["headers"])
+	if hr, ok := initializer["hasResponse"].(bool); ok {
+		req.hasResponse = hr
+	}
 	req.fallbackOverrides = &serializedFallbackOverrides{}
 	return req
 }

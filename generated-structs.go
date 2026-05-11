@@ -646,6 +646,20 @@ type BrowserNewPageOptions struct {
 	Viewport *Size `json:"viewport"`
 }
 
+type Bind struct {
+	Endpoint string `json:"endpoint"`
+}
+
+type BrowserBindOptions struct {
+	// Host to bind the web socket server to. When specified, a web socket server is created instead of a named pipe.
+	Host *string `json:"host"`
+	// Port to bind the web socket server to. When specified, a web socket server is created instead of a named pipe. Use
+	// `0` to let the OS pick an available port.
+	Port *int `json:"port"`
+	// Working directory associated with this browser server.
+	WorkspaceDir *string `json:"workspaceDir"`
+}
+
 type BrowserStartTracingOptions struct {
 	// specify custom categories to use instead of default.
 	Categories []string `json:"categories"`
@@ -819,6 +833,9 @@ type BrowserTypeConnectOptions struct {
 type BrowserTypeConnectOverCDPOptions struct {
 	// Additional HTTP headers to be sent with connect request. Optional.
 	Headers map[string]string `json:"headers"`
+	// Tells Playwright that it runs on the same host as the CDP server. It will enable certain optimizations that rely
+	// upon the file system being the same between Playwright and the Browser.
+	IsLocal *bool `json:"isLocal"`
 	// Slows down Playwright operations by the specified amount of milliseconds. Useful so that you can see what is going
 	// on. Defaults to 0.
 	SlowMo *float64 `json:"slowMo"`
@@ -834,6 +851,10 @@ type BrowserTypeLaunchOptions struct {
 	//
 	// [here]: https://peter.sh/experiments/chromium-command-line-switches/
 	Args []string `json:"args"`
+	// If specified, artifacts (traces, videos, downloads, HAR files, etc.) are saved into this directory. The directory
+	// is not cleaned up when the browser closes. If not specified, a temporary directory is used and cleaned up when the
+	// browser closes.
+	ArtifactsDir *string `json:"artifactsDir"`
 	// Browser distribution channel.
 	// Use "chromium" to [opt in to new headless mode].
 	// Use "chrome", "chrome-beta", "chrome-dev", "chrome-canary", "msedge", "msedge-beta", "msedge-dev", or
@@ -844,13 +865,6 @@ type BrowserTypeLaunchOptions struct {
 	Channel *string `json:"channel"`
 	// Enable Chromium sandboxing. Defaults to `false`.
 	ChromiumSandbox *bool `json:"chromiumSandbox"`
-	// **Chromium-only** Whether to auto-open a Developer Tools panel for each tab. If this option is `true`, the
-	// “[object Object]” option will be set `false`.
-	//
-	// Deprecated: Use [debugging tools] instead.
-	//
-	// [debugging tools]: https://playwright.dev/docs/debug
-	Devtools *bool `json:"devtools"`
 	// If specified, accepted downloads are downloaded into this directory. Otherwise, temporary directory is created and
 	// is deleted when browser is closed. In either case, the downloads are deleted when the browser context they were
 	// created in is closed.
@@ -877,8 +891,7 @@ type BrowserTypeLaunchOptions struct {
 	HandleSIGTERM *bool `json:"handleSIGTERM"`
 	// Whether to run browser in headless mode. More details for
 	// [Chromium] and
-	// [Firefox]. Defaults to `true` unless the
-	// “[object Object]” option is `true`.
+	// [Firefox]. Defaults to `true`.
 	//
 	// [Chromium]: https://developers.google.com/web/updates/2017/04/headless-chrome
 	// [Firefox]: https://hacks.mozilla.org/2017/12/using-headless-mode-in-firefox/
@@ -910,6 +923,10 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	//
 	// [here]: https://peter.sh/experiments/chromium-command-line-switches/
 	Args []string `json:"args"`
+	// If specified, artifacts (traces, videos, downloads, HAR files, etc.) are saved into this directory. The directory
+	// is not cleaned up when the browser closes. If not specified, a temporary directory is used and cleaned up when the
+	// browser closes.
+	ArtifactsDir *string `json:"artifactsDir"`
 	// When using [Page.Goto], [Page.Route], [Page.WaitForURL], [Page.ExpectRequest], or [Page.ExpectResponse] it takes
 	// the base URL in consideration by using the [`URL()`]
 	// constructor for building the corresponding URL. Unset by default. Examples:
@@ -958,13 +975,6 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	//
 	// [emulating devices with device scale factor]: https://playwright.dev/docs/emulation#devices
 	DeviceScaleFactor *float64 `json:"deviceScaleFactor"`
-	// **Chromium-only** Whether to auto-open a Developer Tools panel for each tab. If this option is `true`, the
-	// “[object Object]” option will be set `false`.
-	//
-	// Deprecated: Use [debugging tools] instead.
-	//
-	// [debugging tools]: https://playwright.dev/docs/debug
-	Devtools *bool `json:"devtools"`
 	// If specified, accepted downloads are downloaded into this directory. Otherwise, temporary directory is created and
 	// is deleted when browser is closed. In either case, the downloads are deleted when the browser context they were
 	// created in is closed.
@@ -1002,8 +1012,7 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	HasTouch *bool `json:"hasTouch"`
 	// Whether to run browser in headless mode. More details for
 	// [Chromium] and
-	// [Firefox]. Defaults to `true` unless the
-	// “[object Object]” option is `true`.
+	// [Firefox]. Defaults to `true`.
 	//
 	// [Chromium]: https://developers.google.com/web/updates/2017/04/headless-chrome
 	// [Firefox]: https://hacks.mozilla.org/2017/12/using-headless-mode-in-firefox/
@@ -1123,6 +1132,17 @@ type ConsoleMessageLocation struct {
 	LineNumber int `json:"lineNumber"`
 	// 0-based column number in the resource.
 	ColumnNumber int `json:"columnNumber"`
+}
+
+type PausedDetail struct {
+	Location *PausedDetailLocation `json:"location"`
+	Title    string                `json:"title"`
+}
+
+type DebuggerLocation struct {
+	File   string `json:"file"`
+	Line   *int   `json:"line"`
+	Column *int   `json:"column"`
 }
 
 type Rect struct {
@@ -2134,7 +2154,7 @@ type FrameExpectNavigationOptions struct {
 	// be changed by using the [BrowserContext.SetDefaultNavigationTimeout], [BrowserContext.SetDefaultTimeout],
 	// [Page.SetDefaultNavigationTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
-	// A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
+	// A glob pattern, regex pattern, or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	// the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	// equal to the string.
 	URL any `json:"url"`
@@ -2295,6 +2315,11 @@ type KeyboardTypeOptions struct {
 }
 
 type LocatorAriaSnapshotOptions struct {
+	// When specified, limits the depth of the snapshot.
+	Depth *int `json:"depth"`
+	// When set to `"ai"`, returns a snapshot optimized for AI consumption. Defaults to `"default"`. See details for more
+	// information.
+	Mode *AriaSnapshotMode `json:"mode"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -3616,6 +3641,11 @@ type PageIsVisibleOptions struct {
 	Timeout *float64 `json:"timeout"`
 }
 
+type PageConsoleMessagesOptions struct {
+	// Controls which messages are returned:
+	Filter *ConsoleMessagesFilter `json:"filter"`
+}
+
 type PageLocatorOptions struct {
 	// Narrows down the results of the method to those which contain elements matching this relative locator. For example,
 	// `article` that has `text=Playwright` matches `<article><div>Playwright</div></article>`.
@@ -3869,6 +3899,17 @@ type PageSetInputFilesOptions struct {
 	Timeout *float64 `json:"timeout"`
 }
 
+type PageAriaSnapshotOptions struct {
+	// When specified, limits the depth of the snapshot.
+	Depth *int `json:"depth"`
+	// When set to `"ai"`, returns a snapshot optimized for AI consumption: including element references like `[ref=e2]`
+	// and snapshots of `<iframe>`s. Defaults to `"default"`.
+	Mode *AriaSnapshotMode `json:"mode"`
+	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
+	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	Timeout *float64 `json:"timeout"`
+}
+
 type PageTapOptions struct {
 	// Whether to bypass the [actionability] checks. Defaults to `false`.
 	//
@@ -4027,7 +4068,7 @@ type PageExpectNavigationOptions struct {
 	// be changed by using the [BrowserContext.SetDefaultNavigationTimeout], [BrowserContext.SetDefaultTimeout],
 	// [Page.SetDefaultNavigationTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
-	// A glob pattern, regex pattern or predicate receiving [URL] to match while waiting for the navigation. Note that if
+	// A glob pattern, regex pattern, or predicate receiving [URL] to match while waiting for the navigation. Note that if
 	// the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	// equal to the string.
 	URL any `json:"url"`
@@ -4261,6 +4302,37 @@ type RouteFulfillOptions struct {
 	Status *int `json:"status"`
 }
 
+type ScreencastStartOptions struct {
+	// Callback that receives JPEG-encoded frame data.
+	OnFrame func(OnFrame) `json:"onFrame"`
+	// Path where the video should be saved when the screencast is stopped. When provided, video recording is started.
+	Path *string `json:"path"`
+	// The quality of the image, between 0-100.
+	Quality *int `json:"quality"`
+}
+
+type ScreencastShowOverlayOptions struct {
+	// Duration in milliseconds after which the overlay is automatically removed. Overlay stays until dismissed if not
+	// provided.
+	Duration *float64 `json:"duration"`
+}
+
+type ScreencastShowChapterOptions struct {
+	// Optional description text displayed below the title.
+	Description *string `json:"description"`
+	// Duration in milliseconds after which the overlay is automatically removed. Defaults to `2000`.
+	Duration *float64 `json:"duration"`
+}
+
+type ScreencastShowActionsOptions struct {
+	// How long each annotation is displayed in milliseconds. Defaults to `500`.
+	Duration *float64 `json:"duration"`
+	// Font size of the action title in pixels. Defaults to `24`.
+	FontSize *int `json:"fontSize"`
+	// Position of the action title overlay. Defaults to `"top-right"`.
+	Position *AnnotatePosition `json:"position"`
+}
+
 type SelectorsRegisterOptions struct {
 	// Whether to run this selector engine in isolated JavaScript environment. This environment has access to the same
 	// DOM, but not any JavaScript objects from the frame's scripts. Defaults to `false`. Note that running as a content
@@ -4269,6 +4341,10 @@ type SelectorsRegisterOptions struct {
 }
 
 type TracingStartOptions struct {
+	// When enabled, the trace is written to an unarchived file that is updated in real time as actions occur, instead of
+	// caching changes and archiving them into a zip file at the end. This is useful for live trace viewing during test
+	// execution.
+	Live *bool `json:"live"`
 	// If specified, intermediate trace files are going to be saved into the files with the given name prefix inside the
 	// “[object Object]” directory specified in [BrowserType.Launch]. To specify the final trace zip file name, you need
 	// to pass `path` option to [Tracing.Stop] instead.
@@ -4376,12 +4452,15 @@ type Origin struct {
 }
 
 type RecordVideo struct {
-	// Path to the directory to put videos into.
-	Dir string `json:"dir"`
+	// Path to the directory to put videos into. If not specified, the videos will be stored in `artifactsDir` (see
+	// [BrowserType.Launch] options).
+	Dir *string `json:"dir"`
 	// Optional dimensions of the recorded videos. If not specified the size will be equal to `viewport` scaled down to
 	// fit into 800x800. If `viewport` is not configured explicitly the video size defaults to 800x450. Actual picture of
 	// each page will be scaled down if necessary to fit the specified size.
 	Size *Size `json:"size"`
+	// If specified, enables visual annotations on interacted elements during video recording.
+	ShowActions *ShowAction `json:"showActions"`
 }
 
 type OptionalStorageState struct {
@@ -4389,6 +4468,12 @@ type OptionalStorageState struct {
 	Cookies []OptionalCookie `json:"cookies"`
 	// localStorage to set for context
 	Origins []Origin `json:"origins"`
+}
+
+type PausedDetailLocation struct {
+	File   string `json:"file"`
+	Line   *int   `json:"line"`
+	Column *int   `json:"column"`
 }
 
 type Position struct {
@@ -4407,8 +4492,22 @@ type Margin struct {
 	Left *string `json:"left"`
 }
 
+type OnFrame struct {
+	// JPEG-encoded frame data.
+	Data []byte `json:"data"`
+}
+
 type TracingGroupOptionsLocation struct {
 	File   string `json:"file"`
 	Line   *int   `json:"line"`
 	Column *int   `json:"column"`
+}
+
+type ShowAction struct {
+	// How long each annotation is displayed in milliseconds. Defaults to `500`.
+	Duration *float64 `json:"duration"`
+	// Position of the action title overlay. Defaults to `"top-right"`.
+	Position *AnnotatePosition `json:"position"`
+	// Font size of the action title in pixels. Defaults to `24`.
+	FontSize *int `json:"fontSize"`
 }

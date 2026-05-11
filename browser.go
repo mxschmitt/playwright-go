@@ -134,6 +134,20 @@ func (b *browserImpl) Contexts() []BrowserContext {
 	return b.contexts
 }
 
+func (b *browserImpl) Bind(title string, options ...BrowserBindOptions) (*Bind, error) {
+	overrides := map[string]any{"title": title}
+	result, err := b.channel.SendReturnAsDict("startServer", options, overrides)
+	if err != nil {
+		return nil, err
+	}
+	return &Bind{Endpoint: result["endpoint"].(string)}, nil
+}
+
+func (b *browserImpl) Unbind() error {
+	_, err := b.channel.Send("stopServer")
+	return err
+}
+
 func (b *browserImpl) Close(options ...BrowserCloseOptions) (err error) {
 	if len(options) == 1 {
 		b.closeReason = options[0].Reason

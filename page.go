@@ -131,7 +131,7 @@ func (p *pageImpl) Close(options ...PageCloseOptions) error {
 	if err == nil && p.ownedContext != nil {
 		err = p.ownedContext.Close()
 	}
-	if errors.Is(err, ErrTargetClosed) || (len(options) == 1 && options[0].RunBeforeUnload != nil && *(options[0].RunBeforeUnload)) {
+	if errors.Is(err, ErrTargetClosed) || (len(options) == 1 && options[0].RunBeforeUnload != nil && *options[0].RunBeforeUnload) {
 		return nil
 	}
 	return err
@@ -747,7 +747,7 @@ func (p *pageImpl) Keyboard() Keyboard {
 	return p.keyboard
 }
 
-func (p *pageImpl) ConsoleMessages() ([]ConsoleMessage, error) {
+func (p *pageImpl) ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error) {
 	result, err := p.channel.Send("consoleMessages", nil)
 	if err != nil {
 		return nil, err
@@ -868,10 +868,11 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
 		bt.Emit("download", newDownload(bt, url, suggestedFilename, artifact))
 	})
-	bt.channel.On("video", func(params map[string]any) {
-		artifact := fromChannel(params["artifact"]).(*artifactImpl)
+	// PW 1.59+: video artifact comes from page initializer
+	if videoChannel, ok := initializer["video"]; ok && videoChannel != nil {
+		artifact := fromChannel(videoChannel).(*artifactImpl)
 		bt.Video().(*videoImpl).artifactReady(artifact)
-	})
+	}
 	bt.channel.On("webSocket", func(ev map[string]any) {
 		bt.Emit("websocket", fromChannel(ev["webSocket"]).(*webSocketImpl))
 	})
@@ -1408,4 +1409,42 @@ func (p *pageImpl) updateWebSocketInterceptionPatterns() error {
 		"patterns": patterns,
 	})
 	return err
+}
+
+func (p *pageImpl) AriaSnapshot(options ...PageAriaSnapshotOptions) (string, error) {
+	result, err := p.mainFrame.(*frameImpl).channel.Send("ariaSnapshot", options)
+	if err != nil {
+		return "", err
+	}
+	return result.(string), nil
+}
+
+func (p *pageImpl) ClearConsoleMessages() error {
+	_, err := p.channel.Send("clearConsoleMessages")
+	return err
+}
+
+func (p *pageImpl) ClearPageErrors() error {
+	_, err := p.channel.Send("clearPageErrors")
+	return err
+}
+
+func (p *pageImpl) PageErrors() ([]string, error) {
+	result, err := p.channel.Send("pageErrors")
+	if err != nil {
+		return nil, err
+	}
+	items := result.([]any)
+	errors := make([]string, len(items))
+	for i, item := range items {
+		se := item.(map[string]any)
+		if errObj, ok := se["error"].(map[string]any); ok {
+			errors[i] = errObj["message"].(string)
+		}
+	}
+	return errors, nil
+}
+
+func (p *pageImpl) Screencast() (Screencast, error) {
+	return &screencastImpl{page: p}, nil
 }

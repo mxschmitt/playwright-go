@@ -84,7 +84,8 @@ func TestConsoleShouldWorkForDifferentConsoleAPICalls(t *testing.T) {
       console.warn('calling console.warn');
       console.error('calling console.error');
       console.log(Promise.resolve('should not wait until resolved!'));
-	}`)
+	}`,
+	)
 	messages := ChanToSlice(messagesChan, 6)
 	require.NoError(t, err)
 	require.Equal(t, []string{

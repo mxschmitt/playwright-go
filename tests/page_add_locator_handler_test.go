@@ -275,7 +275,8 @@ func TestPageAddLocatorHandlerShouldWorkWithTimes(t *testing.T) {
 	_, err = page.Evaluate(`() => { window.clicked = 0; window.setupAnnoyingInterstitial("mouseover", 4); }`)
 	require.NoError(t, err)
 	err1 := page.Locator("#target").Click(
-		playwright.LocatorClickOptions{Timeout: playwright.Float(2000)})
+		playwright.LocatorClickOptions{Timeout: playwright.Float(2000)},
+	)
 	require.Equal(t, 2, called)
 
 	ret, err := page.Evaluate(`window.clicked`)
@@ -307,7 +308,8 @@ func TestPageAddLocatorHandlerShouldWorkWithNoWaitAfter(t *testing.T) {
 		},
 		playwright.PageAddLocatorHandlerOptions{
 			NoWaitAfter: playwright.Bool(true),
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	require.NoError(t, page.Locator("#aside").Hover())
@@ -335,7 +337,8 @@ func TestPageAddLocatorHandlerShouldRemoveLocatorHandler(t *testing.T) {
 		func(loc playwright.Locator) {
 			called++
 			require.NoError(t, loc.Click())
-		})
+		},
+	)
 	require.NoError(t, err)
 
 	_, err = page.Evaluate(`() => { window.clicked = 0; window.setupAnnoyingInterstitial("hide", 1); }`)
@@ -352,7 +355,8 @@ func TestPageAddLocatorHandlerShouldRemoveLocatorHandler(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, page.RemoveLocatorHandler(page.GetByRole("button", playwright.PageGetByRoleOptions{Name: "close"})))
 	err1 := page.Locator("#target").Click(
-		playwright.LocatorClickOptions{Timeout: playwright.Float(2000)})
+		playwright.LocatorClickOptions{Timeout: playwright.Float(2000)},
+	)
 	require.Equal(t, 1, called)
 	ret, err = page.Evaluate(`window.clicked`)
 	require.NoError(t, err)

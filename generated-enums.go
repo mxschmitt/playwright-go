@@ -365,6 +365,18 @@ var (
 	LoadStateNetworkidle                 = getLoadState("networkidle")
 )
 
+func getAriaSnapshotMode(in string) *AriaSnapshotMode {
+	v := AriaSnapshotMode(in)
+	return &v
+}
+
+type AriaSnapshotMode string
+
+var (
+	AriaSnapshotModeAi      *AriaSnapshotMode = getAriaSnapshotMode("ai")
+	AriaSnapshotModeDefault                   = getAriaSnapshotMode("default")
+)
+
 func getContrast(in string) *Contrast {
 	v := Contrast(in)
 	return &v
@@ -389,6 +401,34 @@ var (
 	MediaScreen     *Media = getMedia("screen")
 	MediaPrint             = getMedia("print")
 	MediaNoOverride        = getMedia("no-override")
+)
+
+func getConsoleMessagesFilter(in string) *ConsoleMessagesFilter {
+	v := ConsoleMessagesFilter(in)
+	return &v
+}
+
+type ConsoleMessagesFilter string
+
+var (
+	ConsoleMessagesFilterAll             *ConsoleMessagesFilter = getConsoleMessagesFilter("all")
+	ConsoleMessagesFilterSinceNavigation                        = getConsoleMessagesFilter("since-navigation")
+)
+
+func getAnnotatePosition(in string) *AnnotatePosition {
+	v := AnnotatePosition(in)
+	return &v
+}
+
+type AnnotatePosition string
+
+var (
+	AnnotatePositionTopLeft     *AnnotatePosition = getAnnotatePosition("top-left")
+	AnnotatePositionTop                           = getAnnotatePosition("top")
+	AnnotatePositionTopRight                      = getAnnotatePosition("top-right")
+	AnnotatePositionBottomLeft                    = getAnnotatePosition("bottom-left")
+	AnnotatePositionBottom                        = getAnnotatePosition("bottom")
+	AnnotatePositionBottomRight                   = getAnnotatePosition("bottom-right")
 )
 
 func getHttpCredentialsSend(in string) *HttpCredentialsSend {

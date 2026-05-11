@@ -646,7 +646,8 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 			l.err = errors.Join(l.err, ErrLocatorNotSameFrame)
 			return l
 		}
-		return newLocator(l.frame,
+		return newLocator(
+			l.frame,
 			l.selector+" >> internal:chain="+escapeText(locator.selector),
 			option,
 		)
@@ -929,4 +930,17 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		}
 	}
 	return &frameExpectResult{Received: received, Matches: matches, Log: log}, nil
+}
+
+func (l *locatorImpl) Normalize() Locator {
+	result, err := l.frame.channel.Send("resolveSelector", map[string]any{
+		"selector": l.selector,
+	})
+	if err != nil {
+		return l
+	}
+	if selector, ok := result.(string); ok {
+		return newLocator(l.frame, selector)
+	}
+	return l
 }

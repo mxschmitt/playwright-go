@@ -613,7 +613,8 @@ func TestShouldSupportLocatorOr(t *testing.T) {
 	require.NoError(t, expect.Locator(page.Locator("div").Or(page.Locator("span"))).ToHaveCount(2))
 	require.NoError(t, expect.Locator(page.Locator("div").Or(page.Locator("span"))).ToHaveText([]string{"hello", "world"}))
 	require.NoError(t, expect.Locator(
-		page.Locator("span").Or(page.Locator("article")).Or(page.Locator("div"))).ToHaveText([]string{"hello", "world"}))
+		page.Locator("span").Or(page.Locator("article")).Or(page.Locator("div")),
+	).ToHaveText([]string{"hello", "world"}))
 
 	require.NoError(t, expect.Locator(page.Locator("article").Or(page.Locator("something"))).ToHaveCount(0))
 	require.NoError(t, expect.Locator(page.Locator("article").Or(page.Locator("div"))).ToHaveText("hello"))

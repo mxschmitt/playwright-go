@@ -31,6 +31,8 @@ func createObjectFactory(parent *channelOwner, objectType string, guid string, i
 		return newBrowserType(parent, objectType, guid, initializer)
 	case "BrowserContext":
 		return newBrowserContext(parent, objectType, guid, initializer)
+	case "Debugger":
+		return newDebugger(parent, objectType, guid, initializer)
 	case "CDPSession":
 		return newCDPSession(parent, objectType, guid, initializer)
 	case "Dialog":
@@ -79,6 +81,10 @@ func createObjectFactory(parent *channelOwner, objectType string, guid string, i
 		return newWorker(parent, objectType, guid, initializer)
 	case "WritableStream":
 		return newWritableStream(parent, objectType, guid, initializer)
+	// Disposable objects are sent by the driver but not exposed in Go API.
+	// Methods returning Disposable in JS return only error in Go.
+	case "Disposable":
+		return newDisposable(parent, objectType, guid, initializer)
 	default:
 		panic(objectType)
 	}

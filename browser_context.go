@@ -28,6 +28,8 @@ type browserContextImpl struct {
 	backgroundPages []Page
 	bindings        *safe.SyncMap[string, BindingCallFunction]
 	tracing         *tracingImpl
+	debugger        *debuggerImpl
+	isClosedFlag    bool
 	request         *apiRequestContextImpl
 	harRecorders    map[string]harRecordingMetadata
 	closed          chan struct{}
@@ -70,6 +72,10 @@ func (b *browserContextImpl) Pages() []Page {
 
 func (b *browserContextImpl) Browser() Browser {
 	return b.browser
+}
+
+func (b *browserContextImpl) Debugger() (Debugger, error) {
+	return b.debugger, nil
 }
 
 func (b *browserContextImpl) Tracing() Tracing {
@@ -547,6 +553,7 @@ func (b *browserContextImpl) onBinding(binding *bindingCallImpl) {
 }
 
 func (b *browserContextImpl) onClose() {
+	b.isClosedFlag = true
 	if b.browser != nil {
 		contexts := make([]BrowserContext, 0)
 		b.browser.Lock()
@@ -813,6 +820,11 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		bt.browser.contexts = append(bt.browser.contexts, bt)
 	}
 	bt.tracing = fromChannel(initializer["tracing"]).(*tracingImpl)
+	if dbg := fromNullableChannel(initializer["debugger"]); dbg != nil {
+		if d, ok := dbg.(*debuggerImpl); ok {
+			bt.debugger = d
+		}
+	}
 	bt.request = fromChannel(initializer["requestContext"]).(*apiRequestContextImpl)
 	bt.clock = newClock(bt)
 
@@ -952,4 +964,21 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		"responsefailed":  "responseFailed",
 	})
 	return bt
+}
+
+func (b *browserContextImpl) IsClosed() bool {
+	return b.isClosedFlag || b.closeReason != nil
+}
+
+func (b *browserContextImpl) SetStorageState(storageStatePath string) error {
+	storageString, err := os.ReadFile(storageStatePath)
+	if err != nil {
+		return err
+	}
+	var storageState map[string]any
+	if err := json.Unmarshal(storageString, &storageState); err != nil {
+		return err
+	}
+	_, err = b.channel.Send("setStorageState", map[string]any{"storageState": storageState})
+	return err
 }

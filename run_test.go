@@ -76,8 +76,8 @@ func TestRunOptions_OnlyInstallShell(t *testing.T) {
 	require.NoError(t, w.Close())
 	wg.Wait()
 
-	assert.Contains(t, output, "browser: chromium-headless-shell version")
-	assert.NotContains(t, output, "browser: chromium version")
+	assert.Contains(t, output, "chromium-headless-shell")
+	assert.NotContains(t, output, "Chrome for Testing")
 }
 
 func TestDriverInstall(t *testing.T) {

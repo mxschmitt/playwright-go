@@ -463,3 +463,18 @@ func serializeMapToNameValue(data map[string]any) []map[string]string {
 	}
 	return serialized
 }
+
+func (r *requestImpl) ExistingResponse() (Response, error) {
+	if !r.hasResponse {
+		return nil, nil
+	}
+	return r.Response()
+}
+
+func (r *responseImpl) HttpVersion() (string, error) {
+	result, err := r.channel.Send("httpVersion")
+	if err != nil {
+		return "", err
+	}
+	return result.(string), nil
+}
