@@ -10,17 +10,15 @@ type APIRequest interface {
 
 // This API is used for the Web API testing. You can use it to trigger API endpoints, configure micro-services,
 // prepare environment or the service to your e2e test.
-// Each Playwright browser context has associated with it [APIRequestContext] instance which shares cookie storage
-// with the browser context and can be accessed via [BrowserContext.Request] or [Page.Request]. It is also possible to
-// create a new APIRequestContext instance manually by calling [APIRequest.NewContext].
+// Each Playwright browser context has an associated [APIRequestContext], accessible via [BrowserContext.Request] or
+// [Page.Request] (these return the
+// **same instance** — `page.request` is a shortcut for `page.context().request`). You can also create a standalone,
+// isolated instance with [APIRequest.NewContext].
 // **Cookie management**
-// [APIRequestContext] returned by [BrowserContext.Request] and [Page.Request] shares cookie storage with the
-// corresponding [BrowserContext]. Each API request will have `Cookie` header populated with the values from the
-// browser context. If the API response contains `Set-Cookie` header it will automatically update [BrowserContext]
-// cookies and requests made from the page will pick them up. This means that if you log in using this API, your e2e
-// test will be logged in and vice versa.
-// If you want API requests to not interfere with the browser cookies you should create a new [APIRequestContext] by
-// calling [APIRequest.NewContext]. Such `APIRequestContext` object will have its own isolated cookie storage.
+// The [APIRequestContext] returned by [BrowserContext.Request] and
+// [Page.Request] uses the same cookie jar as its [BrowserContext]:
+// If you want API requests that do **not** share cookies with the browser, create an isolated context via
+// [APIRequest.NewContext]. Such `APIRequestContext` object will have its own isolated cookie storage.
 type APIRequestContext interface {
 	// Sends HTTP(S) [DELETE] request and returns its
 	// response. The method will populate request cookies from the context and update context cookies from the response.
@@ -90,6 +88,8 @@ type APIRequestContext interface {
 	// Returns storage state for this request context, contains current cookies and local storage snapshot if it was
 	// passed to the constructor.
 	StorageState(path ...string) (*StorageState, error)
+
+	Tracing() Tracing
 }
 
 // [APIResponse] class represents responses returned by [APIRequestContext.Get] and similar methods.
@@ -140,6 +140,9 @@ type APIResponseAssertions interface {
 // A Browser is created via [BrowserType.Launch]. An example of using a [Browser] to create a [Page]:
 type Browser interface {
 	EventEmitter
+	// Emitted when a new browser context is created.
+	OnContext(fn func(BrowserContext))
+
 	// Emitted when Browser gets disconnected from the browser application. This might happen because of one of the
 	// following:
 	//  - Browser application is closed or crashed.
@@ -253,6 +256,23 @@ type BrowserContext interface {
 	// [freeze]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/EventLoop#never_blocking
 	OnDialog(fn func(Dialog))
 
+	// Emitted when attachment download started in any page belonging to this context. User can access basic file
+	// operations on downloaded content via the passed [Download] instance. See also [Page.OnDownload] to receive events
+	// about a specific page.
+	OnDownload(fn func(Download))
+
+	// Emitted when a frame is attached in any page belonging to this context. See also [Page.OnFrameAttached] to receive
+	// events about a specific page.
+	OnFrameAttached(fn func(Frame))
+
+	// Emitted when a frame is detached in any page belonging to this context. See also [Page.OnFrameDetached] to receive
+	// events about a specific page.
+	OnFrameDetached(fn func(Frame))
+
+	// Emitted when a frame is navigated to a new url in any page belonging to this context. See also
+	// [Page.OnFrameNavigated] to receive events about navigations in a specific page.
+	OnFrameNavigated(fn func(Frame))
+
 	// The event is emitted when a new Page is created in the BrowserContext. The page may still be loading. The event
 	// will also fire for popup pages. See also [Page.OnPopup] to receive events about popups relevant to a specific page.
 	// The earliest moment that page is available is when it has navigated to the initial url. For example, when opening a
@@ -263,6 +283,15 @@ type BrowserContext interface {
 	// **NOTE** Use [Page.WaitForLoadState] to wait until the page gets to a particular state (you should not need it in
 	// most cases).
 	OnPage(fn func(Page))
+
+	// Emitted when a page in this context is closed. See also [Page.OnClose] to receive events about a specific page.
+	OnPageClose(fn func(Page))
+
+	// Emitted when the JavaScript [`load`] event is dispatched
+	// in any page belonging to this context. See also [Page.OnLoad] to receive events about a specific page.
+	//
+	// [`load`]: https://developer.mozilla.org/en-US/docs/Web/Events/load
+	OnPageLoad(fn func(Page))
 
 	// Emitted when exception is unhandled in any of the pages in this context. To listen for errors from a particular
 	// page, use [Page.OnPageError] instead.
@@ -335,7 +364,7 @@ type BrowserContext interface {
 	//
 	// 1. name: Name of the function on the window object.
 	// 2. binding: Callback function that will be called in the Playwright's context.
-	ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error
+	ExposeBinding(name string, binding BindingCallFunction) error
 
 	// The method adds a function called “[object Object]” on the `window` object of every frame in every page in the
 	// context. When called, the function executes “[object Object]” and returns a [Promise] which resolves to the return
@@ -2456,6 +2485,20 @@ type Locator interface {
 	//  target: Locator of the element to drag to.
 	DragTo(target Locator, options ...LocatorDragToOptions) error
 
+	// Simulate an external drag-and-drop of files or clipboard-like data onto this locator.
+	//
+	// # Details
+	//
+	// Dispatches the native `dragenter`, `dragover`, and `drop` events at the center of the target element with a
+	// synthetic [DataTransfer] carrying the provided files and/or data entries. Works cross-browser by constructing the
+	// [DataTransfer] in the page context.
+	// If the target element's `dragover` listener does not call `preventDefault()`, the target is considered to have
+	// rejected the drop: Playwright dispatches `dragleave` and this method throws.
+	//
+	//  payload: Data to drop onto the target. Provide `files` (file paths or in-memory buffers), `data` (a mime-type → string map
+	//    for clipboard-like content such as `text/plain`, `text/html`, `text/uri-list`), or both.
+	Drop(payload Payload, options ...LocatorDropOptions) error
+
 	// Resolves given locator to the first matching DOM element. If there are no matching elements, waits for one. If
 	// multiple elements match the locator, throws.
 	//
@@ -2630,6 +2673,9 @@ type Locator interface {
 	//
 	//  text: Text to locate the element for.
 	GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator
+
+	// Hides the element highlight previously added by [Locator.Highlight].
+	HideHighlight() error
 
 	// Highlight the corresponding element(s) on the screen. Useful for debugging, don't commit the code that uses
 	// [Locator.Highlight].
@@ -3461,7 +3507,7 @@ type Page interface {
 	//
 	// 1. name: Name of the function on the window object.
 	// 2. binding: Callback function that will be called in the Playwright's context.
-	ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error
+	ExposeBinding(name string, binding BindingCallFunction) error
 
 	// The method adds a function called “[object Object]” on the `window` object of every frame in the page. When called,
 	// the function executes “[object Object]” and returns a [Promise] which resolves to the return value of
@@ -3636,6 +3682,9 @@ type Page interface {
 	//
 	// [upstream issue]: https://bugs.chromium.org/p/chromium/issues/detail?id=761295
 	Goto(url string, options ...PageGotoOptions) (Response, error)
+
+	// Hide all locator highlight overlays previously added by [Locator.Highlight] on this page.
+	HideHighlight() error
 
 	// This method hovers over an element matching “[object Object]” by performing the following steps:
 	//  1. Find an element matching “[object Object]”. If there is none, wait until a matching element is attached to
@@ -4297,6 +4346,11 @@ type PageAssertions interface {
 	// Makes the assertion check for the opposite condition.
 	Not() PageAssertions
 
+	// Asserts that the page body matches the given [accessibility snapshot].
+	//
+	// [accessibility snapshot]: https://playwright.dev/docs/aria-snapshots
+	ToMatchAriaSnapshot(expected string, options ...PageAssertionsToMatchAriaSnapshotOptions) error
+
 	// Ensures the page has the given title.
 	//
 	//  titleOrRegExp: Expected title or RegExp.
@@ -4652,6 +4706,14 @@ type Tracing interface {
 	// once, and then create multiple trace chunks with [Tracing.StartChunk] and [Tracing.StopChunk].
 	StartChunk(options ...TracingStartChunkOptions) error
 
+	// Start recording a HAR (HTTP Archive) of network activity in this context. The HAR file is written to disk when
+	// [Tracing.StopHar] is called, or when the returned [Disposable] is disposed.
+	// Only one HAR recording can be active at a time per [BrowserContext].
+	//
+	//  path: Path on the filesystem to write the HAR file to. If the file name ends with `.zip`, the HAR is saved as a zip
+	//    archive with response bodies attached as separate files.
+	StartHar(path string, options ...TracingStartHarOptions) error
+
 	// **NOTE** Use `test.step` instead when available.
 	// Creates a new group within the trace, assigning any subsequent API calls to this group, until [Tracing.GroupEnd] is
 	// called. Groups can be nested and will be visible in the trace viewer.
@@ -4667,6 +4729,9 @@ type Tracing interface {
 
 	// Stop the trace chunk. See [Tracing.StartChunk] for more details about multiple trace chunks.
 	StopChunk(path ...string) error
+
+	// Stop HAR recording and save the HAR file to the path given to [Tracing.StartHar].
+	StopHar() error
 }
 
 // When browser context is created with the `recordVideo` option, each page has a video object associated with it.
@@ -4693,6 +4758,8 @@ type WebError interface {
 
 	// Unhandled error that was thrown.
 	Error() error
+
+	Location() *WebErrorLocation
 }
 
 // The [WebSocket] class represents WebSocket connections within a page. It provides the ability to inspect and
@@ -4803,6 +4870,14 @@ type WebSocketRoute interface {
 	//
 	//  message: Message to send.
 	Send(message any)
+
+	// The list of WebSocket subprotocols requested by the page, as passed via the second argument to the
+	// [`WebSocket` constructor]. Corresponds to the
+	// `Sec-WebSocket-Protocol` request header.
+	// Returns an empty array if no protocols were specified.
+	//
+	// [`WebSocket` constructor]: https://developer.mozilla.org/en-US/docs/Web/API/WebSocket/WebSocket
+	Protocols() ([]string, error)
 
 	// URL of the WebSocket created in the page.
 	URL() string

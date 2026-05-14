@@ -239,6 +239,11 @@ func (p *pageImpl) EvaluateHandle(expression string, arg ...any) (JSHandle, erro
 	return p.mainFrame.EvaluateHandle(expression, arg...)
 }
 
+func (p *pageImpl) HideHighlight() error {
+	_, err := p.channel.Send("hideHighlight")
+	return err
+}
+
 func (p *pageImpl) EvalOnSelector(selector string, expression string, arg any, options ...PageEvalOnSelectorOptions) (any, error) {
 	if len(options) == 1 {
 		return p.mainFrame.EvalOnSelector(selector, expression, arg, FrameEvalOnSelectorOptions(options[0]))
@@ -1110,11 +1115,7 @@ func (p *pageImpl) ExposeFunction(name string, binding ExposedFunction) error {
 	})
 }
 
-func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error {
-	needsHandle := false
-	if len(handle) == 1 {
-		needsHandle = handle[0]
-	}
+func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction) error {
 	if _, ok := p.bindings.Load(name); ok {
 		return fmt.Errorf("Function '%s' has been already registered", name)
 	}
@@ -1122,8 +1123,7 @@ func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction, handl
 		return fmt.Errorf("Function '%s' has been already registered in the browser context", name)
 	}
 	_, err := p.channel.Send("exposeBinding", map[string]any{
-		"name":        name,
-		"needsHandle": needsHandle,
+		"name": name,
 	})
 	if err != nil {
 		return err

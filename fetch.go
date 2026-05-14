@@ -321,6 +321,10 @@ func (r *apiRequestContextImpl) StorageState(path ...string) (*StorageState, err
 	return &storageState, nil
 }
 
+func (r *apiRequestContextImpl) Tracing() Tracing {
+	return r.tracing
+}
+
 func newAPIRequestContext(parent *channelOwner, objectType string, guid string, initializer map[string]any) *apiRequestContextImpl {
 	rc := &apiRequestContextImpl{}
 	rc.createChannelOwner(rc, parent, objectType, guid, initializer)

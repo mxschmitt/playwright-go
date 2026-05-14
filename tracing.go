@@ -156,6 +156,16 @@ func (t *tracingImpl) GroupEnd() error {
 	return err
 }
 
+func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) error {
+	_, err := t.channel.Send("tracingStartHar", options, map[string]any{"path": path})
+	return err
+}
+
+func (t *tracingImpl) StopHar() error {
+	_, err := t.channel.Send("tracingStopHar")
+	return err
+}
+
 func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]any) *tracingImpl {
 	bt := &tracingImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)

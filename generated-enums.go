@@ -135,6 +135,19 @@ var (
 	ColorSchemeNoOverride                = getColorScheme("no-override")
 )
 
+func getContrast(in string) *Contrast {
+	v := Contrast(in)
+	return &v
+}
+
+type Contrast string
+
+var (
+	ContrastNoPreference *Contrast = getContrast("no-preference")
+	ContrastMore                   = getContrast("more")
+	ContrastNoOverride             = getContrast("no-override")
+)
+
 func getForcedColors(in string) *ForcedColors {
 	v := ForcedColors(in)
 	return &v
@@ -377,17 +390,16 @@ var (
 	AriaSnapshotModeDefault                   = getAriaSnapshotMode("default")
 )
 
-func getContrast(in string) *Contrast {
-	v := Contrast(in)
+func getPseudoElement(in string) *PseudoElement {
+	v := PseudoElement(in)
 	return &v
 }
 
-type Contrast string
+type PseudoElement string
 
 var (
-	ContrastNoPreference *Contrast = getContrast("no-preference")
-	ContrastMore                   = getContrast("more")
-	ContrastNoOverride             = getContrast("no-override")
+	PseudoElementBefore *PseudoElement = getPseudoElement("before")
+	PseudoElementAfter                 = getPseudoElement("after")
 )
 
 func getMedia(in string) *Media {

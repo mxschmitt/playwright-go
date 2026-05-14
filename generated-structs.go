@@ -382,6 +382,10 @@ type BrowserNewContextOptions struct {
 	//
 	// [prefers-colors-scheme]: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 	ColorScheme *ColorScheme `json:"colorScheme"`
+	// Emulates `prefers-contrast` media feature, supported values are `no-preference`, `more`. See
+	// [Page.EmulateMedia] for more details. Passing `no-override` resets emulation to system defaults. Defaults to
+	// `no-preference`.
+	Contrast *Contrast `json:"contrast"`
 	// Specify device scale factor (can be thought of as dpr). Defaults to `1`. Learn more about
 	// [emulating devices with device scale factor].
 	//
@@ -532,6 +536,10 @@ type BrowserNewPageOptions struct {
 	//
 	// [prefers-colors-scheme]: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 	ColorScheme *ColorScheme `json:"colorScheme"`
+	// Emulates `prefers-contrast` media feature, supported values are `no-preference`, `more`. See
+	// [Page.EmulateMedia] for more details. Passing `no-override` resets emulation to system defaults. Defaults to
+	// `no-preference`.
+	Contrast *Contrast `json:"contrast"`
 	// Specify device scale factor (can be thought of as dpr). Defaults to `1`. Learn more about
 	// [emulating devices with device scale factor].
 	//
@@ -836,6 +844,12 @@ type BrowserTypeConnectOverCDPOptions struct {
 	// Tells Playwright that it runs on the same host as the CDP server. It will enable certain optimizations that rely
 	// upon the file system being the same between Playwright and the Browser.
 	IsLocal *bool `json:"isLocal"`
+	// When true, Playwright will not apply its default overrides to the existing default browser context. Specifically,
+	// “[object Object]” is left at the browser's setting, focus emulation is not enabled, and media emulation options
+	// (such as “[object Object]”, “[object Object]”, “[object Object]”, and “[object Object]”) are not applied. Useful
+	// when attaching to a user's daily-driver browser where these overrides would interfere with existing browser state.
+	// New contexts created via [Browser.NewContext] are not affected. Defaults to `false`.
+	NoDefaults *bool `json:"noDefaults"`
 	// Slows down Playwright operations by the specified amount of milliseconds. Useful so that you can see what is going
 	// on. Defaults to 0.
 	SlowMo *float64 `json:"slowMo"`
@@ -970,6 +984,10 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	//
 	// [prefers-colors-scheme]: https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme
 	ColorScheme *ColorScheme `json:"colorScheme"`
+	// Emulates `prefers-contrast` media feature, supported values are `no-preference`, `more`. See
+	// [Page.EmulateMedia] for more details. Passing `no-override` resets emulation to system defaults. Defaults to
+	// `no-preference`.
+	Contrast *Contrast `json:"contrast"`
 	// Specify device scale factor (can be thought of as dpr). Defaults to `1`. Learn more about
 	// [emulating devices with device scale factor].
 	//
@@ -1129,8 +1147,12 @@ type ConsoleMessageLocation struct {
 	// URL of the resource.
 	URL string `json:"url"`
 	// 0-based line number in the resource.
-	LineNumber int `json:"lineNumber"`
+	Line int `json:"line"`
 	// 0-based column number in the resource.
+	Column int `json:"column"`
+	// 0-based line number in the resource. Deprecated, use `line` instead.
+	LineNumber int `json:"lineNumber"`
+	// 0-based column number in the resource. Deprecated, use `column` instead.
 	ColumnNumber int `json:"columnNumber"`
 }
 
@@ -1742,14 +1764,21 @@ type FrameGetByRoleOptions struct {
 	//
 	// [`aria-checked`]: https://www.w3.org/TR/wai-aria-1.2/#aria-checked
 	Checked *bool `json:"checked"`
+	// Option to match the [accessible description]. By
+	// default, matching is case-insensitive and searches for a substring, use “[object Object]” to control this behavior.
+	// Learn more about [accessible description].
+	//
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	Description any `json:"description"`
 	// An attribute that is usually set by `aria-disabled` or `disabled`.
 	// **NOTE** Unlike most other attributes, `disabled` is inherited through the DOM hierarchy. Learn more about
 	// [`aria-disabled`].
 	//
 	// [`aria-disabled`]: https://www.w3.org/TR/wai-aria-1.2/#aria-disabled
 	Disabled *bool `json:"disabled"`
-	// Whether “[object Object]” is matched exactly: case-sensitive and whole-string. Defaults to false. Ignored when
-	// “[object Object]” is a regular expression. Note that exact match still trims whitespace.
+	// Whether “[object Object]” and “[object Object]” are matched exactly: case-sensitive and whole-string. Defaults to
+	// false. Ignored when the value is a regular expression. Note that exact match still trims whitespace.
 	Exact *bool `json:"exact"`
 	// An attribute that is usually set by `aria-expanded`.
 	// Learn more about [`aria-expanded`].
@@ -2224,14 +2253,21 @@ type FrameLocatorGetByRoleOptions struct {
 	//
 	// [`aria-checked`]: https://www.w3.org/TR/wai-aria-1.2/#aria-checked
 	Checked *bool `json:"checked"`
+	// Option to match the [accessible description]. By
+	// default, matching is case-insensitive and searches for a substring, use “[object Object]” to control this behavior.
+	// Learn more about [accessible description].
+	//
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	Description any `json:"description"`
 	// An attribute that is usually set by `aria-disabled` or `disabled`.
 	// **NOTE** Unlike most other attributes, `disabled` is inherited through the DOM hierarchy. Learn more about
 	// [`aria-disabled`].
 	//
 	// [`aria-disabled`]: https://www.w3.org/TR/wai-aria-1.2/#aria-disabled
 	Disabled *bool `json:"disabled"`
-	// Whether “[object Object]” is matched exactly: case-sensitive and whole-string. Defaults to false. Ignored when
-	// “[object Object]” is a regular expression. Note that exact match still trims whitespace.
+	// Whether “[object Object]” and “[object Object]” are matched exactly: case-sensitive and whole-string. Defaults to
+	// false. Ignored when the value is a regular expression. Note that exact match still trims whitespace.
 	Exact *bool `json:"exact"`
 	// An attribute that is usually set by `aria-expanded`.
 	// Learn more about [`aria-expanded`].
@@ -2315,6 +2351,13 @@ type KeyboardTypeOptions struct {
 }
 
 type LocatorAriaSnapshotOptions struct {
+	// When `true`, appends each element's bounding box as `[box=x,y,width,height]` to the snapshot. Coordinates are
+	// relative to the viewport, in CSS pixels, as returned by
+	// [`Element.getBoundingClientRect()`].
+	// Defaults to `false`.
+	//
+	// [`Element.getBoundingClientRect()`]: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
+	Boxes *bool `json:"boxes"`
 	// When specified, limits the depth of the snapshot.
 	Depth *int `json:"depth"`
 	// When set to `"ai"`, returns a snapshot optimized for AI consumption. Defaults to `"default"`. See details for more
@@ -2481,6 +2524,20 @@ type LocatorDragToOptions struct {
 	Trial *bool `json:"trial"`
 }
 
+type Payload struct {
+	Files any               `json:"files"`
+	Data  map[string]string `json:"data"`
+}
+
+type LocatorDropOptions struct {
+	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
+	// the element.
+	Position *Position `json:"position"`
+	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
+	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	Timeout *float64 `json:"timeout"`
+}
+
 type LocatorElementHandleOptions struct {
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
@@ -2573,14 +2630,21 @@ type LocatorGetByRoleOptions struct {
 	//
 	// [`aria-checked`]: https://www.w3.org/TR/wai-aria-1.2/#aria-checked
 	Checked *bool `json:"checked"`
+	// Option to match the [accessible description]. By
+	// default, matching is case-insensitive and searches for a substring, use “[object Object]” to control this behavior.
+	// Learn more about [accessible description].
+	//
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	Description any `json:"description"`
 	// An attribute that is usually set by `aria-disabled` or `disabled`.
 	// **NOTE** Unlike most other attributes, `disabled` is inherited through the DOM hierarchy. Learn more about
 	// [`aria-disabled`].
 	//
 	// [`aria-disabled`]: https://www.w3.org/TR/wai-aria-1.2/#aria-disabled
 	Disabled *bool `json:"disabled"`
-	// Whether “[object Object]” is matched exactly: case-sensitive and whole-string. Defaults to false. Ignored when
-	// “[object Object]” is a regular expression. Note that exact match still trims whitespace.
+	// Whether “[object Object]” and “[object Object]” are matched exactly: case-sensitive and whole-string. Defaults to
+	// false. Ignored when the value is a regular expression. Note that exact match still trims whitespace.
 	Exact *bool `json:"exact"`
 	// An attribute that is usually set by `aria-expanded`.
 	// Learn more about [`aria-expanded`].
@@ -3073,6 +3137,8 @@ type LocatorAssertionsToHaveCountOptions struct {
 }
 
 type LocatorAssertionsToHaveCSSOptions struct {
+	// Pseudo-element to read computed styles from.
+	Pseudo *PseudoElement `json:"pseudo"`
 	// Time to retry the assertion for in milliseconds. Defaults to `5000`.
 	Timeout *float64 `json:"timeout"`
 }
@@ -3423,14 +3489,21 @@ type PageGetByRoleOptions struct {
 	//
 	// [`aria-checked`]: https://www.w3.org/TR/wai-aria-1.2/#aria-checked
 	Checked *bool `json:"checked"`
+	// Option to match the [accessible description]. By
+	// default, matching is case-insensitive and searches for a substring, use “[object Object]” to control this behavior.
+	// Learn more about [accessible description].
+	//
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	// [accessible description]: https://w3c.github.io/accname/#dfn-accessible-description
+	Description any `json:"description"`
 	// An attribute that is usually set by `aria-disabled` or `disabled`.
 	// **NOTE** Unlike most other attributes, `disabled` is inherited through the DOM hierarchy. Learn more about
 	// [`aria-disabled`].
 	//
 	// [`aria-disabled`]: https://www.w3.org/TR/wai-aria-1.2/#aria-disabled
 	Disabled *bool `json:"disabled"`
-	// Whether “[object Object]” is matched exactly: case-sensitive and whole-string. Defaults to false. Ignored when
-	// “[object Object]” is a regular expression. Note that exact match still trims whitespace.
+	// Whether “[object Object]” and “[object Object]” are matched exactly: case-sensitive and whole-string. Defaults to
+	// false. Ignored when the value is a regular expression. Note that exact match still trims whitespace.
 	Exact *bool `json:"exact"`
 	// An attribute that is usually set by `aria-expanded`.
 	// Learn more about [`aria-expanded`].
@@ -3900,6 +3973,13 @@ type PageSetInputFilesOptions struct {
 }
 
 type PageAriaSnapshotOptions struct {
+	// When `true`, appends each element's bounding box as `[box=x,y,width,height]` to the snapshot. Coordinates are
+	// relative to the viewport, in CSS pixels, as returned by
+	// [`Element.getBoundingClientRect()`].
+	// Defaults to `false`.
+	//
+	// [`Element.getBoundingClientRect()`]: https://developer.mozilla.org/en-US/docs/Web/API/Element/getBoundingClientRect
+	Boxes *bool `json:"boxes"`
 	// When specified, limits the depth of the snapshot.
 	Depth *int `json:"depth"`
 	// When set to `"ai"`, returns a snapshot optimized for AI consumption: including element references like `[ref=e2]`
@@ -4166,6 +4246,11 @@ type PageWaitForEventOptions struct {
 	Timeout *float64 `json:"timeout"`
 }
 
+type PageAssertionsToMatchAriaSnapshotOptions struct {
+	// Time to retry the assertion for in milliseconds. Defaults to `5000`.
+	Timeout *float64 `json:"timeout"`
+}
+
 type PageAssertionsToHaveTitleOptions struct {
 	// Time to retry the assertion for in milliseconds. Defaults to `5000`.
 	Timeout *float64 `json:"timeout"`
@@ -4303,7 +4388,7 @@ type RouteFulfillOptions struct {
 }
 
 type ScreencastStartOptions struct {
-	// Callback that receives JPEG-encoded frame data.
+	// Callback that receives JPEG-encoded frame data along with the page viewport size at the time of capture.
 	OnFrame func(OnFrame) `json:"onFrame"`
 	// Path where the video should be saved when the screencast is stopped. When provided, video recording is started.
 	Path *string `json:"path"`
@@ -4370,10 +4455,32 @@ type TracingStartChunkOptions struct {
 	Title *string `json:"title"`
 }
 
+type TracingStartHarOptions struct {
+	// Optional setting to control resource content management. If `omit` is specified, content is not persisted. If
+	// `attach` is specified, resources are persisted as separate files or entries in the ZIP archive. If `embed` is
+	// specified, content is stored inline the HAR file as per HAR specification. Defaults to `attach` for `.zip` output
+	// files and to `embed` for all other file extensions.
+	Content *HarContentPolicy `json:"content"`
+	// When set to `minimal`, only record information necessary for routing from HAR. This omits sizes, timing, page,
+	// cookies, security and other types of HAR information that are not used when replaying from HAR. Defaults to `full`.
+	Mode *HarMode `json:"mode"`
+	// A glob or regex pattern to filter requests that are stored in the HAR. Defaults to none.
+	URLFilter any `json:"urlFilter"`
+}
+
 type TracingGroupOptions struct {
 	// Specifies a custom location for the group to be shown in the trace viewer. Defaults to the location of the
 	// [Tracing.Group] call.
 	Location *TracingGroupOptionsLocation `json:"location"`
+}
+
+type WebErrorLocation struct {
+	// URL of the resource.
+	URL string `json:"url"`
+	// 0-based line number in the resource.
+	Line int `json:"line"`
+	// 0-based column number in the resource.
+	Column int `json:"column"`
 }
 
 type WebSocketExpectEventOptions struct {
@@ -4495,6 +4602,10 @@ type Margin struct {
 type OnFrame struct {
 	// JPEG-encoded frame data.
 	Data []byte `json:"data"`
+	// Width of the page viewport at the time the frame was captured.
+	ViewportWidth int `json:"viewportWidth"`
+	// Height of the page viewport at the time the frame was captured.
+	ViewportHeight int `json:"viewportHeight"`
 }
 
 type TracingGroupOptionsLocation struct {

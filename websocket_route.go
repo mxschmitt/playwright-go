@@ -102,6 +102,15 @@ func (r *webSocketRouteImpl) URL() string {
 	return r.initializer["url"].(string)
 }
 
+func (r *webSocketRouteImpl) Protocols() ([]string, error) {
+	protocols := r.initializer["protocols"].([]any)
+	result := make([]string, len(protocols))
+	for i, p := range protocols {
+		result[i] = p.(string)
+	}
+	return result, nil
+}
+
 func (r *webSocketRouteImpl) afterHandle() error {
 	if r.connected.Load() {
 		return nil
@@ -133,6 +142,10 @@ func (s *serverWebSocketRouteImpl) ConnectToServer() (WebSocketRoute, error) {
 
 func (s *serverWebSocketRouteImpl) URL() string {
 	return s.webSocketRoute.URL()
+}
+
+func (s *serverWebSocketRouteImpl) Protocols() ([]string, error) {
+	return s.webSocketRoute.Protocols()
 }
 
 func (s *serverWebSocketRouteImpl) Close(options ...WebSocketRouteCloseOptions) {

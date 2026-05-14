@@ -284,6 +284,24 @@ func (l *locatorImpl) DragTo(target Locator, options ...LocatorDragToOptions) er
 	return l.frame.DragAndDrop(l.selector, target.(*locatorImpl).selector, opt)
 }
 
+func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error {
+	if l.err != nil {
+		return l.err
+	}
+	params := map[string]any{
+		"selector": l.selector,
+		"files":    payload.Files,
+		"data":     payload.Data,
+	}
+	if len(options) == 1 {
+		if err := assignStructFields(&params, options[0], false); err != nil {
+			return err
+		}
+	}
+	_, err := l.frame.channel.Send("drop", params)
+	return err
+}
+
 func (l *locatorImpl) ElementHandle(options ...LocatorElementHandleOptions) (ElementHandle, error) {
 	if l.err != nil {
 		return nil, l.err
@@ -462,6 +480,16 @@ func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) 
 		}
 	}
 	return l.Locator(getByTitleSelector(text, exact))
+}
+
+func (l *locatorImpl) HideHighlight() error {
+	if l.err != nil {
+		return l.err
+	}
+	_, err := l.frame.channel.Send("hideHighlight", map[string]any{
+		"selector": l.selector,
+	})
+	return err
 }
 
 func (l *locatorImpl) Highlight() error {

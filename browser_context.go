@@ -243,11 +243,7 @@ func (b *browserContextImpl) AddInitScript(script Script) error {
 	return err
 }
 
-func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error {
-	needsHandle := false
-	if len(handle) == 1 {
-		needsHandle = handle[0]
-	}
+func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunction) error {
 	for _, page := range b.Pages() {
 		if _, ok := page.(*pageImpl).bindings.Load(name); ok {
 			return fmt.Errorf("Function '%s' has been already registered in one of the pages", name)
@@ -257,8 +253,7 @@ func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunct
 		return fmt.Errorf("Function '%s' has been already registered", name)
 	}
 	_, err := b.channel.Send("exposeBinding", map[string]any{
-		"name":        name,
-		"needsHandle": needsHandle,
+		"name": name,
 	})
 	if err != nil {
 		return err
@@ -441,7 +436,8 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 			if harId != "" {
 				overrides["harId"] = harId
 			}
-			response, err := b.channel.Send("harExport", overrides)
+			overrides["mode"] = "archive"
+			response, err := b.tracing.channel.Send("harExport", overrides)
 			if err != nil {
 				return nil, err
 			}
@@ -511,7 +507,7 @@ func (b *browserContextImpl) recordIntoHar(har string, options ...browserContext
 			overrides["page"] = options[0].Page.(*pageImpl).channel
 		}
 	}
-	harId, err := b.channel.Send("harStart", overrides)
+	harId, err := b.tracing.channel.Send("harStart", overrides)
 	if err != nil {
 		return err
 	}
@@ -733,8 +729,36 @@ func (b *browserContextImpl) OnDialog(fn func(Dialog)) {
 	b.On("dialog", fn)
 }
 
+func (b *browserContextImpl) OnDownload(fn func(Download)) {
+	b.On("download", fn)
+}
+
+func (b *browserContextImpl) OnFrameAttached(fn func(Frame)) {
+	b.On("frameattached", fn)
+}
+
+func (b *browserContextImpl) OnFrameDetached(fn func(Frame)) {
+	b.On("framedetached", fn)
+}
+
+func (b *browserContextImpl) OnFrameNavigated(fn func(Frame)) {
+	b.On("framenavigated", fn)
+}
+
 func (b *browserContextImpl) OnPage(fn func(Page)) {
 	b.On("page", fn)
+}
+
+func (b *browserContextImpl) OnPageClose(fn func(Page)) {
+	b.On("pageclose", fn)
+}
+
+func (b *browserContextImpl) OnPageLoad(fn func(Page)) {
+	b.On("load", fn)
+}
+
+func (b *browserContextImpl) OnWebError(fn func(WebError)) {
+	b.On("weberror", fn)
 }
 
 func (b *browserContextImpl) OnRequest(fn func(Request)) {
@@ -751,10 +775,6 @@ func (b *browserContextImpl) OnRequestFinished(fn func(Request)) {
 
 func (b *browserContextImpl) OnResponse(fn func(Response)) {
 	b.On("response", fn)
-}
-
-func (b *browserContextImpl) OnWebError(fn func(WebError)) {
-	b.On("weberror", fn)
 }
 
 func (b *browserContextImpl) RouteWebSocket(url any, handler func(WebSocketRoute)) error {
@@ -851,6 +871,49 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	bt.channel.On("page", func(payload map[string]any) {
 		bt.onPage(fromChannel(payload["page"]).(*pageImpl))
 	})
+	bt.channel.On("pageError", func(payload map[string]any) {
+		page := fromChannel(payload["page"]).(*pageImpl)
+		bt.Emit("pageerror", page, payload["error"])
+	})
+	bt.channel.On("pageclose", func(payload map[string]any) {
+		page := fromChannel(payload["page"]).(*pageImpl)
+		bt.Emit("pageclose", page)
+	})
+	bt.channel.On("frameattached", func(payload map[string]any) {
+		frame := fromChannel(payload["frame"]).(*frameImpl)
+		bt.Emit("frameattached", frame)
+	})
+	bt.channel.On("framedetached", func(payload map[string]any) {
+		frame := fromChannel(payload["frame"]).(*frameImpl)
+		bt.Emit("framedetached", frame)
+	})
+	bt.channel.On("framenavigated", func(payload map[string]any) {
+		frame := fromChannel(payload["frame"]).(*frameImpl)
+		bt.Emit("framenavigated", frame)
+	})
+	bt.channel.On("load", func(payload map[string]any) {
+		page := fromChannel(payload["page"]).(*pageImpl)
+		bt.Emit("load", page)
+	})
+	bt.channel.On("weberror", func(payload map[string]any) {
+		page := fromNullableChannel(payload["page"]).(*pageImpl)
+		errorValue := payload["error"].(map[string]any)
+		msg := errorValue["error"].(map[string]any)["message"].(string)
+		locationValue := errorValue["location"].(map[string]any)
+		var location *WebErrorLocation
+		remapMapToStruct(locationValue, &location)
+		bt.Emit("weberror", newWebError(page, fmt.Errorf("%s", msg), location))
+	})
+	bt.channel.On("download", func(ev map[string]any) {
+		url := ev["url"].(string)
+		suggestedFilename := ev["suggestedFilename"].(string)
+		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
+		var page Page
+		if ev["page"] != nil {
+			page = fromChannel(ev["page"]).(*pageImpl)
+		}
+		bt.Emit("download", newDownload(page, url, suggestedFilename, artifact))
+	})
 	bt.channel.On("route", func(params map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onRoute(fromChannel(params["route"]).(*routeImpl))
@@ -902,10 +965,10 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 			err := parseError(*pwErr)
 			page := fromNullableChannel(ev["page"])
 			if page != nil {
-				bt.Emit("weberror", newWebError(page.(*pageImpl), err))
+				bt.Emit("weberror", newWebError(page.(*pageImpl), err, nil))
 				page.(*pageImpl).Emit("pageerror", err)
 			} else {
-				bt.Emit("weberror", newWebError(nil, err))
+				bt.Emit("weberror", newWebError(nil, err, nil))
 			}
 		},
 	)

@@ -95,7 +95,7 @@ func TestBrowserContextExposeBindingHandleShouldWork(t *testing.T) {
 
 	err := page.ExposeBinding("logme", func(source *playwright.BindingSource, args ...interface{}) interface{} {
 		return logme(args[0])
-	}, true)
+	})
 	require.NoError(t, err)
 	result, err := page.Evaluate("logme({ foo: 42 })")
 	require.NoError(t, err)
