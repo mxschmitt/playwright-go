@@ -1,9 +1,9 @@
 name: Go
 on:
   push:
-    branches: [ main ]
+    branches: [ main, roll/* ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, roll/* ]
 jobs:
   lint:
     name: Lint
