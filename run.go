@@ -195,23 +195,33 @@ func (d *PlaywrightDriver) patchDriverBundle() error {
 		return fmt.Errorf("could not read driver bundle: %w", err)
 	}
 
-	original := []byte(`location: {
-              url: pageError.location.url,
-              line: pageError.location.lineNumber,
-              column: pageError.location.columnNumber
-            }`)
-	patched := []byte(`location: {
-              url: pageError.location?.url || "",
-              line: pageError.location?.lineNumber || 0,
-              column: pageError.location?.columnNumber || 0
-            }`)
-	if !bytes.Contains(data, original) {
-		if bytes.Contains(data, patched) {
+	replacements := map[string]string{
+		"pageError.location.url":          `pageError.location?.url || ""`,
+		"pageError.location.lineNumber":   "pageError.location?.lineNumber || 0",
+		"pageError.location.columnNumber": "pageError.location?.columnNumber || 0",
+	}
+	changed := false
+	for original, patched := range replacements {
+		originalBytes := []byte(original)
+		patchedBytes := []byte(patched)
+		if bytes.Contains(data, originalBytes) {
+			data = bytes.ReplaceAll(data, originalBytes, patchedBytes)
+			changed = true
+		}
+	}
+	if !changed {
+		alreadyPatched := true
+		for _, patched := range replacements {
+			if !bytes.Contains(data, []byte(patched)) {
+				alreadyPatched = false
+				break
+			}
+		}
+		if alreadyPatched {
 			return nil
 		}
 		return fmt.Errorf("could not patch driver bundle: pageError location pattern not found")
 	}
-	data = bytes.Replace(data, original, patched, 1)
 	if err := os.WriteFile(coreBundlePath, data, 0o644); err != nil {
 		return fmt.Errorf("could not write patched driver bundle: %w", err)
 	}

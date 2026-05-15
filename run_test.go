@@ -138,11 +138,11 @@ func TestPatchDriverBundleAllowsMissingPageErrorLocation(t *testing.T) {
 	driverPath := t.TempDir()
 	bundlePath := filepath.Join(driverPath, "package", "lib", "coreBundle.js")
 	require.NoError(t, os.MkdirAll(filepath.Dir(bundlePath), 0o755))
-	require.NoError(t, os.WriteFile(bundlePath, []byte(`location: {
-              url: pageError.location.url,
-              line: pageError.location.lineNumber,
-              column: pageError.location.columnNumber
-            }`), 0o644))
+	require.NoError(t, os.WriteFile(bundlePath, []byte(`location:{
+url:pageError.location.url,
+line: pageError.location.lineNumber,
+column:    pageError.location.columnNumber
+}`), 0o644))
 
 	driver, err := NewDriver(&RunOptions{DriverDirectory: driverPath})
 	require.NoError(t, err)
@@ -151,9 +151,9 @@ func TestPatchDriverBundleAllowsMissingPageErrorLocation(t *testing.T) {
 
 	data, err := os.ReadFile(bundlePath)
 	require.NoError(t, err)
-	require.Contains(t, string(data), `url: pageError.location?.url || ""`)
-	require.Contains(t, string(data), `line: pageError.location?.lineNumber || 0`)
-	require.Contains(t, string(data), `column: pageError.location?.columnNumber || 0`)
+	require.Contains(t, string(data), `pageError.location?.url || ""`)
+	require.Contains(t, string(data), `pageError.location?.lineNumber || 0`)
+	require.Contains(t, string(data), `pageError.location?.columnNumber || 0`)
 }
 
 func TestShouldNotHangWhenPlaywrightUnexpectedExit(t *testing.T) {
