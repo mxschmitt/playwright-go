@@ -83,13 +83,13 @@ func TestBrowserContextExposeBindingPanic(t *testing.T) {
 	require.Contains(t, stack[4], "binding_test.go")
 }
 
-func TestBrowserContextExposeBindingHandleShouldWork(t *testing.T) {
+func TestBrowserContextExposeBindingObjectShouldBePassedByValue(t *testing.T) {
 	BeforeEach(t)
 
-	targets := []playwright.JSHandle{}
+	targets := []map[string]interface{}{}
 
 	logme := func(t interface{}) int {
-		targets = append(targets, t.(playwright.JSHandle))
+		targets = append(targets, t.(map[string]interface{}))
 		return 17
 	}
 
@@ -100,9 +100,7 @@ func TestBrowserContextExposeBindingHandleShouldWork(t *testing.T) {
 	result, err := page.Evaluate("logme({ foo: 42 })")
 	require.NoError(t, err)
 	require.Equal(t, result, 17)
-	res, err := targets[0].Evaluate("x => x.foo")
-	require.NoError(t, err)
-	require.Equal(t, 42, res)
+	require.Equal(t, 42, targets[0]["foo"])
 }
 
 func TestPageExposeBindingPanic(t *testing.T) {

@@ -436,14 +436,36 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 			if harId != "" {
 				overrides["harId"] = harId
 			}
+			needCompressed := strings.HasSuffix(strings.ToLower(harMetaData.Path), ".zip")
+			if !b.connection.isRemote {
+				overrides["mode"] = "entries"
+				response, err := b.tracing.channel.SendReturnAsDict("harExport", overrides)
+				if err != nil {
+					return nil, err
+				}
+				if !needCompressed {
+					continue
+				}
+				entries, ok := response["entries"].([]any)
+				if !ok {
+					return nil, fmt.Errorf("could not convert HAR entries: %v", response)
+				}
+				_, err = b.connection.LocalUtils().Zip(localUtilsZipOptions{
+					ZipFile: harMetaData.Path,
+					Entries: entries,
+					Mode:    "write",
+				})
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
 			overrides["mode"] = "archive"
-			response, err := b.tracing.channel.Send("harExport", overrides)
+			response, err := b.tracing.channel.SendReturnAsDict("harExport", overrides)
 			if err != nil {
 				return nil, err
 			}
-			artifact := fromChannel(response).(*artifactImpl)
-			// Server side will compress artifact if content is attach or if file is .zip.
-			needCompressed := strings.HasSuffix(strings.ToLower(harMetaData.Path), ".zip")
+			artifact := fromChannel(response["artifact"]).(*artifactImpl)
 			if !needCompressed && harMetaData.Content == HarContentPolicyAttach {
 				tmpPath := harMetaData.Path + ".tmp"
 				if err := artifact.SaveAs(tmpPath); err != nil {

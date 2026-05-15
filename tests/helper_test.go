@@ -62,10 +62,14 @@ func BeforeAll() {
 	} else if browserName == "webkit" {
 		browserType = pw.WebKit
 	}
-	// launch browser, headless or not depending on HEADFUL env
-	browser, err = browserType.Launch(playwright.BrowserTypeLaunchOptions{
+	launchOptions := playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
-	})
+	}
+	if browserType == pw.Chromium {
+		launchOptions.Args = []string{"--disable-features=LocalNetworkAccessChecks"}
+	}
+	// launch browser, headless or not depending on HEADFUL env
+	browser, err = browserType.Launch(launchOptions)
 	if err != nil {
 		log.Fatalf("could not launch: %v", err)
 	}

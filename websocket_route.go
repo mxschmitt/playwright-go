@@ -52,7 +52,17 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 
 	route.channel.On("closePage", func(event map[string]any) {
 		if route.onPageClose != nil {
-			route.onPageClose(event["code"].(*int), event["reason"].(*string))
+			var code *int
+			if v, ok := event["code"]; ok && v != nil {
+				i := int(v.(float64))
+				code = &i
+			}
+			var reason *string
+			if v, ok := event["reason"]; ok && v != nil {
+				s := v.(string)
+				reason = &s
+			}
+			route.onPageClose(code, reason)
 		} else {
 			go route.channel.SendNoReply("closeServer", event)
 		}
@@ -60,7 +70,17 @@ func newWebSocketRoute(parent *channelOwner, objectType string, guid string, ini
 
 	route.channel.On("closeServer", func(event map[string]any) {
 		if route.onServerClose != nil {
-			route.onServerClose(event["code"].(*int), event["reason"].(*string))
+			var code *int
+			if v, ok := event["code"]; ok && v != nil {
+				i := int(v.(float64))
+				code = &i
+			}
+			var reason *string
+			if v, ok := event["reason"]; ok && v != nil {
+				s := v.(string)
+				reason = &s
+			}
+			route.onServerClose(code, reason)
 		} else {
 			go route.channel.SendNoReply("closePage", event)
 		}
@@ -77,8 +97,8 @@ func (r *webSocketRouteImpl) ConnectToServer() (WebSocketRoute, error) {
 	if r.connected.Load() {
 		return nil, fmt.Errorf("Already connected to the server")
 	}
-	r.channel.SendNoReply("connect")
 	r.connected.Store(true)
+	r.channel.SendNoReply("connect")
 	return r.server, nil
 }
 
@@ -149,7 +169,7 @@ func (s *serverWebSocketRouteImpl) Protocols() ([]string, error) {
 }
 
 func (s *serverWebSocketRouteImpl) Close(options ...WebSocketRouteCloseOptions) {
-	go s.webSocketRoute.channel.SendNoReply("close", options, map[string]any{"wasClean": true})
+	go s.webSocketRoute.channel.SendNoReply("closeServer", options, map[string]any{"wasClean": true})
 }
 
 func (s *serverWebSocketRouteImpl) Send(message any) {
