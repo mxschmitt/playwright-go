@@ -289,6 +289,9 @@ func TestBrowserContextShouldReturnBackgroundPage(t *testing.T) {
 }
 
 func TestPageEventShouldHaveURL(t *testing.T) {
+	if isWebKit && runtime.GOOS == "darwin" {
+		t.Skip("WebKit closes the browser on macOS when opening this popup")
+	}
 	BeforeEach(t)
 
 	context.OnPage(func(p playwright.Page) {

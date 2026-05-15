@@ -24,29 +24,29 @@ func routeIframe(t *testing.T, page playwright.Page) {
 	require.NoError(t, err)
 
 	err = page.Route("**/iframe.html", func(route playwright.Route) {
-		err = route.Fulfill(playwright.RouteFulfillOptions{
+		routeErr := route.Fulfill(playwright.RouteFulfillOptions{
 			Body: `
-			<html>
-				<div>
+				<html>
+					<div>
 					<button data-testid="buttonId">Hello iframe</button>
 					<iframe src="iframe-2.html"></iframe>
 				</div>
 				<span>1</span>
 				<span>2</span>
 				<label for=target>Name</label><input id=target type=text placeholder=Placeholder title=Title alt=Alternative>
-			</html>`,
+				</html>`,
 			ContentType: playwright.String("text/html"),
 		})
-		require.NoError(t, err)
+		require.NoError(t, routeErr)
 	})
 	require.NoError(t, err)
 
 	err = page.Route("**/iframe-2.html", func(route playwright.Route) {
-		err = route.Fulfill(playwright.RouteFulfillOptions{
+		routeErr := route.Fulfill(playwright.RouteFulfillOptions{
 			Body:        "<html><button>Hello nested iframe</button></html>",
 			ContentType: playwright.String("text/html"),
 		})
-		require.NoError(t, err)
+		require.NoError(t, routeErr)
 	})
 	require.NoError(t, err)
 }
@@ -70,11 +70,11 @@ func routeAmbiguous(t *testing.T, page playwright.Page) {
 		u, err := url.Parse(route.Request().URL())
 		require.NoError(t, err)
 		path := strings.TrimLeft(u.Path, "/")
-		err = route.Fulfill(playwright.RouteFulfillOptions{
+		routeErr := route.Fulfill(playwright.RouteFulfillOptions{
 			Body:        fmt.Sprintf("<html><button>Hello from %s</button></html>", path),
 			ContentType: playwright.String("text/html"),
 		})
-		require.NoError(t, err)
+		require.NoError(t, routeErr)
 	})
 	require.NoError(t, err)
 }
