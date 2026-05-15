@@ -226,6 +226,9 @@ func TestBrowserContextAddInitScriptWithPath(t *testing.T) {
 }
 
 func TestBrowserContextWindowOpenshouldUseParentTabContext(t *testing.T) {
+	if isWebKit && runtime.GOOS == "darwin" {
+		t.Skip("WebKit closes the browser on macOS when opening this popup")
+	}
 	BeforeEach(t)
 
 	_, err := page.Goto(server.EMPTY_PAGE)

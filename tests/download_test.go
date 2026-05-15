@@ -5,8 +5,8 @@ import (
 	"log"
 	"net/http"
 	"path/filepath"
-	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -54,12 +54,23 @@ func TestDownloadCancel(t *testing.T) {
 	server.SetRoute("/downloadWithDelay", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/octet-stream")
 		w.Header().Add("Content-Disposition", "attachment")
-		if _, err := w.Write([]byte(strings.Repeat("foobar", 8192))); err != nil {
-			log.Printf("could not write: %v", err)
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
 		}
-		if h, ok := w.(http.Hijacker); ok {
-			if _, _, err := h.Hijack(); err != nil {
-				log.Printf("could not hijack connection: %v", err)
+		for {
+			select {
+			case <-r.Context().Done():
+				return
+			default:
+				if _, err := w.Write([]byte("foobar")); err != nil {
+					log.Printf("could not write: %v", err)
+					return
+				}
+				if f, ok := w.(http.Flusher); ok {
+					f.Flush()
+				}
+				time.Sleep(50 * time.Millisecond)
 			}
 		}
 	})

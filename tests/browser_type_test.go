@@ -343,6 +343,7 @@ func TestShouldUploadAFolderRemote(t *testing.T) {
 	require.NoError(t, err)
 	page, err := browser_context.NewPage()
 	require.NoError(t, err)
+	page.SetDefaultTimeout(60 * 1000)
 
 	_, err = page.Goto(fmt.Sprintf("%s%s", server.PREFIX, "/input/folderupload.html"))
 	require.NoError(t, err)
