@@ -893,10 +893,6 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	bt.channel.On("page", func(payload map[string]any) {
 		bt.onPage(fromChannel(payload["page"]).(*pageImpl))
 	})
-	bt.channel.On("pageError", func(payload map[string]any) {
-		page := fromChannel(payload["page"]).(*pageImpl)
-		bt.Emit("pageerror", page, payload["error"])
-	})
 	bt.channel.On("pageclose", func(payload map[string]any) {
 		page := fromChannel(payload["page"]).(*pageImpl)
 		bt.Emit("pageclose", page)
@@ -923,7 +919,10 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		msg := errorValue["error"].(map[string]any)["message"].(string)
 		locationValue := errorValue["location"].(map[string]any)
 		var location *WebErrorLocation
-		remapMapToStruct(locationValue, &location)
+		if locationValue != nil {
+			location = &WebErrorLocation{}
+			remapMapToStruct(locationValue, location)
+		}
 		bt.Emit("weberror", newWebError(page, fmt.Errorf("%s", msg), location))
 	})
 	bt.channel.On("download", func(ev map[string]any) {
@@ -985,12 +984,17 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 			pwErr := &Error{}
 			remapMapToStruct(ev["error"].(map[string]any)["error"], pwErr)
 			err := parseError(*pwErr)
+			var location *WebErrorLocation
+			if locationValue, ok := ev["location"].(map[string]any); ok {
+				location = &WebErrorLocation{}
+				remapMapToStruct(locationValue, location)
+			}
 			page := fromNullableChannel(ev["page"])
 			if page != nil {
-				bt.Emit("weberror", newWebError(page.(*pageImpl), err, nil))
+				bt.Emit("weberror", newWebError(page.(*pageImpl), err, location))
 				page.(*pageImpl).Emit("pageerror", err)
 			} else {
-				bt.Emit("weberror", newWebError(nil, err, nil))
+				bt.Emit("weberror", newWebError(nil, err, location))
 			}
 		},
 	)

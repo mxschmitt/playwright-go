@@ -481,6 +481,7 @@ func TestPageErrorEventShouldWork(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, page, weberror.Page())
 	require.ErrorContains(t, weberror.Error(), "boom")
+	require.NotNil(t, weberror.Location())
 }
 
 func TestBrowserContextOnResponse(t *testing.T) {

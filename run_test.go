@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -131,6 +132,28 @@ func TestDriverDownloadHostEnv(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "404 Not Found") || !strings.Contains(uri, "/builds/driver") {
 		t.Fatalf("PLAYWRIGHT_DOWNLOAD_HOST do not work: %v", err)
 	}
+}
+
+func TestPatchDriverBundleAllowsMissingPageErrorLocation(t *testing.T) {
+	driverPath := t.TempDir()
+	bundlePath := filepath.Join(driverPath, "package", "lib", "coreBundle.js")
+	require.NoError(t, os.MkdirAll(filepath.Dir(bundlePath), 0o755))
+	require.NoError(t, os.WriteFile(bundlePath, []byte(`location: {
+              url: pageError.location.url,
+              line: pageError.location.lineNumber,
+              column: pageError.location.columnNumber
+            }`), 0o644))
+
+	driver, err := NewDriver(&RunOptions{DriverDirectory: driverPath})
+	require.NoError(t, err)
+	require.NoError(t, driver.patchDriverBundle())
+	require.NoError(t, driver.patchDriverBundle())
+
+	data, err := os.ReadFile(bundlePath)
+	require.NoError(t, err)
+	require.Contains(t, string(data), `url: pageError.location?.url || ""`)
+	require.Contains(t, string(data), `line: pageError.location?.lineNumber || 0`)
+	require.Contains(t, string(data), `column: pageError.location?.columnNumber || 0`)
 }
 
 func TestShouldNotHangWhenPlaywrightUnexpectedExit(t *testing.T) {

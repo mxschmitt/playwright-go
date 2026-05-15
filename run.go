@@ -133,7 +133,7 @@ func (d *PlaywrightDriver) DownloadDriver() error {
 		return err
 	}
 	if up2Date {
-		return nil
+		return d.patchDriverBundle()
 	}
 
 	d.log("Downloading driver", "path", d.options.DriverDirectory)
@@ -182,6 +182,39 @@ func (d *PlaywrightDriver) DownloadDriver() error {
 
 	d.log("Downloaded driver successfully")
 
+	return d.patchDriverBundle()
+}
+
+func (d *PlaywrightDriver) patchDriverBundle() error {
+	coreBundlePath := filepath.Join(d.options.DriverDirectory, "package", "lib", "coreBundle.js")
+	data, err := os.ReadFile(coreBundlePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("could not read driver bundle: %w", err)
+	}
+
+	original := []byte(`location: {
+              url: pageError.location.url,
+              line: pageError.location.lineNumber,
+              column: pageError.location.columnNumber
+            }`)
+	patched := []byte(`location: {
+              url: pageError.location?.url || "",
+              line: pageError.location?.lineNumber || 0,
+              column: pageError.location?.columnNumber || 0
+            }`)
+	if !bytes.Contains(data, original) {
+		if bytes.Contains(data, patched) {
+			return nil
+		}
+		return fmt.Errorf("could not patch driver bundle: pageError location pattern not found")
+	}
+	data = bytes.Replace(data, original, patched, 1)
+	if err := os.WriteFile(coreBundlePath, data, 0o644); err != nil {
+		return fmt.Errorf("could not write patched driver bundle: %w", err)
+	}
 	return nil
 }
 
