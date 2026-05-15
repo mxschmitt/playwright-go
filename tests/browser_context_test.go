@@ -226,9 +226,7 @@ func TestBrowserContextAddInitScriptWithPath(t *testing.T) {
 }
 
 func TestBrowserContextWindowOpenshouldUseParentTabContext(t *testing.T) {
-	if isWebKit && runtime.GOOS == "darwin" {
-		t.Skip("WebKit closes the browser on macOS when opening this popup")
-	}
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	_, err := page.Goto(server.EMPTY_PAGE)
@@ -289,9 +287,7 @@ func TestBrowserContextShouldReturnBackgroundPage(t *testing.T) {
 }
 
 func TestPageEventShouldHaveURL(t *testing.T) {
-	if isWebKit && runtime.GOOS == "darwin" {
-		t.Skip("WebKit closes the browser on macOS when opening this popup")
-	}
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	context.OnPage(func(p playwright.Page) {
@@ -321,6 +317,7 @@ func TestConsoleEventShouldWork(t *testing.T) {
 }
 
 func TestBrowserContextEventsRequest(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	var requests []playwright.Request
@@ -344,6 +341,7 @@ func TestBrowserContextEventsRequest(t *testing.T) {
 }
 
 func TestBrowserContextEventsResponse(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	var responses []playwright.Response
@@ -426,6 +424,7 @@ func TestBrowserContextShouldFireCloseEvent(t *testing.T) {
 }
 
 func TestDialogEventShouldWorkInImmdiatelyClosedPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	if isFirefox {

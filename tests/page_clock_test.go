@@ -425,6 +425,8 @@ func TestPageClockStubTimersPerformance(t *testing.T) {
 }
 
 func TestPageClockPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
+
 	t.Run("should tick after popup", func(t *testing.T) {
 		BeforeEach(t)
 

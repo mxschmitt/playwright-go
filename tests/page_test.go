@@ -335,6 +335,7 @@ func TestPageExpectRequestFinished(t *testing.T) {
 }
 
 func TestPageExpectPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	_, err := page.Goto(server.EMPTY_PAGE)
@@ -402,6 +403,7 @@ func TestPageExpectEvent(t *testing.T) {
 }
 
 func TestPageOpener(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	eventPage, err := context.ExpectEvent("page", func() error {

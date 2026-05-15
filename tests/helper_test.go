@@ -45,6 +45,13 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func skipWebKitMacOSPopup(t *testing.T) {
+	t.Helper()
+	if isWebKit && runtime.GOOS == "darwin" {
+		t.Skip("WebKit closes the browser on macOS when opening this popup")
+	}
+}
+
 // BeforeAll prepares the environment, including
 //   - start Playwright driver
 //   - launch browser depends on BROWSER env
