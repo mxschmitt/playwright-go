@@ -48,6 +48,8 @@ func TestMain(m *testing.M) {
 func skipWebKitMacOSPopup(t *testing.T) {
 	t.Helper()
 	if isWebKit && runtime.GOOS == "darwin" {
+		// Keep this scoped to popup tests: GitHub macOS WebKit closes the browser
+		// while opening these popups, which cascades into unrelated test failures.
 		t.Skip("WebKit closes the browser on macOS when opening this popup")
 	}
 }
