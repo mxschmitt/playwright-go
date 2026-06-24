@@ -309,6 +309,26 @@ func TestResponseSecurityDetails(t *testing.T) {
 	require.NoError(t, page2.Close())
 }
 
+func TestResponseServerAddrReturnNilForFulfilledRoute(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.Route("**/*", func(route playwright.Route) {
+		require.NoError(t, route.Fulfill(playwright.RouteFulfillOptions{
+			Status:      playwright.Int(200),
+			ContentType: playwright.String("text/html"),
+			Body:        "<h1>fulfilled</h1>",
+		}))
+	}))
+	response, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	require.NoError(t, response.Finished())
+	// A fulfilled route has no real server, so Playwright returns null for the
+	// server address. This must not panic (https://github.com/playwright-community/playwright-go/issues/543).
+	serverAddr, err := response.ServerAddr()
+	require.NoError(t, err)
+	require.Nil(t, serverAddr)
+}
+
 func TestRequestTimingShouldWork(t *testing.T) {
 	BeforeEach(t)
 
