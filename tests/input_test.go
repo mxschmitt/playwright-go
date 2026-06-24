@@ -337,3 +337,19 @@ func TestShouldThrowWhenUploadAFolderInANormalFileUploadInput(t *testing.T) {
 	err = input.SetInputFiles(dir)
 	require.ErrorContains(t, err, "File input does not support directories, pass individual files instead")
 }
+
+func TestSetInputFilesShouldRespectDefaultTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	// Regression test: SetInputFiles must honor Page.SetDefaultTimeout instead of
+	// always sending a hardcoded 30s timeout. The selector never resolves to an
+	// element, so the call waits until the configured timeout elapses.
+	page.SetDefaultTimeout(500)
+	defer page.SetDefaultTimeout(30 * 1000) // reset
+
+	file := filepath.Join(t.TempDir(), "file.txt")
+	require.NoError(t, os.WriteFile(file, []byte("content"), 0o600))
+
+	err := page.Locator("input#does-not-exist").SetInputFiles(file)
+	require.ErrorContains(t, err, "Timeout 500ms exceeded")
+}
