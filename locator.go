@@ -290,13 +290,38 @@ func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error
 	}
 	params := map[string]any{
 		"selector": l.selector,
-		"files":    payload.Files,
-		"data":     payload.Data,
+		"strict":   true,
+	}
+	if payload.Files != nil {
+		converted, err := convertInputFiles(payload.Files, l.frame.page.browserContext)
+		if err != nil {
+			return err
+		}
+		if converted.Payloads != nil {
+			params["payloads"] = converted.Payloads
+		}
+		if converted.LocalPaths != nil {
+			params["localPaths"] = converted.LocalPaths
+		}
+		if converted.Streams != nil {
+			params["streams"] = converted.Streams
+		}
+	}
+	// The protocol expects data as an array of {mimeType, value} entries.
+	if payload.Data != nil {
+		data := make([]map[string]string, 0, len(payload.Data))
+		for mimeType, value := range payload.Data {
+			data = append(data, map[string]string{"mimeType": mimeType, "value": value})
+		}
+		params["data"] = data
 	}
 	if len(options) == 1 {
 		if err := assignStructFields(&params, options[0], false); err != nil {
 			return err
 		}
+	}
+	if _, ok := params["timeout"]; !ok {
+		params["timeout"] = float64(30000) // default 30s, required in Playwright v1.57+
 	}
 	_, err := l.frame.channel.Send("drop", params)
 	return err

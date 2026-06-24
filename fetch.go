@@ -469,10 +469,10 @@ func serializeMapToNameValue(data map[string]any) []map[string]string {
 }
 
 func (r *requestImpl) ExistingResponse() (Response, error) {
-	if !r.hasResponse {
+	if r.response == nil {
 		return nil, nil
 	}
-	return r.Response()
+	return r.response, nil
 }
 
 func (r *responseImpl) HttpVersion() (string, error) {

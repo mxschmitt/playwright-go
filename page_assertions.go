@@ -132,7 +132,7 @@ func (pa *pageAssertionsImpl) ToMatchAriaSnapshot(expected string, options ...Pa
 		timeout = options[0].Timeout
 	}
 	return pa.expect(
-		"to.match.aria.snapshot",
+		"to.match.aria",
 		frameExpectOptions{ExpectedValue: expected, Timeout: timeout},
 		expected,
 		"Page expected to match ARIA snapshot",
