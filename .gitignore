@@ -30,5 +30,6 @@ covprofile
 api.json
 _site/
 .jekyll-cache/
+flakiness-report/
 
 .vscode/settings.json
