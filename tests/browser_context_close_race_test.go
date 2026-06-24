@@ -115,13 +115,15 @@ func TestBrowserContextCloseRace(t *testing.T) {
 func TestPageCloseRace(t *testing.T) {
 	BeforeEach(t)
 
+	// Abort (rather than fulfill) the request so the navigation never commits.
+	// This still exercises the close-vs-route-handler race this test guards
+	// against (the handler goroutine runs concurrently with Close() and reads
+	// pageImpl.closeWasCalled), but avoids a Chromium-level deadlock where
+	// Page.Close() never returns if it races a navigation that commits at the
+	// same instant.
 	require.NoError(t, page.Route("**/*", func(route playwright.Route) {
 		time.Sleep(5 * time.Millisecond) // increase race window
-		_ = route.Fulfill(playwright.RouteFulfillOptions{
-			Status:      playwright.Int(200),
-			ContentType: playwright.String("text/html"),
-			Body:        playwright.String("<h1>Hello, World!</h1>"),
-		})
+		_ = route.Abort()
 	}))
 
 	// Start navigation in background so route handlers run concurrently with Close().
