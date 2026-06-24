@@ -180,7 +180,17 @@ func (e *elementHandleImpl) SetInputFiles(files any, options ...ElementHandleSet
 	if err != nil {
 		return err
 	}
-	_, err = e.channel.Send("setInputFiles", params, options)
+	var option ElementHandleSetInputFilesOptions
+	if len(options) == 1 {
+		option = options[0]
+	}
+	// timeout is required in Playwright v1.57+ protocol. Resolve the configured
+	// default (Page/BrowserContext.SetDefaultTimeout) instead of letting the
+	// serializer fall back to a hardcoded 30s, which would ignore that setting.
+	if option.Timeout == nil {
+		option.Timeout = Float(frame.(*frameImpl).page.timeoutSettings.Timeout())
+	}
+	_, err = e.channel.Send("setInputFiles", params, option)
 	return err
 }
 
