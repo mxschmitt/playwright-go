@@ -15,7 +15,7 @@ func (s *writableStream) Copy(file string) error {
 	if err != nil {
 		return err
 	}
-	defer f.Close()
+	defer f.Close() //nolint:errcheck
 
 	for {
 		buf := make([]byte, defaultCopyBufSize)

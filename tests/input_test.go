@@ -258,7 +258,7 @@ func TestShouldUploadAFolder(t *testing.T) {
 
 	expectResult := []interface{}{"file-upload-test/file1.txt", "file-upload-test/file2"}
 	// https://issues.chromium.org/issues/345393164
-	if !(isChromium && headless && chromiumVersionLessThan(browser.Version(), "127.0.6533.0")) {
+	if !isChromium || !headless || !chromiumVersionLessThan(browser.Version(), "127.0.6533.0") {
 		expectResult = append(expectResult, "file-upload-test/sub-dir/really.txt")
 	}
 	slices.SortFunc(ret.([]interface{}), func(i, j interface{}) int {

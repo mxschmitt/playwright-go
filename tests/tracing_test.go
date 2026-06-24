@@ -107,7 +107,7 @@ func TestBrowserContextTracingRemoteConnect(t *testing.T) {
 	browser1, err := browserType.Connect(remoteServer.url)
 	require.NoError(t, err)
 	require.NotNil(t, browser1)
-	defer browser1.Close()
+	defer browser1.Close() //nolint:errcheck
 
 	context1, err := browser1.NewContext()
 	require.NoError(t, err)
@@ -223,7 +223,7 @@ func parseTrace(t *testing.T, tracePath string) (files map[string][]byte, events
 	// read and unzip trace
 	r, err := zip.OpenReader(tracePath)
 	require.NoError(t, err)
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	files = make(map[string][]byte)
 	events = make([]interface{}, 0)
@@ -231,7 +231,7 @@ func parseTrace(t *testing.T, tracePath string) (files map[string][]byte, events
 	for _, f := range r.File {
 		rc, err := f.Open()
 		require.NoError(t, err)
-		defer rc.Close()
+		defer rc.Close() //nolint:errcheck
 
 		buf := new(bytes.Buffer)
 		_, err = io.Copy(buf, rc)
@@ -268,9 +268,7 @@ func parseTrace(t *testing.T, tracePath string) (files map[string][]byte, events
 					actionMap[event["callId"].(string)] = event
 					events = append(events, event)
 				case "input":
-					break
 				case "after":
-					break
 				default:
 					events = append(events, event)
 				}
@@ -363,7 +361,7 @@ func TestTracingStartHarZipped(t *testing.T) {
 	// The zip contains the har.har entry alongside attached resources.
 	zr, err := zip.OpenReader(harPath)
 	require.NoError(t, err)
-	defer zr.Close()
+	defer zr.Close() //nolint:errcheck
 	var harEntry *zip.File
 	for _, f := range zr.File {
 		if f.Name == "har.har" {
@@ -374,7 +372,7 @@ func TestTracingStartHarZipped(t *testing.T) {
 	require.NotNil(t, harEntry, "zip should contain har.har")
 	rc, err := harEntry.Open()
 	require.NoError(t, err)
-	defer rc.Close()
+	defer rc.Close() //nolint:errcheck
 	data, err := io.ReadAll(rc)
 	require.NoError(t, err)
 	require.Contains(t, string(data), server.PREFIX+"/one-style.html")

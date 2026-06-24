@@ -106,7 +106,7 @@ func TestBrowserContextSetHttpCredentials(t *testing.T) {
 	response, err := page.Goto(server.EMPTY_PAGE)
 	require.NoError(t, err)
 	require.Equal(t, 401, response.Status())
-	context.Close()
+	context.Close() //nolint:errcheck
 
 	context, page = newBrowserContextAndPage(t, playwright.BrowserNewContextOptions{
 		AcceptDownloads: playwright.Bool(true),
@@ -372,7 +372,7 @@ func TestBrowserContextEventsRequestFailed(t *testing.T) {
 		if ok {
 			conn, _, err := hw.Hijack()
 			if err == nil {
-				conn.Close()
+				conn.Close() //nolint:errcheck
 			}
 		}
 	})
@@ -412,7 +412,7 @@ func TestBrowserContextShouldFireCloseEvent(t *testing.T) {
 
 	browser1, err := browserType.Launch()
 	require.NoError(t, err)
-	defer browser1.Close()
+	defer browser1.Close() //nolint:errcheck
 	context1, err := browser1.NewContext()
 	require.NoError(t, err)
 	closed := false
