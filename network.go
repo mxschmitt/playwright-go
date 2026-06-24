@@ -41,22 +41,37 @@ func (r *rawHeaders) HeadersArray() []NameValue {
 	return r.headersArray
 }
 
+func (r *rawHeaders) addHeader(name, value string) {
+	r.headersArray = append(r.headersArray, NameValue{
+		Name:  name,
+		Value: value,
+	})
+	if _, ok := r.headersMap[strings.ToLower(name)]; !ok {
+		r.headersMap[strings.ToLower(name)] = make([]string, 0)
+	}
+	r.headersMap[strings.ToLower(name)] = append(r.headersMap[strings.ToLower(name)], value)
+}
+
 func newRawHeaders(headers any) *rawHeaders {
 	r := &rawHeaders{}
 	r.headersArray = make([]NameValue, 0)
 	r.headersMap = make(map[string][]string)
-	for _, header := range headers.([]any) {
-		entry := header.(map[string]any)
-		name := entry["name"].(string)
-		value := entry["value"].(string)
-		r.headersArray = append(r.headersArray, NameValue{
-			Name:  name,
-			Value: value,
-		})
-		if _, ok := r.headersMap[strings.ToLower(name)]; !ok {
-			r.headersMap[strings.ToLower(name)] = make([]string, 0)
+	switch typed := headers.(type) {
+	case []any:
+		// Headers materialized from the wire protocol arrive as a slice of
+		// decoded JSON objects.
+		for _, header := range typed {
+			entry := header.(map[string]any)
+			r.addHeader(entry["name"].(string), entry["value"].(string))
 		}
-		r.headersMap[strings.ToLower(name)] = append(r.headersMap[strings.ToLower(name)], value)
+	case []NameValue:
+		// Headers produced internally (e.g. serializeMapToNameAndValue for
+		// fallback overrides) are already typed.
+		for _, entry := range typed {
+			r.addHeader(entry.Name, entry.Value)
+		}
+	default:
+		panic(headers)
 	}
 	return r
 }
