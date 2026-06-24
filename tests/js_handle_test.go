@@ -93,7 +93,7 @@ func TestJSHandleEvaluateHandleReturningElement(t *testing.T) {
 
 	_, err := page.Goto(server.PREFIX + "/dom.html")
 	require.NoError(t, err)
-	inner, err := page.QuerySelector("#inner")
+	inner, err := page.QuerySelector("#inner") // nolint: staticcheck
 	require.NoError(t, err)
 
 	// EvaluateHandle may return an ElementHandle (e.g. element.parentElement).
@@ -103,7 +103,7 @@ func TestJSHandleEvaluateHandleReturningElement(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, parent.AsElement())
 
-	id, err := parent.AsElement().GetAttribute("id")
+	id, err := parent.AsElement().GetAttribute("id") // nolint: staticcheck
 	require.NoError(t, err)
 	require.Equal(t, "outer", id)
 
@@ -118,7 +118,7 @@ func TestJSHandleGetPropertiesReturningElement(t *testing.T) {
 
 	_, err := page.Goto(server.PREFIX + "/dom.html")
 	require.NoError(t, err)
-	inner, err := page.QuerySelector("#inner")
+	inner, err := page.QuerySelector("#inner") // nolint: staticcheck
 	require.NoError(t, err)
 
 	parent, err := inner.EvaluateHandle("element => ({ parent: element.parentElement })")
