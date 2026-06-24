@@ -31,20 +31,11 @@ func TestNewRawHeadersSupportsUntypedMaps(t *testing.T) {
 	require.Equal(t, "a=b\nc=d", headers.Get("set-cookie"))
 }
 
-func TestNewRawHeadersSupportsTypedMaps(t *testing.T) {
-	headers := newRawHeaders([]map[string]string{
-		{
-			"name":  "Accept",
-			"value": "text/html",
-		},
-		{
-			"name":  "Set-Cookie",
-			"value": "a=b",
-		},
-		{
-			"name":  "Set-Cookie",
-			"value": "c=d",
-		},
+func TestNewRawHeadersSupportsTypedNameValues(t *testing.T) {
+	headers := newRawHeaders([]NameValue{
+		{Name: "Accept", Value: "text/html"},
+		{Name: "Set-Cookie", Value: "a=b"},
+		{Name: "Set-Cookie", Value: "c=d"},
 	})
 
 	require.Equal(t, "text/html", headers.Get("accept"))
@@ -54,4 +45,18 @@ func TestNewRawHeadersSupportsTypedMaps(t *testing.T) {
 		{Name: "Set-Cookie", Value: "c=d"},
 	}, headers.HeadersArray())
 	require.Equal(t, "a=b\nc=d", headers.Get("set-cookie"))
+}
+
+// Mirrors the request.Headers()/ActualHeaders() fallback-override path, which
+// feeds serializeMapToNameAndValue's output straight into newRawHeaders. This
+// is the shape that previously panicked (see issue #453).
+func TestNewRawHeadersFromSerializedMap(t *testing.T) {
+	headers := newRawHeaders(serializeMapToNameAndValue(map[string]string{
+		"Accept": "text/html",
+	}))
+
+	require.Equal(t, "text/html", headers.Get("accept"))
+	require.Equal(t, []NameValue{
+		{Name: "Accept", Value: "text/html"},
+	}, headers.HeadersArray())
 }

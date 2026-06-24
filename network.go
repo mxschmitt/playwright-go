@@ -58,27 +58,15 @@ func newRawHeaders(headers any) *rawHeaders {
 	r.headersMap = make(map[string][]string)
 	switch typed := headers.(type) {
 	case []any:
+		// Headers materialized from the wire protocol arrive as a slice of
+		// decoded JSON objects.
 		for _, header := range typed {
-			switch entry := header.(type) {
-			case map[string]any:
-				r.addHeader(entry["name"].(string), entry["value"].(string))
-			case map[string]string:
-				r.addHeader(entry["name"], entry["value"])
-			case NameValue:
-				r.addHeader(entry.Name, entry.Value)
-			default:
-				panic(header)
-			}
-		}
-	case []map[string]any:
-		for _, entry := range typed {
+			entry := header.(map[string]any)
 			r.addHeader(entry["name"].(string), entry["value"].(string))
 		}
-	case []map[string]string:
-		for _, entry := range typed {
-			r.addHeader(entry["name"], entry["value"])
-		}
 	case []NameValue:
+		// Headers produced internally (e.g. serializeMapToNameAndValue for
+		// fallback overrides) are already typed.
 		for _, entry := range typed {
 			r.addHeader(entry.Name, entry.Value)
 		}

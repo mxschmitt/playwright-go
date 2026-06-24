@@ -519,12 +519,12 @@ func unroute(inRoutes []*routeHandlerEntry, url any, handlers ...routeHandler) (
 	return removed, remaining, nil
 }
 
-func serializeMapToNameAndValue(headers map[string]string) []map[string]string {
-	serialized := make([]map[string]string, 0)
+func serializeMapToNameAndValue(headers map[string]string) []NameValue {
+	serialized := make([]NameValue, 0)
 	for name, value := range headers {
-		serialized = append(serialized, map[string]string{
-			"name":  name,
-			"value": value,
+		serialized = append(serialized, NameValue{
+			Name:  name,
+			Value: value,
 		})
 	}
 	return serialized
