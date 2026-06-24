@@ -126,8 +126,11 @@ func (r *responseImpl) SecurityDetails() (*ResponseSecurityDetailsResult, error)
 	if err != nil {
 		return nil, err
 	}
+	if details == nil {
+		return nil, nil
+	}
 	result := &ResponseSecurityDetailsResult{}
-	remapMapToStruct(details.(map[string]any), result)
+	remapMapToStruct(details, result)
 	return result, nil
 }
 
@@ -135,6 +138,9 @@ func (r *responseImpl) ServerAddr() (*ResponseServerAddrResult, error) {
 	addr, err := r.channel.Send("serverAddr")
 	if err != nil {
 		return nil, err
+	}
+	if addr == nil {
+		return nil, nil
 	}
 	result := &ResponseServerAddrResult{}
 	remapMapToStruct(addr, result)
