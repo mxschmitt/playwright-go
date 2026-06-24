@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"os"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -306,4 +307,83 @@ func getTraceActions(events []interface{}) []string {
 		}
 	}
 	return actions
+}
+
+// Ported from upstream tests/library/har.spec.ts "tracing.startHar" >
+// "should record a HAR with options".
+func TestTracingStartHarWithOptions(t *testing.T) {
+	BeforeEach(t)
+
+	harPath := filepath.Join(t.TempDir(), "tracing.har")
+	require.NoError(t, context.Tracing().StartHar(harPath, playwright.TracingStartHarOptions{
+		Mode:      playwright.HarModeMinimal,
+		URLFilter: "**/one-style.css",
+	}))
+	_, err := page.Goto(server.PREFIX + "/one-style.html")
+	require.NoError(t, err)
+	require.NoError(t, context.Tracing().StopHar())
+	require.FileExists(t, harPath)
+
+	data, err := os.ReadFile(harPath)
+	require.NoError(t, err)
+	var har struct {
+		Log struct {
+			Entries []struct {
+				Request struct {
+					URL      string  `json:"url"`
+					BodySize float64 `json:"bodySize"`
+				} `json:"request"`
+			} `json:"entries"`
+		} `json:"log"`
+	}
+	require.NoError(t, json.Unmarshal(data, &har))
+	urls := make([]string, 0, len(har.Log.Entries))
+	for _, e := range har.Log.Entries {
+		urls = append(urls, e.Request.URL)
+	}
+	require.Equal(t, []string{server.PREFIX + "/one-style.css"}, urls)
+	// Minimal mode drops body sizes.
+	require.Equal(t, float64(-1), har.Log.Entries[0].Request.BodySize)
+}
+
+// Ported from upstream "should record a zipped HAR for APIRequestContext",
+// adapted to a BrowserContext (the Go API exposes Tracing on both).
+func TestTracingStartHarZipped(t *testing.T) {
+	BeforeEach(t)
+
+	harPath := filepath.Join(t.TempDir(), "tracing.har.zip")
+	require.NoError(t, context.Tracing().StartHar(harPath, playwright.TracingStartHarOptions{
+		Content: playwright.HarContentPolicyAttach,
+	}))
+	_, err := page.Goto(server.PREFIX + "/one-style.html")
+	require.NoError(t, err)
+	require.NoError(t, context.Tracing().StopHar())
+	require.FileExists(t, harPath)
+
+	// The zip contains the har.har entry alongside attached resources.
+	zr, err := zip.OpenReader(harPath)
+	require.NoError(t, err)
+	defer zr.Close()
+	var harEntry *zip.File
+	for _, f := range zr.File {
+		if f.Name == "har.har" {
+			harEntry = f
+			break
+		}
+	}
+	require.NotNil(t, harEntry, "zip should contain har.har")
+	rc, err := harEntry.Open()
+	require.NoError(t, err)
+	defer rc.Close()
+	data, err := io.ReadAll(rc)
+	require.NoError(t, err)
+	require.Contains(t, string(data), server.PREFIX+"/one-style.html")
+}
+
+// StopHar without a prior StartHar should error, mirroring upstream's
+// "HAR recording has not been started" guard.
+func TestTracingStopHarWithoutStart(t *testing.T) {
+	BeforeEach(t)
+
+	require.ErrorContains(t, context.Tracing().StopHar(), "HAR recording has not been started")
 }

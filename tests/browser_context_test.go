@@ -563,8 +563,7 @@ func TestBrowserContextEventsFrameDetached(t *testing.T) {
 		document.body.appendChild(iframe);
 	}`)
 	require.NoError(t, err)
-	_, err = page.WaitForSelector("iframe")
-	require.NoError(t, err)
+	require.NoError(t, page.Locator("iframe").WaitFor())
 	ret, err := context.ExpectEvent("framedetached", func() error {
 		_, err := page.Evaluate(`() => document.getElementById('x').remove()`)
 		return err
@@ -586,7 +585,7 @@ func TestBrowserContextEventsDownload(t *testing.T) {
 	})
 	require.NoError(t, page.SetContent(fmt.Sprintf(`<a href="%s/download">download</a>`, server.PREFIX)))
 	ret, err := context.ExpectEvent("download", func() error {
-		return page.Click("a")
+		return page.Locator("a").Click()
 	})
 	require.NoError(t, err)
 	download, ok := ret.(playwright.Download)
