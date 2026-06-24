@@ -257,6 +257,10 @@ func (d *PlaywrightDriver) installBrowsers() error {
 		additionalArgs = append(additionalArgs, "--dry-run")
 	}
 
+	if d.options.WithDeps {
+		additionalArgs = append(additionalArgs, "--with-deps")
+	}
+
 	cmd := d.Command(additionalArgs...)
 	cmd.Stdout = d.options.Stdout
 	cmd.Stderr = d.options.Stderr
@@ -286,6 +290,8 @@ type RunOptions struct {
 	SkipInstallBrowsers bool
 	// if not set and SkipInstallBrowsers is false, will download all browsers (chromium, firefox, webkit)
 	Browsers []string
+	// install system dependencies for browsers
+	WithDeps bool
 	Verbose  bool // default true
 	Stdout   io.Writer
 	Stderr   io.Writer
