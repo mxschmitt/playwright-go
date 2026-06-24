@@ -45,6 +45,15 @@ func TestMain(m *testing.M) {
 	os.Exit(code)
 }
 
+func skipWebKitMacOSPopup(t *testing.T) {
+	t.Helper()
+	if isWebKit && runtime.GOOS == "darwin" {
+		// Keep this scoped to popup tests: GitHub macOS WebKit closes the browser
+		// while opening these popups, which cascades into unrelated test failures.
+		t.Skip("WebKit closes the browser on macOS when opening this popup")
+	}
+}
+
 // BeforeAll prepares the environment, including
 //   - start Playwright driver
 //   - launch browser depends on BROWSER env
@@ -62,10 +71,14 @@ func BeforeAll() {
 	} else if browserName == "webkit" {
 		browserType = pw.WebKit
 	}
-	// launch browser, headless or not depending on HEADFUL env
-	browser, err = browserType.Launch(playwright.BrowserTypeLaunchOptions{
+	launchOptions := playwright.BrowserTypeLaunchOptions{
 		Headless: playwright.Bool(headless),
-	})
+	}
+	if browserType == pw.Chromium {
+		launchOptions.Args = []string{"--disable-features=LocalNetworkAccessChecks"}
+	}
+	// launch browser, headless or not depending on HEADFUL env
+	browser, err = browserType.Launch(launchOptions)
 	if err != nil {
 		log.Fatalf("could not launch: %v", err)
 	}

@@ -43,6 +43,7 @@ func TestDialogAcceptWithText(t *testing.T) {
 }
 
 func TestDialogShouldWorkInPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	var d playwright.Dialog

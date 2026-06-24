@@ -1,6 +1,9 @@
 package playwright
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 type tracingImpl struct {
 	channelOwner
@@ -8,6 +11,7 @@ type tracingImpl struct {
 	isTracing      bool
 	stacksId       string
 	tracesDir      string
+	harRecorders   map[string]harRecordingMetadata
 }
 
 func (t *tracingImpl) Start(options ...TracingStartOptions) error {
@@ -156,8 +160,105 @@ func (t *tracingImpl) GroupEnd() error {
 	return err
 }
 
+func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) error {
+	if len(t.harRecorders) > 0 {
+		return fmt.Errorf("HAR recording has already been started")
+	}
+	// Default content matches upstream: attach for .zip output, embed otherwise.
+	defaultContent := HarContentPolicyEmbed
+	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+		defaultContent = HarContentPolicyAttach
+	}
+	harOptions := recordHarInputOptions{
+		Path:    path,
+		Content: defaultContent,
+		Mode:    HarModeFull,
+	}
+	if len(options) == 1 {
+		if options[0].Content != nil {
+			harOptions.Content = options[0].Content
+		}
+		if options[0].Mode != nil {
+			harOptions.Mode = options[0].Mode
+		}
+		harOptions.URL = options[0].URLFilter
+	}
+	harId, err := t.channel.Send("harStart", map[string]any{
+		"options": prepareRecordHarOptions(harOptions),
+	})
+	if err != nil {
+		return err
+	}
+	t.harRecorders[harId.(string)] = harRecordingMetadata{
+		Path:    path,
+		Content: harOptions.Content,
+	}
+	return nil
+}
+
+func (t *tracingImpl) StopHar() error {
+	if len(t.harRecorders) == 0 {
+		return fmt.Errorf("HAR recording has not been started")
+	}
+	for harId, harMetaData := range t.harRecorders {
+		delete(t.harRecorders, harId)
+		overrides := map[string]any{}
+		if harId != "" {
+			overrides["harId"] = harId
+		}
+		needCompressed := strings.HasSuffix(strings.ToLower(harMetaData.Path), ".zip")
+		if !t.connection.isRemote {
+			overrides["mode"] = "entries"
+			response, err := t.channel.SendReturnAsDict("harExport", overrides)
+			if err != nil {
+				return err
+			}
+			if !needCompressed {
+				continue
+			}
+			entries, ok := response["entries"].([]any)
+			if !ok {
+				return fmt.Errorf("could not convert HAR entries: %v", response)
+			}
+			if _, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
+				ZipFile: harMetaData.Path,
+				Entries: entries,
+				Mode:    "write",
+			}); err != nil {
+				return err
+			}
+			continue
+		}
+		overrides["mode"] = "archive"
+		response, err := t.channel.SendReturnAsDict("harExport", overrides)
+		if err != nil {
+			return err
+		}
+		artifact := fromChannel(response["artifact"]).(*artifactImpl)
+		if needCompressed {
+			if err := artifact.SaveAs(harMetaData.Path); err != nil {
+				return err
+			}
+		} else {
+			tmpPath := harMetaData.Path + ".tmp"
+			if err := artifact.SaveAs(tmpPath); err != nil {
+				return err
+			}
+			if err := t.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path); err != nil {
+				return err
+			}
+		}
+		if err := artifact.Delete(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]any) *tracingImpl {
-	bt := &tracingImpl{}
+	bt := &tracingImpl{
+		harRecorders: make(map[string]harRecordingMetadata),
+	}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.markAsInternalType()
 	return bt

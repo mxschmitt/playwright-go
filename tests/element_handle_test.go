@@ -362,7 +362,8 @@ func TestElementHandleSelectOptionOverElementHandle(t *testing.T) {
 	})
 	require.NoError(t, err)
 	selected2, err := page.Locator("#lang").SelectOption(
-		playwright.SelectOptionValues{Values: playwright.StringSlice("python")})
+		playwright.SelectOptionValues{Values: playwright.StringSlice("python")},
+	)
 	require.NoError(t, err)
 	require.Equal(t, 1, len(selected))
 	require.Equal(t, "python", selected[0])

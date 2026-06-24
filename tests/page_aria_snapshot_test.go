@@ -160,3 +160,16 @@ func TestShouldSnapshotWithUnexpectedChildrenDeepEqual(t *testing.T) {
                 - listitem: 1.1
 	`, playwright.LocatorAssertionsToMatchAriaSnapshotOptions{Timeout: playwright.Float(1000)}))
 }
+
+// Covers PageAssertions.ToMatchAriaSnapshot, which must use the
+// "to.match.aria" expect expression (mirrors the Locator variant).
+func TestPageAssertionsToMatchAriaSnapshot(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<h1>title</h1>`))
+	require.NoError(t, expect.Page(page).ToMatchAriaSnapshot(`- heading "title" [level=1]`))
+	require.Error(t, expect.Page(page).ToMatchAriaSnapshot(
+		`- heading "wrong"`,
+		playwright.PageAssertionsToMatchAriaSnapshotOptions{Timeout: playwright.Float(1000)},
+	))
+}

@@ -152,6 +152,7 @@ func newResponse(parent *channelOwner, objectType string, guid string, initializ
 	resp.createChannelOwner(resp, parent, objectType, guid, initializer)
 	timing := resp.initializer["timing"].(map[string]any)
 	resp.request = fromChannel(resp.initializer["request"]).(*requestImpl)
+	resp.request.response = resp
 	resp.request.timing = &RequestTiming{
 		StartTime:             timing["startTime"].(float64),
 		DomainLookupStart:     timing["domainLookupStart"].(float64),

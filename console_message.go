@@ -54,3 +54,11 @@ func newConsoleMessage(event map[string]any) *consoleMessageImpl {
 	}
 	return bt
 }
+
+func (c *consoleMessageImpl) Timestamp() (float64, error) {
+	v, ok := c.event["timestamp"]
+	if !ok {
+		return 0, nil
+	}
+	return v.(float64), nil
+}

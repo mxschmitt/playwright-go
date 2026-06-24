@@ -22,6 +22,7 @@ type requestImpl struct {
 	redirectedTo       Request
 	failureText        string
 	fallbackOverrides  *serializedFallbackOverrides
+	response           *responseImpl
 }
 
 func (r *requestImpl) URL() string {

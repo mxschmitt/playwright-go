@@ -321,6 +321,10 @@ func (r *apiRequestContextImpl) StorageState(path ...string) (*StorageState, err
 	return &storageState, nil
 }
 
+func (r *apiRequestContextImpl) Tracing() Tracing {
+	return r.tracing
+}
+
 func newAPIRequestContext(parent *channelOwner, objectType string, guid string, initializer map[string]any) *apiRequestContextImpl {
 	rc := &apiRequestContextImpl{}
 	rc.createChannelOwner(rc, parent, objectType, guid, initializer)
@@ -462,4 +466,19 @@ func serializeMapToNameValue(data map[string]any) []map[string]string {
 		})
 	}
 	return serialized
+}
+
+func (r *requestImpl) ExistingResponse() (Response, error) {
+	if r.response == nil {
+		return nil, nil
+	}
+	return r.response, nil
+}
+
+func (r *responseImpl) HttpVersion() (string, error) {
+	result, err := r.channel.Send("httpVersion")
+	if err != nil {
+		return "", err
+	}
+	return result.(string), nil
 }

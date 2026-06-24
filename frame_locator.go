@@ -109,7 +109,8 @@ func (fl *frameLocatorImpl) Locator(selectorOrLocator any, options ...FrameLocat
 			locator.err = errors.Join(locator.err, ErrLocatorNotSameFrame)
 			return locator
 		}
-		return newLocator(locator.frame,
+		return newLocator(
+			locator.frame,
 			fmt.Sprintf("%s >> internal:control=enter-frame >> %s", fl.frameSelector, locator.selector),
 			option,
 		)

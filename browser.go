@@ -134,6 +134,20 @@ func (b *browserImpl) Contexts() []BrowserContext {
 	return b.contexts
 }
 
+func (b *browserImpl) Bind(title string, options ...BrowserBindOptions) (*Bind, error) {
+	overrides := map[string]any{"title": title}
+	result, err := b.channel.SendReturnAsDict("startServer", options, overrides)
+	if err != nil {
+		return nil, err
+	}
+	return &Bind{Endpoint: result["endpoint"].(string)}, nil
+}
+
+func (b *browserImpl) Unbind() error {
+	_, err := b.channel.Send("stopServer")
+	return err
+}
+
 func (b *browserImpl) Close(options ...BrowserCloseOptions) (err error) {
 	if len(options) == 1 {
 		b.closeReason = options[0].Reason
@@ -218,6 +232,10 @@ func (b *browserImpl) OnDisconnected(fn func(Browser)) {
 	b.On("disconnected", fn)
 }
 
+func (b *browserImpl) OnContext(fn func(BrowserContext)) {
+	b.On("context", fn)
+}
+
 func newBrowser(parent *channelOwner, objectType string, guid string, initializer map[string]any) *browserImpl {
 	b := &browserImpl{
 		isConnected: true,
@@ -227,6 +245,22 @@ func newBrowser(parent *channelOwner, objectType string, guid string, initialize
 	// convert parent to *browserTypeImpl
 	b.browserType = newBrowserType(parent.parent, parent.objectType, parent.guid, parent.initializer)
 	b.channel.On("close", b.onClose)
+	b.channel.On("context", func(params map[string]any) {
+		context := fromChannel(params["context"]).(*browserContextImpl)
+		b.Lock()
+		found := false
+		for _, c := range b.contexts {
+			if c == context {
+				found = true
+				break
+			}
+		}
+		if !found {
+			b.contexts = append(b.contexts, context)
+		}
+		b.Unlock()
+		b.Emit("context", context)
+	})
 	return b
 }
 

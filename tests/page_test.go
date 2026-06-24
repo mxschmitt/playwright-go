@@ -259,7 +259,8 @@ func TestPageExpectWorker(t *testing.T) {
 	worker = page.Workers()[0]
 	require.Contains(t, worker.URL(), "worker.js")
 	// flaky in the macos-latest of gh action
-	require.Eventually(t,
+	require.Eventually(
+		t,
 		func() bool {
 			v, err := worker.Evaluate(`() => self["workerFunction"] ? true : false`)
 			require.NoError(t, err)
@@ -334,6 +335,7 @@ func TestPageExpectRequestFinished(t *testing.T) {
 }
 
 func TestPageExpectPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	_, err := page.Goto(server.EMPTY_PAGE)
@@ -401,6 +403,7 @@ func TestPageExpectEvent(t *testing.T) {
 }
 
 func TestPageOpener(t *testing.T) {
+	skipWebKitMacOSPopup(t)
 	BeforeEach(t)
 
 	eventPage, err := context.ExpectEvent("page", func() error {
@@ -1004,11 +1007,12 @@ func TestPageShouldSetBodysizeAndHeadersize(t *testing.T) {
 
 	_, err := page.Goto(server.EMPTY_PAGE)
 	require.NoError(t, err)
-	request, err := page.ExpectRequest("**/*", func() error {
-		_, err = page.Evaluate("() => fetch('./get', { method: 'POST', body: '12345'}).then(r => r.text())")
-		require.NoError(t, err)
-		return nil
-	},
+	request, err := page.ExpectRequest(
+		"**/*", func() error {
+			_, err = page.Evaluate("() => fetch('./get', { method: 'POST', body: '12345'}).then(r => r.text())")
+			require.NoError(t, err)
+			return nil
+		},
 	)
 	require.NoError(t, err)
 	sizes, err := request.Sizes()
@@ -1022,11 +1026,12 @@ func TestPageTestShouldSetBodysizeTo0(t *testing.T) {
 
 	_, err := page.Goto(server.EMPTY_PAGE)
 	require.NoError(t, err)
-	request, err := page.ExpectRequest("**/*", func() error {
-		_, err = page.Evaluate("() => fetch('./get').then(r => r.text())")
-		require.NoError(t, err)
-		return nil
-	},
+	request, err := page.ExpectRequest(
+		"**/*", func() error {
+			_, err = page.Evaluate("() => fetch('./get').then(r => r.text())")
+			require.NoError(t, err)
+			return nil
+		},
 	)
 	require.NoError(t, err)
 	sizes, err := request.Sizes()

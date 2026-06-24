@@ -9,6 +9,10 @@ func (c *cdpSessionImpl) Detach() error {
 	return err
 }
 
+func (c *cdpSessionImpl) OnClose(fn func(CDPSession)) {
+	c.On("close", fn)
+}
+
 func (c *cdpSessionImpl) Send(method string, params map[string]any) (any, error) {
 	result, err := c.channel.Send("send", map[string]any{
 		"method": method,

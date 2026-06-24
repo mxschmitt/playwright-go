@@ -207,7 +207,7 @@ func TestBrowserTypeConnectArtifactPath(t *testing.T) {
 	recordVideoDir := t.TempDir()
 	browserContext, err := browser1.NewContext(playwright.BrowserNewContextOptions{
 		RecordVideo: &playwright.RecordVideo{
-			Dir: recordVideoDir,
+			Dir: playwright.String(recordVideoDir),
 		},
 	})
 	require.NoError(t, err)
@@ -343,6 +343,7 @@ func TestShouldUploadAFolderRemote(t *testing.T) {
 	require.NoError(t, err)
 	page, err := browser_context.NewPage()
 	require.NoError(t, err)
+	page.SetDefaultTimeout(60 * 1000)
 
 	_, err = page.Goto(fmt.Sprintf("%s%s", server.PREFIX, "/input/folderupload.html"))
 	require.NoError(t, err)
@@ -387,4 +388,30 @@ func TestShouldUploadAFolderRemote(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, string(b), content.(string))
 	}
+}
+
+func TestBrowserBind(t *testing.T) {
+	BeforeEach(t)
+
+	result, err := browser.Bind("test-server")
+	require.NoError(t, err)
+	require.NotEmpty(t, result.Endpoint)
+
+	// Connect from another Playwright instance
+	pw2, err := playwright.Run()
+	require.NoError(t, err)
+	defer func() { _ = pw2.Stop() }()
+
+	browser2, err := pw2.Chromium.Connect(result.Endpoint)
+	require.NoError(t, err)
+	require.NotNil(t, browser2)
+
+	page2, err := browser2.NewPage()
+	require.NoError(t, err)
+	_, err = page2.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	require.Equal(t, server.EMPTY_PAGE, page2.URL())
+
+	require.NoError(t, browser2.Close())
+	require.NoError(t, browser.Unbind())
 }

@@ -126,6 +126,19 @@ func (pa *pageAssertionsImpl) ToHaveURL(urlOrRegExp any, options ...PageAssertio
 	)
 }
 
+func (pa *pageAssertionsImpl) ToMatchAriaSnapshot(expected string, options ...PageAssertionsToMatchAriaSnapshotOptions) error {
+	var timeout *float64
+	if len(options) == 1 {
+		timeout = options[0].Timeout
+	}
+	return pa.expect(
+		"to.match.aria",
+		frameExpectOptions{ExpectedValue: expected, Timeout: timeout},
+		expected,
+		"Page expected to match ARIA snapshot",
+	)
+}
+
 func (pa *pageAssertionsImpl) Not() PageAssertions {
 	return newPageAssertions(pa.actualPage, true, pa.defaultTimeout)
 }

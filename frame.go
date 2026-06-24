@@ -281,6 +281,9 @@ func (f *frameImpl) onFrameNavigated(ev map[string]any) {
 	_, ok := ev["error"]
 	if !ok && f.page != nil {
 		f.page.Emit("framenavigated", f)
+		if f.page.browserContext != nil {
+			f.page.browserContext.Emit("framenavigated", f)
+		}
 	}
 }
 
@@ -292,6 +295,9 @@ func (f *frameImpl) onLoadState(ev map[string]any) {
 		if f.parentFrame == nil && f.page != nil {
 			if add == "load" || add == "domcontentloaded" {
 				f.Page().Emit(add, f.page)
+				if add == "load" && f.page.browserContext != nil {
+					f.page.browserContext.Emit("pageload", f.page)
+				}
 			}
 		}
 	} else if ev["remove"] != nil {

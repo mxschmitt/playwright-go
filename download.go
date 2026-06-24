@@ -1,7 +1,7 @@
 package playwright
 
 type downloadImpl struct {
-	page              *pageImpl
+	page              Page
 	url               string
 	suggestedFilename string
 	artifact          *artifactImpl
@@ -46,7 +46,7 @@ func (d *downloadImpl) Cancel() error {
 	return d.artifact.Cancel()
 }
 
-func newDownload(page *pageImpl, url string, suggestedFilename string, artifact *artifactImpl) *downloadImpl {
+func newDownload(page Page, url string, suggestedFilename string, artifact *artifactImpl) *downloadImpl {
 	return &downloadImpl{
 		page:              page,
 		url:               url,

@@ -16,7 +16,7 @@ import (
 	"strings"
 )
 
-const playwrightCliVersion = "1.57.0"
+const playwrightCliVersion = "1.60.0"
 
 var (
 	logger               = slog.Default()
@@ -133,7 +133,7 @@ func (d *PlaywrightDriver) DownloadDriver() error {
 		return err
 	}
 	if up2Date {
-		return nil
+		return d.patchDriverBundle()
 	}
 
 	d.log("Downloading driver", "path", d.options.DriverDirectory)
@@ -182,6 +182,49 @@ func (d *PlaywrightDriver) DownloadDriver() error {
 
 	d.log("Downloaded driver successfully")
 
+	return d.patchDriverBundle()
+}
+
+func (d *PlaywrightDriver) patchDriverBundle() error {
+	coreBundlePath := filepath.Join(d.options.DriverDirectory, "package", "lib", "coreBundle.js")
+	data, err := os.ReadFile(coreBundlePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("could not read driver bundle: %w", err)
+	}
+
+	replacements := map[string]string{
+		"pageError.location.url":          `pageError.location?.url || ""`,
+		"pageError.location.lineNumber":   "pageError.location?.lineNumber || 0",
+		"pageError.location.columnNumber": "pageError.location?.columnNumber || 0",
+	}
+	changed := false
+	for original, patched := range replacements {
+		originalBytes := []byte(original)
+		patchedBytes := []byte(patched)
+		if bytes.Contains(data, originalBytes) {
+			data = bytes.ReplaceAll(data, originalBytes, patchedBytes)
+			changed = true
+		}
+	}
+	if !changed {
+		alreadyPatched := true
+		for _, patched := range replacements {
+			if !bytes.Contains(data, []byte(patched)) {
+				alreadyPatched = false
+				break
+			}
+		}
+		if alreadyPatched {
+			return nil
+		}
+		return fmt.Errorf("could not patch driver bundle: pageError location pattern not found")
+	}
+	if err := os.WriteFile(coreBundlePath, data, 0o644); err != nil {
+		return fmt.Errorf("could not write patched driver bundle: %w", err)
+	}
 	return nil
 }
 

@@ -131,7 +131,7 @@ func (p *pageImpl) Close(options ...PageCloseOptions) error {
 	if err == nil && p.ownedContext != nil {
 		err = p.ownedContext.Close()
 	}
-	if errors.Is(err, ErrTargetClosed) || (len(options) == 1 && options[0].RunBeforeUnload != nil && *(options[0].RunBeforeUnload)) {
+	if errors.Is(err, ErrTargetClosed) || (len(options) == 1 && options[0].RunBeforeUnload != nil && *options[0].RunBeforeUnload) {
 		return nil
 	}
 	return err
@@ -237,6 +237,11 @@ func (p *pageImpl) Evaluate(expression string, arg ...any) (any, error) {
 
 func (p *pageImpl) EvaluateHandle(expression string, arg ...any) (JSHandle, error) {
 	return p.mainFrame.EvaluateHandle(expression, arg...)
+}
+
+func (p *pageImpl) HideHighlight() error {
+	_, err := p.channel.Send("hideHighlight")
+	return err
 }
 
 func (p *pageImpl) EvalOnSelector(selector string, expression string, arg any, options ...PageEvalOnSelectorOptions) (any, error) {
@@ -747,7 +752,7 @@ func (p *pageImpl) Keyboard() Keyboard {
 	return p.keyboard
 }
 
-func (p *pageImpl) ConsoleMessages() ([]ConsoleMessage, error) {
+func (p *pageImpl) ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error) {
 	result, err := p.channel.Send("consoleMessages", nil)
 	if err != nil {
 		return nil, err
@@ -866,12 +871,15 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 		url := ev["url"].(string)
 		suggestedFilename := ev["suggestedFilename"].(string)
 		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
-		bt.Emit("download", newDownload(bt, url, suggestedFilename, artifact))
+		download := newDownload(bt, url, suggestedFilename, artifact)
+		bt.Emit("download", download)
+		bt.browserContext.Emit("download", download)
 	})
-	bt.channel.On("video", func(params map[string]any) {
-		artifact := fromChannel(params["artifact"]).(*artifactImpl)
+	// PW 1.59+: video artifact comes from page initializer
+	if videoChannel, ok := initializer["video"]; ok && videoChannel != nil {
+		artifact := fromChannel(videoChannel).(*artifactImpl)
 		bt.Video().(*videoImpl).artifactReady(artifact)
-	})
+	}
 	bt.channel.On("webSocket", func(ev map[string]any) {
 		bt.Emit("websocket", fromChannel(ev["webSocket"]).(*webSocketImpl))
 	})
@@ -929,6 +937,7 @@ func (p *pageImpl) onFrameAttached(frame *frameImpl) {
 	frame.page = p
 	p.frames = append(p.frames, frame)
 	p.Emit("frameattached", frame)
+	p.browserContext.Emit("frameattached", frame)
 }
 
 func (p *pageImpl) onFrameDetached(frame *frameImpl) {
@@ -943,6 +952,7 @@ func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 		p.frames = frames
 	}
 	p.Emit("framedetached", frame)
+	p.browserContext.Emit("framedetached", frame)
 }
 
 func (p *pageImpl) onRoute(route *routeImpl) {
@@ -1031,6 +1041,9 @@ func (p *pageImpl) onClose() {
 	}
 	p.disposeHarRouters()
 	p.Emit("close", p)
+	if p.browserContext != nil {
+		p.browserContext.Emit("pageclose", p)
+	}
 }
 
 func (p *pageImpl) SetInputFiles(selector string, files any, options ...PageSetInputFilesOptions) error {
@@ -1109,11 +1122,7 @@ func (p *pageImpl) ExposeFunction(name string, binding ExposedFunction) error {
 	})
 }
 
-func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error {
-	needsHandle := false
-	if len(handle) == 1 {
-		needsHandle = handle[0]
-	}
+func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction) error {
 	if _, ok := p.bindings.Load(name); ok {
 		return fmt.Errorf("Function '%s' has been already registered", name)
 	}
@@ -1121,8 +1130,7 @@ func (p *pageImpl) ExposeBinding(name string, binding BindingCallFunction, handl
 		return fmt.Errorf("Function '%s' has been already registered in the browser context", name)
 	}
 	_, err := p.channel.Send("exposeBinding", map[string]any{
-		"name":        name,
-		"needsHandle": needsHandle,
+		"name": name,
 	})
 	if err != nil {
 		return err
@@ -1408,4 +1416,42 @@ func (p *pageImpl) updateWebSocketInterceptionPatterns() error {
 		"patterns": patterns,
 	})
 	return err
+}
+
+func (p *pageImpl) AriaSnapshot(options ...PageAriaSnapshotOptions) (string, error) {
+	result, err := p.mainFrame.(*frameImpl).channel.Send("ariaSnapshot", options)
+	if err != nil {
+		return "", err
+	}
+	return result.(string), nil
+}
+
+func (p *pageImpl) ClearConsoleMessages() error {
+	_, err := p.channel.Send("clearConsoleMessages")
+	return err
+}
+
+func (p *pageImpl) ClearPageErrors() error {
+	_, err := p.channel.Send("clearPageErrors")
+	return err
+}
+
+func (p *pageImpl) PageErrors() ([]string, error) {
+	result, err := p.channel.Send("pageErrors")
+	if err != nil {
+		return nil, err
+	}
+	items := result.([]any)
+	errors := make([]string, len(items))
+	for i, item := range items {
+		se := item.(map[string]any)
+		if errObj, ok := se["error"].(map[string]any); ok {
+			errors[i] = errObj["message"].(string)
+		}
+	}
+	return errors, nil
+}
+
+func (p *pageImpl) Screencast() (Screencast, error) {
+	return &screencastImpl{page: p}, nil
 }

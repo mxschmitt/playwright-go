@@ -284,6 +284,49 @@ func (l *locatorImpl) DragTo(target Locator, options ...LocatorDragToOptions) er
 	return l.frame.DragAndDrop(l.selector, target.(*locatorImpl).selector, opt)
 }
 
+func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error {
+	if l.err != nil {
+		return l.err
+	}
+	params := map[string]any{
+		"selector": l.selector,
+		"strict":   true,
+	}
+	if payload.Files != nil {
+		converted, err := convertInputFiles(payload.Files, l.frame.page.browserContext)
+		if err != nil {
+			return err
+		}
+		if converted.Payloads != nil {
+			params["payloads"] = converted.Payloads
+		}
+		if converted.LocalPaths != nil {
+			params["localPaths"] = converted.LocalPaths
+		}
+		if converted.Streams != nil {
+			params["streams"] = converted.Streams
+		}
+	}
+	// The protocol expects data as an array of {mimeType, value} entries.
+	if payload.Data != nil {
+		data := make([]map[string]string, 0, len(payload.Data))
+		for mimeType, value := range payload.Data {
+			data = append(data, map[string]string{"mimeType": mimeType, "value": value})
+		}
+		params["data"] = data
+	}
+	if len(options) == 1 {
+		if err := assignStructFields(&params, options[0], false); err != nil {
+			return err
+		}
+	}
+	if _, ok := params["timeout"]; !ok {
+		params["timeout"] = float64(30000) // default 30s, required in Playwright v1.57+
+	}
+	_, err := l.frame.channel.Send("drop", params)
+	return err
+}
+
 func (l *locatorImpl) ElementHandle(options ...LocatorElementHandleOptions) (ElementHandle, error) {
 	if l.err != nil {
 		return nil, l.err
@@ -462,6 +505,16 @@ func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) 
 		}
 	}
 	return l.Locator(getByTitleSelector(text, exact))
+}
+
+func (l *locatorImpl) HideHighlight() error {
+	if l.err != nil {
+		return l.err
+	}
+	_, err := l.frame.channel.Send("hideHighlight", map[string]any{
+		"selector": l.selector,
+	})
+	return err
 }
 
 func (l *locatorImpl) Highlight() error {
@@ -646,7 +699,8 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 			l.err = errors.Join(l.err, ErrLocatorNotSameFrame)
 			return l
 		}
-		return newLocator(l.frame,
+		return newLocator(
+			l.frame,
 			l.selector+" >> internal:chain="+escapeText(locator.selector),
 			option,
 		)
@@ -929,4 +983,17 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		}
 	}
 	return &frameExpectResult{Received: received, Matches: matches, Log: log}, nil
+}
+
+func (l *locatorImpl) Normalize() Locator {
+	result, err := l.frame.channel.Send("resolveSelector", map[string]any{
+		"selector": l.selector,
+	})
+	if err != nil {
+		return l
+	}
+	if selector, ok := result.(string); ok {
+		return newLocator(l.frame, selector)
+	}
+	return l
 }

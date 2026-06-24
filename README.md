@@ -5,7 +5,7 @@
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/playwright-community/playwright-go)](https://pkg.go.dev/github.com/playwright-community/playwright-go)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 [![Go Report Card](https://goreportcard.com/badge/github.com/playwright-community/playwright-go)](https://goreportcard.com/report/github.com/playwright-community/playwright-go) ![Build Status](https://github.com/playwright-community/playwright-go/workflows/Go/badge.svg)
-[![Join Slack](https://img.shields.io/badge/join-slack-infomational)](https://aka.ms/playwright-slack) [![Coverage Status](https://coveralls.io/repos/github/playwright-community/playwright-go/badge.svg?branch=main)](https://coveralls.io/github/playwright-community/playwright-go?branch=main) <!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-143.0.7499.4-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-144.0.2-blue.svg?logo=mozilla-firefox)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-26.0-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop -->
+[![Join Slack](https://img.shields.io/badge/join-slack-infomational)](https://aka.ms/playwright-slack) [![Coverage Status](https://coveralls.io/repos/github/playwright-community/playwright-go/badge.svg?branch=main)](https://coveralls.io/github/playwright-community/playwright-go?branch=main) <!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-148.0.7778.96-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-150.0.2-blue.svg?logo=mozilla-firefox)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-26.4-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop -->
 
 [API reference](https://playwright.dev/docs/api/class-playwright) | [Example recipes](https://github.com/playwright-community/playwright-go/tree/main/examples)
 
@@ -13,9 +13,9 @@ Playwright is a Go library to automate [Chromium](https://www.chromium.org/Home)
 
 |          | Linux | macOS | Windows |
 |   :---   | :---: | :---: | :---:   |
-| Chromium <!-- GEN:chromium-version -->143.0.7499.4<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| WebKit <!-- GEN:webkit-version -->26.0<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
-| Firefox <!-- GEN:firefox-version -->144.0.2<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| Chromium <!-- GEN:chromium-version -->148.0.7778.96<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| WebKit <!-- GEN:webkit-version -->26.4<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
+| Firefox <!-- GEN:firefox-version -->150.0.2<!-- GEN:stop --> | :white_check_mark: | :white_check_mark: | :white_check_mark: |
 
 Headless execution is supported for all the browsers on all platforms.
 

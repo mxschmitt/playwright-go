@@ -86,7 +86,8 @@ func TestPageClockRunFor(t *testing.T) {
 		beforePageClock(t, 0, 1000)
 
 		_, err := page.Evaluate(
-			"setTimeout(window.stub, 100); setTimeout(window.stub, 100); setTimeout(window.stub, 99); setTimeout(window.stub, 100)")
+			"setTimeout(window.stub, 100); setTimeout(window.stub, 100); setTimeout(window.stub, 99); setTimeout(window.stub, 100)",
+		)
 		require.NoError(t, err)
 		require.NoError(t, page.Clock().RunFor(100))
 		require.Eventually(t, func() bool { return calls.Len() == 4 }, 1*time.Second, 10*time.Millisecond)
@@ -424,6 +425,8 @@ func TestPageClockStubTimersPerformance(t *testing.T) {
 }
 
 func TestPageClockPopup(t *testing.T) {
+	skipWebKitMacOSPopup(t)
+
 	t.Run("should tick after popup", func(t *testing.T) {
 		BeforeEach(t)
 

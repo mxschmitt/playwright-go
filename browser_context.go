@@ -28,6 +28,8 @@ type browserContextImpl struct {
 	backgroundPages []Page
 	bindings        *safe.SyncMap[string, BindingCallFunction]
 	tracing         *tracingImpl
+	debugger        *debuggerImpl
+	isClosedFlag    bool
 	request         *apiRequestContextImpl
 	harRecorders    map[string]harRecordingMetadata
 	closed          chan struct{}
@@ -70,6 +72,10 @@ func (b *browserContextImpl) Pages() []Page {
 
 func (b *browserContextImpl) Browser() Browser {
 	return b.browser
+}
+
+func (b *browserContextImpl) Debugger() (Debugger, error) {
+	return b.debugger, nil
 }
 
 func (b *browserContextImpl) Tracing() Tracing {
@@ -237,11 +243,7 @@ func (b *browserContextImpl) AddInitScript(script Script) error {
 	return err
 }
 
-func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunction, handle ...bool) error {
-	needsHandle := false
-	if len(handle) == 1 {
-		needsHandle = handle[0]
-	}
+func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunction) error {
 	for _, page := range b.Pages() {
 		if _, ok := page.(*pageImpl).bindings.Load(name); ok {
 			return fmt.Errorf("Function '%s' has been already registered in one of the pages", name)
@@ -251,8 +253,7 @@ func (b *browserContextImpl) ExposeBinding(name string, binding BindingCallFunct
 		return fmt.Errorf("Function '%s' has been already registered", name)
 	}
 	_, err := b.channel.Send("exposeBinding", map[string]any{
-		"name":        name,
-		"needsHandle": needsHandle,
+		"name": name,
 	})
 	if err != nil {
 		return err
@@ -435,13 +436,36 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 			if harId != "" {
 				overrides["harId"] = harId
 			}
-			response, err := b.channel.Send("harExport", overrides)
+			needCompressed := strings.HasSuffix(strings.ToLower(harMetaData.Path), ".zip")
+			if !b.connection.isRemote {
+				overrides["mode"] = "entries"
+				response, err := b.tracing.channel.SendReturnAsDict("harExport", overrides)
+				if err != nil {
+					return nil, err
+				}
+				if !needCompressed {
+					continue
+				}
+				entries, ok := response["entries"].([]any)
+				if !ok {
+					return nil, fmt.Errorf("could not convert HAR entries: %v", response)
+				}
+				_, err = b.connection.LocalUtils().Zip(localUtilsZipOptions{
+					ZipFile: harMetaData.Path,
+					Entries: entries,
+					Mode:    "write",
+				})
+				if err != nil {
+					return nil, err
+				}
+				continue
+			}
+			overrides["mode"] = "archive"
+			response, err := b.tracing.channel.SendReturnAsDict("harExport", overrides)
 			if err != nil {
 				return nil, err
 			}
-			artifact := fromChannel(response).(*artifactImpl)
-			// Server side will compress artifact if content is attach or if file is .zip.
-			needCompressed := strings.HasSuffix(strings.ToLower(harMetaData.Path), ".zip")
+			artifact := fromChannel(response["artifact"]).(*artifactImpl)
 			if !needCompressed && harMetaData.Content == HarContentPolicyAttach {
 				tmpPath := harMetaData.Path + ".tmp"
 				if err := artifact.SaveAs(tmpPath); err != nil {
@@ -505,7 +529,7 @@ func (b *browserContextImpl) recordIntoHar(har string, options ...browserContext
 			overrides["page"] = options[0].Page.(*pageImpl).channel
 		}
 	}
-	harId, err := b.channel.Send("harStart", overrides)
+	harId, err := b.tracing.channel.Send("harStart", overrides)
 	if err != nil {
 		return err
 	}
@@ -547,6 +571,7 @@ func (b *browserContextImpl) onBinding(binding *bindingCallImpl) {
 }
 
 func (b *browserContextImpl) onClose() {
+	b.isClosedFlag = true
 	if b.browser != nil {
 		contexts := make([]BrowserContext, 0)
 		b.browser.Lock()
@@ -726,8 +751,36 @@ func (b *browserContextImpl) OnDialog(fn func(Dialog)) {
 	b.On("dialog", fn)
 }
 
+func (b *browserContextImpl) OnDownload(fn func(Download)) {
+	b.On("download", fn)
+}
+
+func (b *browserContextImpl) OnFrameAttached(fn func(Frame)) {
+	b.On("frameattached", fn)
+}
+
+func (b *browserContextImpl) OnFrameDetached(fn func(Frame)) {
+	b.On("framedetached", fn)
+}
+
+func (b *browserContextImpl) OnFrameNavigated(fn func(Frame)) {
+	b.On("framenavigated", fn)
+}
+
 func (b *browserContextImpl) OnPage(fn func(Page)) {
 	b.On("page", fn)
+}
+
+func (b *browserContextImpl) OnPageClose(fn func(Page)) {
+	b.On("pageclose", fn)
+}
+
+func (b *browserContextImpl) OnPageLoad(fn func(Page)) {
+	b.On("pageload", fn)
+}
+
+func (b *browserContextImpl) OnWebError(fn func(WebError)) {
+	b.On("weberror", fn)
 }
 
 func (b *browserContextImpl) OnRequest(fn func(Request)) {
@@ -744,10 +797,6 @@ func (b *browserContextImpl) OnRequestFinished(fn func(Request)) {
 
 func (b *browserContextImpl) OnResponse(fn func(Response)) {
 	b.On("response", fn)
-}
-
-func (b *browserContextImpl) OnWebError(fn func(WebError)) {
-	b.On("weberror", fn)
 }
 
 func (b *browserContextImpl) RouteWebSocket(url any, handler func(WebSocketRoute)) error {
@@ -813,6 +862,11 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		bt.browser.contexts = append(bt.browser.contexts, bt)
 	}
 	bt.tracing = fromChannel(initializer["tracing"]).(*tracingImpl)
+	if dbg := fromNullableChannel(initializer["debugger"]); dbg != nil {
+		if d, ok := dbg.(*debuggerImpl); ok {
+			bt.debugger = d
+		}
+	}
 	bt.request = fromChannel(initializer["requestContext"]).(*apiRequestContextImpl)
 	bt.clock = newClock(bt)
 
@@ -839,6 +893,11 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	bt.channel.On("page", func(payload map[string]any) {
 		bt.onPage(fromChannel(payload["page"]).(*pageImpl))
 	})
+	// Note: the BrowserContext channel does not emit pageclose/frameattached/
+	// framedetached/framenavigated/pageload/weberror/download events. Upstream
+	// derives these context-level events from the owning Page (see page.go and
+	// frame.go, which forward to the context). The "pageError" handler below is
+	// the channel source for the weberror event.
 	bt.channel.On("route", func(params map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onRoute(fromChannel(params["route"]).(*routeImpl))
@@ -888,12 +947,17 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 			pwErr := &Error{}
 			remapMapToStruct(ev["error"].(map[string]any)["error"], pwErr)
 			err := parseError(*pwErr)
+			var location *WebErrorLocation
+			if locationValue, ok := ev["location"].(map[string]any); ok {
+				location = &WebErrorLocation{}
+				remapMapToStruct(locationValue, location)
+			}
 			page := fromNullableChannel(ev["page"])
 			if page != nil {
-				bt.Emit("weberror", newWebError(page.(*pageImpl), err))
+				bt.Emit("weberror", newWebError(page.(*pageImpl), err, location))
 				page.(*pageImpl).Emit("pageerror", err)
 			} else {
-				bt.Emit("weberror", newWebError(nil, err))
+				bt.Emit("weberror", newWebError(nil, err, location))
 			}
 		},
 	)
@@ -952,4 +1016,21 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		"responsefailed":  "responseFailed",
 	})
 	return bt
+}
+
+func (b *browserContextImpl) IsClosed() bool {
+	return b.isClosedFlag || b.closeReason != nil
+}
+
+func (b *browserContextImpl) SetStorageState(storageStatePath string) error {
+	storageString, err := os.ReadFile(storageStatePath)
+	if err != nil {
+		return err
+	}
+	var storageState map[string]any
+	if err := json.Unmarshal(storageString, &storageState); err != nil {
+		return err
+	}
+	_, err = b.channel.Send("setStorageState", map[string]any{"storageState": storageState})
+	return err
 }

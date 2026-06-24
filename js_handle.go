@@ -176,6 +176,10 @@ func parseValue(result any, refs map[float64]any) any {
 		return out
 	}
 
+	if v, ok := vMap["value"]; ok {
+		return parseValue(v, refs)
+	}
+
 	if v, ok := vMap["e"]; ok {
 		return parseError(Error{
 			Name:    v.(map[string]any)["n"].(string),
@@ -183,6 +187,14 @@ func parseValue(result any, refs map[float64]any) any {
 			Stack:   v.(map[string]any)["s"].(string),
 		})
 	}
+
+	if v, ok := vMap["ariaSnapshot"]; ok {
+		if val, ok := vMap["value"]; ok {
+			return parseValue(val, refs)
+		}
+		return v
+	}
+
 	if v, ok := vMap["ta"]; ok {
 		b, b_ok := v.(map[string]any)["b"].(string)
 		k, k_ok := v.(map[string]any)["k"].(string)

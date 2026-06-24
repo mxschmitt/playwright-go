@@ -21,7 +21,8 @@ func skipFieldSerialization(val reflect.Value) bool {
 	return (typ.Kind() == reflect.Pointer ||
 		typ.Kind() == reflect.Interface ||
 		typ.Kind() == reflect.Map ||
-		typ.Kind() == reflect.Slice) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Pointer && val.Elem().IsNil())
+		typ.Kind() == reflect.Slice ||
+		typ.Kind() == reflect.Func) && val.IsNil() || (val.Kind() == reflect.Interface && val.Elem().Kind() == reflect.Pointer && val.Elem().IsNil())
 }
 
 func transformStructValues(in any) any {
@@ -585,7 +586,7 @@ func deserializeNameAndValueToMap(headersArray []map[string]string) map[string]s
 }
 
 type recordHarOptions struct {
-	Path           string            `json:"path"`
+	Path           string            `json:"harPath,omitempty"`
 	Content        *HarContentPolicy `json:"content,omitempty"`
 	Mode           *HarMode          `json:"mode,omitempty"`
 	UrlGlob        *string           `json:"urlGlob,omitempty"`
@@ -607,8 +608,9 @@ type harRecordingMetadata struct {
 }
 
 func prepareRecordHarOptions(option recordHarInputOptions) recordHarOptions {
-	out := recordHarOptions{
-		Path: option.Path,
+	out := recordHarOptions{}
+	if !strings.HasSuffix(strings.ToLower(option.Path), ".zip") {
+		out.Path = option.Path
 	}
 	if option.URL != nil {
 		switch option.URL.(type) {

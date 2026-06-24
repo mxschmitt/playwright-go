@@ -265,3 +265,17 @@ func TestNetworkEventsShouldFireEventsInProperOrder(t *testing.T) {
 	require.NoError(t, response.Finished())
 	require.Equal(t, []string{"request", "response", "requestfinished"}, events)
 }
+
+func TestRequestExistingResponse(t *testing.T) {
+	BeforeEach(t)
+
+	response, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+
+	// After the response arrives, the originating request exposes it
+	// synchronously via ExistingResponse.
+	existing, err := response.Request().ExistingResponse()
+	require.NoError(t, err)
+	require.NotNil(t, existing)
+	require.Equal(t, response, existing)
+}

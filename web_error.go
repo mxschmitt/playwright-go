@@ -1,8 +1,9 @@
 package playwright
 
 type webErrorImpl struct {
-	err  error
-	page Page
+	err      error
+	page     Page
+	location *WebErrorLocation
 }
 
 func (e *webErrorImpl) Page() Page {
@@ -13,9 +14,14 @@ func (e *webErrorImpl) Error() error {
 	return e.err
 }
 
-func newWebError(page Page, err error) WebError {
+func (e *webErrorImpl) Location() *WebErrorLocation {
+	return e.location
+}
+
+func newWebError(page Page, err error, location *WebErrorLocation) WebError {
 	return &webErrorImpl{
-		err:  err,
-		page: page,
+		err:      err,
+		page:     page,
+		location: location,
 	}
 }

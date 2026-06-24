@@ -96,6 +96,7 @@ func TestMouseWheel(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, page.SetContent(`<div style="width: 5000px; height: 5000px;"></div>`))
 
+	require.NoError(t, page.Mouse().Move(50, 60))
 	require.NoError(t, page.Mouse().Wheel(0, 100))
 	time.Sleep(500 * time.Millisecond)
 	h, err := page.WaitForFunction(`window.scrollY === 100`, nil)

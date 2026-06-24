@@ -16,7 +16,7 @@ func TestVideoShouldWork(t *testing.T) {
 	recordVideoDir := t.TempDir()
 	BeforeEach(t, playwright.BrowserNewContextOptions{
 		RecordVideo: &playwright.RecordVideo{
-			Dir: recordVideoDir,
+			Dir: playwright.String(recordVideoDir),
 			Size: &playwright.Size{
 				Width:  500,
 				Height: 400,
@@ -57,7 +57,7 @@ func TestVideo(t *testing.T) {
 		recordVideoDir := t.TempDir()
 		BeforeEach(t, playwright.BrowserNewContextOptions{
 			RecordVideo: &playwright.RecordVideo{
-				Dir: recordVideoDir,
+				Dir: playwright.String(recordVideoDir),
 				Size: &playwright.Size{
 					Width:  500,
 					Height: 400,
@@ -81,7 +81,7 @@ func TestVideo(t *testing.T) {
 		recordVideoDir := t.TempDir()
 		BeforeEach(t, playwright.BrowserNewContextOptions{
 			RecordVideo: &playwright.RecordVideo{
-				Dir: recordVideoDir,
+				Dir: playwright.String(recordVideoDir),
 				Size: &playwright.Size{
 					Width:  500,
 					Height: 400,
@@ -108,7 +108,7 @@ func TestVideo(t *testing.T) {
 		recordVideoDir := t.TempDir()
 		BeforeEach(t, playwright.BrowserNewContextOptions{
 			RecordVideo: &playwright.RecordVideo{
-				Dir: recordVideoDir,
+				Dir: playwright.String(recordVideoDir),
 				Size: &playwright.Size{
 					Width:  500,
 					Height: 400,
@@ -158,7 +158,7 @@ func TestVideo(t *testing.T) {
 		context, err := bt.LaunchPersistentContext(tmpDir, playwright.BrowserTypeLaunchPersistentContextOptions{
 			Headless: playwright.Bool(os.Getenv("HEADFUL") == ""),
 			RecordVideo: &playwright.RecordVideo{
-				Dir: tmpDir,
+				Dir: playwright.String(tmpDir),
 			},
 		})
 		require.NoError(t, err)
@@ -193,7 +193,7 @@ func TestVideo(t *testing.T) {
 
 		browser_context, err := browser1.NewContext(playwright.BrowserNewContextOptions{
 			RecordVideo: &playwright.RecordVideo{
-				Dir: tmpDir,
+				Dir: playwright.String(tmpDir),
 			},
 		})
 		require.NoError(t, err)
@@ -212,4 +212,34 @@ func TestVideo(t *testing.T) {
 		require.NoError(t, video.SaveAs(tmpFile))
 		require.FileExists(t, tmpFile)
 	})
+}
+
+func TestScreencastStartStop(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/grid.html")
+	require.NoError(t, err)
+
+	screencast, err := page.Screencast()
+	require.NoError(t, err)
+
+	var frames [][]byte
+	err = screencast.Start(playwright.ScreencastStartOptions{
+		OnFrame: func(frame playwright.OnFrame) {
+			frames = append(frames, frame.Data)
+		},
+	})
+	require.NoError(t, err)
+
+	// Trigger some activity to generate frames
+	_, err = page.Reload()
+	require.NoError(t, err)
+	//nolint:staticcheck
+	page.WaitForTimeout(500)
+
+	err = screencast.Stop()
+	require.NoError(t, err)
+
+	require.Greater(t, len(frames), 0, "should have received at least one frame")
+	require.Greater(t, len(frames[0]), 0, "frame data should not be empty")
 }
