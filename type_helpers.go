@@ -71,14 +71,14 @@ func (c Cookie) ToOptionalCookie() OptionalCookie {
 	}
 }
 
-func getFloatOrDefault(m map[string]interface{}, key string, defaultValue float64) float64 {
-	if val, ok := m[key]; !ok {
-		return defaultValue
-	} else {
-		if f, isFloat := val.(float64); !isFloat {
-			return defaultValue
-		} else {
-			return f
+// assignFloatIfPresent overrides *target with m[key] when that key holds a
+// float64 value, leaving *target untouched otherwise. It is used to merge the
+// timing fields returned by the server over their pre-seeded defaults without
+// panicking when a field is missing or has an unexpected type.
+func assignFloatIfPresent(m map[string]any, key string, target *float64) {
+	if val, ok := m[key]; ok {
+		if f, isFloat := val.(float64); isFloat {
+			*target = f
 		}
 	}
 }

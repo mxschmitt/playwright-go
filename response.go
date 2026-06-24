@@ -150,18 +150,22 @@ func (r *responseImpl) ServerAddr() (*ResponseServerAddrResult, error) {
 func newResponse(parent *channelOwner, objectType string, guid string, initializer map[string]any) *responseImpl {
 	resp := &responseImpl{}
 	resp.createChannelOwner(resp, parent, objectType, guid, initializer)
-	timing := resp.initializer["timing"].(map[string]any)
 	resp.request = fromChannel(resp.initializer["request"]).(*requestImpl)
 	resp.request.response = resp
-	resp.request.timing = &RequestTiming{
-		StartTime:             getFloatOrDefault(timing, "startTime", 0.0),
-		DomainLookupStart:     getFloatOrDefault(timing, "domainLookupStart", 0.0),
-		DomainLookupEnd:       getFloatOrDefault(timing, "domainLookupEnd", 0.0),
-		ConnectStart:          getFloatOrDefault(timing, "connectStart", 0.0),
-		SecureConnectionStart: getFloatOrDefault(timing, "secureConnectionStart", 0.0),
-		ConnectEnd:            getFloatOrDefault(timing, "connectEnd", 0.0),
-		RequestStart:          getFloatOrDefault(timing, "requestStart", 0.0),
-		ResponseStart:         getFloatOrDefault(timing, "responseStart", 0.0),
+	// The request timing is pre-seeded with the upstream defaults in newRequest.
+	// Mirror upstream's Object.assign(request._timing, initializer.timing) by only
+	// overriding the fields that are actually present in the timing initializer.
+	// Some CDP implementations (e.g. non-Chromium browsers) omit the timing object
+	// entirely or only return a subset of its fields.
+	if timing, ok := resp.initializer["timing"].(map[string]any); ok {
+		assignFloatIfPresent(timing, "startTime", &resp.request.timing.StartTime)
+		assignFloatIfPresent(timing, "domainLookupStart", &resp.request.timing.DomainLookupStart)
+		assignFloatIfPresent(timing, "domainLookupEnd", &resp.request.timing.DomainLookupEnd)
+		assignFloatIfPresent(timing, "connectStart", &resp.request.timing.ConnectStart)
+		assignFloatIfPresent(timing, "secureConnectionStart", &resp.request.timing.SecureConnectionStart)
+		assignFloatIfPresent(timing, "connectEnd", &resp.request.timing.ConnectEnd)
+		assignFloatIfPresent(timing, "requestStart", &resp.request.timing.RequestStart)
+		assignFloatIfPresent(timing, "responseStart", &resp.request.timing.ResponseStart)
 	}
 	resp.provisionalHeaders = newRawHeaders(resp.initializer["headers"])
 	resp.finished = make(chan error, 1)
