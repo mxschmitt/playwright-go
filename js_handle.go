@@ -49,7 +49,7 @@ func (j *jsHandleImpl) EvaluateHandle(expression string, options ...any) (JSHand
 	if channelOwner == nil {
 		return nil, nil
 	}
-	return channelOwner.(*jsHandleImpl), nil
+	return channelOwner.(JSHandle), nil
 }
 
 func (j *jsHandleImpl) GetProperty(name string) (JSHandle, error) {
@@ -59,7 +59,7 @@ func (j *jsHandleImpl) GetProperty(name string) (JSHandle, error) {
 	if err != nil {
 		return nil, err
 	}
-	return fromChannel(channel).(*jsHandleImpl), nil
+	return fromChannel(channel).(JSHandle), nil
 }
 
 func (j *jsHandleImpl) GetProperties() (map[string]JSHandle, error) {
@@ -70,7 +70,7 @@ func (j *jsHandleImpl) GetProperties() (map[string]JSHandle, error) {
 	propertiesMap := make(map[string]JSHandle)
 	for _, property := range properties.([]any) {
 		item := property.(map[string]any)
-		propertiesMap[item["name"].(string)] = fromChannel(item["value"]).(*jsHandleImpl)
+		propertiesMap[item["name"].(string)] = fromChannel(item["value"]).(JSHandle)
 	}
 	return propertiesMap, nil
 }

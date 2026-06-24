@@ -37,7 +37,7 @@ func (w *workerImpl) EvaluateHandle(expression string, options ...any) (JSHandle
 	if err != nil {
 		return nil, err
 	}
-	return fromChannel(result).(*jsHandleImpl), nil
+	return fromChannel(result).(JSHandle), nil
 }
 
 func (w *workerImpl) onClose() {

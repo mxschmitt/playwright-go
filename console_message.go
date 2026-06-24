@@ -22,7 +22,7 @@ func (c *consoleMessageImpl) Args() []JSHandle {
 	args := c.event["args"].([]any)
 	out := []JSHandle{}
 	for idx := range args {
-		out = append(out, fromChannel(args[idx]).(*jsHandleImpl))
+		out = append(out, fromChannel(args[idx]).(JSHandle))
 	}
 	return out
 }

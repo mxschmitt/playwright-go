@@ -88,6 +88,46 @@ func TestJSHandleEvaluateHandle(t *testing.T) {
 	require.Equal(t, value, 2)
 }
 
+func TestJSHandleEvaluateHandleReturningElement(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/dom.html")
+	require.NoError(t, err)
+	inner, err := page.QuerySelector("#inner") // nolint: staticcheck
+	require.NoError(t, err)
+
+	// EvaluateHandle may return an ElementHandle (e.g. element.parentElement).
+	// It must not panic when the underlying handle is an ElementHandle.
+	// See https://github.com/playwright-community/playwright-go/issues/332
+	parent, err := inner.EvaluateHandle("element => element.parentElement")
+	require.NoError(t, err)
+	require.NotNil(t, parent.AsElement())
+
+	id, err := parent.AsElement().GetAttribute("id") // nolint: staticcheck
+	require.NoError(t, err)
+	require.Equal(t, "outer", id)
+
+	// GetProperty must likewise survive returning an ElementHandle.
+	childHandle, err := parent.GetProperty("firstElementChild")
+	require.NoError(t, err)
+	require.NotNil(t, childHandle.AsElement())
+}
+
+func TestJSHandleGetPropertiesReturningElement(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/dom.html")
+	require.NoError(t, err)
+	inner, err := page.QuerySelector("#inner") // nolint: staticcheck
+	require.NoError(t, err)
+
+	parent, err := inner.EvaluateHandle("element => ({ parent: element.parentElement })")
+	require.NoError(t, err)
+	props, err := parent.GetProperties()
+	require.NoError(t, err)
+	require.NotNil(t, props["parent"].AsElement())
+}
+
 func TestJSHandleTypeParsing(t *testing.T) {
 	BeforeEach(t)
 
