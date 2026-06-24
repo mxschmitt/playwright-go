@@ -7,6 +7,7 @@ import (
 	"os"
 	"slices"
 	"sync"
+	"sync/atomic"
 
 	"github.com/playwright-community/playwright-go/internal/safe"
 )
@@ -30,7 +31,7 @@ type pageImpl struct {
 	ownedContext    BrowserContext
 	bindings        *safe.SyncMap[string, BindingCallFunction]
 	closeReason     *string
-	closeWasCalled  bool
+	closeWasCalled  atomic.Bool
 	harRouters      []*harRouter
 	locatorHandlers map[float64]*locatorHandlerEntry
 }
@@ -125,7 +126,7 @@ func (p *pageImpl) Close(options ...PageCloseOptions) error {
 	if len(options) == 1 {
 		p.closeReason = options[0].Reason
 	}
-	p.closeWasCalled = true
+	p.closeWasCalled.Store(true)
 	_, err := p.channel.Send("close", options)
 	if err == nil && p.ownedContext != nil {
 		err = p.ownedContext.Close()
@@ -942,7 +943,7 @@ func (p *pageImpl) onRoute(route *routeImpl) {
 	url := route.Request().URL()
 	for _, handlerEntry := range routes {
 		// If the page was closed we stall all requests right away.
-		if p.closeWasCalled || p.browserContext.closeWasCalled.Load() {
+		if p.closeWasCalled.Load() || p.browserContext.closeWasCalled.Load() {
 			return
 		}
 		if !handlerEntry.Matches(url) {

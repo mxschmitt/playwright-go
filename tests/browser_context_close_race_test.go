@@ -13,7 +13,7 @@ import (
 // This reproduces a race condition where Close() writes to closeWasCalled while
 // route handler goroutines read it during page navigation.
 //
-// See: https://github.com/playwright-community/playwright-go/issues/XXX
+// See: https://github.com/playwright-community/playwright-go/issues/566
 func TestBrowserContextCloseRace(t *testing.T) {
 	// Create a minimal HAR file
 	harContent := `{
@@ -104,5 +104,38 @@ func TestBrowserContextCloseRace(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for navigation to complete
+	<-done
+}
+
+// TestPageCloseRace covers the sibling of the browser-context race: Page.Close()
+// writes pageImpl.closeWasCalled while the page's own route-handler goroutine reads
+// it during navigation. Without an atomic field this is detected by the -race flag.
+//
+// See: https://github.com/playwright-community/playwright-go/issues/566
+func TestPageCloseRace(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.Route("**/*", func(route playwright.Route) {
+		time.Sleep(5 * time.Millisecond) // increase race window
+		_ = route.Fulfill(playwright.RouteFulfillOptions{
+			Status:      playwright.Int(200),
+			ContentType: playwright.String("text/html"),
+			Body:        playwright.String("<h1>Hello, World!</h1>"),
+		})
+	}))
+
+	// Start navigation in background so route handlers run concurrently with Close().
+	done := make(chan error, 1)
+	go func() {
+		_, err := page.Goto(server.EMPTY_PAGE)
+		done <- err
+	}()
+
+	// Give the route handler time to start processing.
+	time.Sleep(10 * time.Millisecond)
+
+	// Close the page while its route handler goroutine is reading closeWasCalled.
+	require.NoError(t, page.Close())
+
 	<-done
 }
