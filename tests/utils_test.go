@@ -158,7 +158,7 @@ func (t *testServer) wsHandler(w http.ResponseWriter, r *http.Request) {
 		log.Println("testServer: could not upgrade ws connection:", err)
 		return
 	}
-	defer c.Close(websocket.StatusNormalClosure, "")
+	defer c.Close(websocket.StatusNormalClosure, "") //nolint:errcheck
 
 	t.eventEmitter.Emit("connection", c, r)
 
@@ -362,7 +362,7 @@ func getFreePort() (int, error) {
 	if err != nil {
 		return 0, err
 	}
-	defer l.Close()
+	defer l.Close() //nolint:errcheck
 	return l.Addr().(*net.TCPAddr).Port, nil
 }
 
@@ -371,7 +371,7 @@ func readFromZip(zipFile string, fileName string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	for _, f := range r.File {
 		if f.Name == fileName {
@@ -379,7 +379,7 @@ func readFromZip(zipFile string, fileName string) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-			defer rc.Close()
+			defer rc.Close() //nolint:errcheck
 
 			buf := new(bytes.Buffer)
 			_, err = io.Copy(buf, rc)

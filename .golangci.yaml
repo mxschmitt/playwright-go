@@ -1,6 +1,17 @@
----
+version: "2"
 linters:
-  enable-all: false
-  disable-all: false
+  default: standard
+  settings:
+    staticcheck:
+      checks:
+        - all
+        # disable the stylecheck (ST10xx) rules that v2 merged into staticcheck:
+        # error strings and identifier names mirror upstream Playwright verbatim
+        - -ST1000
+        - -ST1003
+        - -ST1005
+        - -ST1016
+        - -ST1021
+formatters:
   enable:
     - gofumpt

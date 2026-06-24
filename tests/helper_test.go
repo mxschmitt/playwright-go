@@ -64,11 +64,12 @@ func BeforeAll() {
 	if err != nil {
 		log.Fatalf("could not start Playwright: %v", err)
 	}
-	if browserName == "chromium" || browserName == "" {
+	switch browserName {
+	case "chromium", "":
 		browserType = pw.Chromium
-	} else if browserName == "firefox" {
+	case "firefox":
 		browserType = pw.Firefox
-	} else if browserName == "webkit" {
+	case "webkit":
 		browserType = pw.WebKit
 	}
 	launchOptions := playwright.BrowserTypeLaunchOptions{

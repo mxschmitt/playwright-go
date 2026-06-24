@@ -455,7 +455,7 @@ func downloadDriver(driverURLs []string) (body []byte, e error) {
 			e = errors.Join(e, fmt.Errorf("could not download driver from %s: %w", driverURL, err))
 			continue
 		}
-		defer resp.Body.Close()
+		defer resp.Body.Close() //nolint:errcheck
 		if resp.StatusCode != http.StatusOK {
 			e = errors.Join(e, fmt.Errorf("error: got non 200 status code: %d (%s) from %s", resp.StatusCode, resp.Status, driverURL))
 			continue

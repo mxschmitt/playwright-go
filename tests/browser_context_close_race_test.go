@@ -56,16 +56,16 @@ func TestBrowserContextCloseRace(t *testing.T) {
 
 	harFile, err := os.CreateTemp("", "test-*.har")
 	require.NoError(t, err)
-	defer os.Remove(harFile.Name())
+	defer os.Remove(harFile.Name()) //nolint:errcheck
 
 	_, err = harFile.WriteString(harContent)
 	require.NoError(t, err)
-	harFile.Close()
+	harFile.Close() //nolint:errcheck
 
 	// Create a new context for this test (don't use BeforeEach)
 	testContext, err := browser.NewContext()
 	require.NoError(t, err)
-	defer testContext.Close()
+	defer testContext.Close() //nolint:errcheck
 
 	// Set up HAR replay - registers internal route handlers
 	err = testContext.RouteFromHAR(harFile.Name(), playwright.BrowserContextRouteFromHAROptions{

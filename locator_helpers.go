@@ -28,7 +28,7 @@ func escapeForAttributeSelector(text any, exact bool) string {
 		if exact {
 			suffix = "s"
 		}
-		return fmt.Sprintf(`"%s"%s`, strings.Replace(strings.Replace(text.(string), `\`, `\\`, -1), `"`, `\"`, -1), suffix)
+		return fmt.Sprintf(`"%s"%s`, strings.ReplaceAll(strings.ReplaceAll(text.(string), `\`, `\\`), `"`, `\"`), suffix)
 	}
 }
 

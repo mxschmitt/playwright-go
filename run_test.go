@@ -96,7 +96,7 @@ func TestDriverInstall(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not set PLAYWRIGHT_BROWSERS_PATH: %v", err)
 	}
-	defer os.Unsetenv("PLAYWRIGHT_BROWSERS_PATH")
+	defer os.Unsetenv("PLAYWRIGHT_BROWSERS_PATH") //nolint:errcheck
 	err = driver.Install()
 	if err != nil {
 		t.Fatalf("could not install driver: %v", err)
@@ -127,7 +127,7 @@ func TestDriverDownloadHostEnv(t *testing.T) {
 	if err != nil {
 		t.Fatalf("could not set PLAYWRIGHT_DOWNLOAD_HOST: %v", err)
 	}
-	defer os.Unsetenv("PLAYWRIGHT_DOWNLOAD_HOST")
+	defer os.Unsetenv("PLAYWRIGHT_DOWNLOAD_HOST") //nolint:errcheck
 	err = driver.Install()
 	if err == nil || !strings.Contains(err.Error(), "404 Not Found") || !strings.Contains(uri, "/builds/driver") {
 		t.Fatalf("PLAYWRIGHT_DOWNLOAD_HOST do not work: %v", err)
