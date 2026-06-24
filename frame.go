@@ -540,7 +540,7 @@ func (f *frameImpl) WaitForFunction(expression string, arg any, options ...Frame
 	if handle == nil {
 		return nil, nil
 	}
-	return handle.(*jsHandleImpl), nil
+	return handle.(JSHandle), nil
 }
 
 func (f *frameImpl) Title() (string, error) {
