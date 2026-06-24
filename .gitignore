@@ -32,3 +32,4 @@ _site/
 .jekyll-cache/
 
 .vscode/settings.json
+.claude/
