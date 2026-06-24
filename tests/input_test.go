@@ -350,6 +350,6 @@ func TestSetInputFilesShouldRespectDefaultTimeout(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "file.txt")
 	require.NoError(t, os.WriteFile(file, []byte("content"), 0o600))
 
-	err := page.SetInputFiles("input#does-not-exist", file)
+	err := page.Locator("input#does-not-exist").SetInputFiles(file)
 	require.ErrorContains(t, err, "Timeout 500ms exceeded")
 }
