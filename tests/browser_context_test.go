@@ -484,6 +484,117 @@ func TestPageErrorEventShouldWork(t *testing.T) {
 	require.NotNil(t, weberror.Location())
 }
 
+// Ported from upstream tests/library/browsercontext-events.spec.ts
+// "pageload event should work". These context-level events are forwarded from
+// the owning page (see page.go/frame.go), not emitted on the context channel.
+func TestBrowserContextEventsPageLoad(t *testing.T) {
+	BeforeEach(t)
+
+	ret, err := context.ExpectEvent("pageload", func() error {
+		_, err := page.Goto(server.EMPTY_PAGE)
+		return err
+	})
+	require.NoError(t, err)
+	eventPage, ok := ret.(playwright.Page)
+	require.True(t, ok)
+	require.Equal(t, page, eventPage)
+}
+
+// Ported from upstream "framenavigated event should work".
+func TestBrowserContextEventsFrameNavigated(t *testing.T) {
+	BeforeEach(t)
+
+	ret, err := context.ExpectEvent("framenavigated", func() error {
+		_, err := page.Goto(server.EMPTY_PAGE)
+		return err
+	})
+	require.NoError(t, err)
+	frame, ok := ret.(playwright.Frame)
+	require.True(t, ok)
+	require.Equal(t, page.MainFrame(), frame)
+	require.Equal(t, server.EMPTY_PAGE, frame.URL())
+}
+
+// Ported from upstream "pageclose event should work".
+func TestBrowserContextEventsPageClose(t *testing.T) {
+	BeforeEach(t)
+
+	newPage, err := context.NewPage()
+	require.NoError(t, err)
+	ret, err := context.ExpectEvent("pageclose", func() error {
+		return newPage.Close()
+	})
+	require.NoError(t, err)
+	closed, ok := ret.(playwright.Page)
+	require.True(t, ok)
+	require.Equal(t, newPage, closed)
+}
+
+// Ported from upstream "frameattached event should work".
+func TestBrowserContextEventsFrameAttached(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	ret, err := context.ExpectEvent("frameattached", func() error {
+		_, err := page.Evaluate(`() => {
+			const iframe = document.createElement('iframe');
+			iframe.src = 'about:blank';
+			document.body.appendChild(iframe);
+		}`)
+		return err
+	})
+	require.NoError(t, err)
+	frame, ok := ret.(playwright.Frame)
+	require.True(t, ok)
+	require.Equal(t, page.MainFrame(), frame.ParentFrame())
+}
+
+// Ported from upstream "framedetached event should work".
+func TestBrowserContextEventsFrameDetached(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	_, err = page.Evaluate(`() => {
+		const iframe = document.createElement('iframe');
+		iframe.id = 'x';
+		iframe.src = 'about:blank';
+		document.body.appendChild(iframe);
+	}`)
+	require.NoError(t, err)
+	_, err = page.WaitForSelector("iframe")
+	require.NoError(t, err)
+	ret, err := context.ExpectEvent("framedetached", func() error {
+		_, err := page.Evaluate(`() => document.getElementById('x').remove()`)
+		return err
+	})
+	require.NoError(t, err)
+	frame, ok := ret.(playwright.Frame)
+	require.True(t, ok)
+	require.Equal(t, page.MainFrame(), frame.ParentFrame())
+}
+
+// Ported from upstream "download event should work".
+func TestBrowserContextEventsDownload(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/download", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/octet-stream")
+		w.Header().Set("Content-Disposition", "attachment; filename=file.txt")
+		_, _ = w.Write([]byte("Hello world"))
+	})
+	require.NoError(t, page.SetContent(fmt.Sprintf(`<a href="%s/download">download</a>`, server.PREFIX)))
+	ret, err := context.ExpectEvent("download", func() error {
+		return page.Click("a")
+	})
+	require.NoError(t, err)
+	download, ok := ret.(playwright.Download)
+	require.True(t, ok)
+	require.Equal(t, "file.txt", download.SuggestedFilename())
+	require.Equal(t, page, download.Page())
+}
+
 func TestBrowserContextOnResponse(t *testing.T) {
 	BeforeEach(t)
 

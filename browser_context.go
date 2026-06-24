@@ -776,7 +776,7 @@ func (b *browserContextImpl) OnPageClose(fn func(Page)) {
 }
 
 func (b *browserContextImpl) OnPageLoad(fn func(Page)) {
-	b.On("load", fn)
+	b.On("pageload", fn)
 }
 
 func (b *browserContextImpl) OnWebError(fn func(WebError)) {
@@ -893,48 +893,11 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	bt.channel.On("page", func(payload map[string]any) {
 		bt.onPage(fromChannel(payload["page"]).(*pageImpl))
 	})
-	bt.channel.On("pageclose", func(payload map[string]any) {
-		page := fromChannel(payload["page"]).(*pageImpl)
-		bt.Emit("pageclose", page)
-	})
-	bt.channel.On("frameattached", func(payload map[string]any) {
-		frame := fromChannel(payload["frame"]).(*frameImpl)
-		bt.Emit("frameattached", frame)
-	})
-	bt.channel.On("framedetached", func(payload map[string]any) {
-		frame := fromChannel(payload["frame"]).(*frameImpl)
-		bt.Emit("framedetached", frame)
-	})
-	bt.channel.On("framenavigated", func(payload map[string]any) {
-		frame := fromChannel(payload["frame"]).(*frameImpl)
-		bt.Emit("framenavigated", frame)
-	})
-	bt.channel.On("load", func(payload map[string]any) {
-		page := fromChannel(payload["page"]).(*pageImpl)
-		bt.Emit("load", page)
-	})
-	bt.channel.On("weberror", func(payload map[string]any) {
-		page := fromNullableChannel(payload["page"]).(*pageImpl)
-		errorValue := payload["error"].(map[string]any)
-		msg := errorValue["error"].(map[string]any)["message"].(string)
-		locationValue := errorValue["location"].(map[string]any)
-		var location *WebErrorLocation
-		if locationValue != nil {
-			location = &WebErrorLocation{}
-			remapMapToStruct(locationValue, location)
-		}
-		bt.Emit("weberror", newWebError(page, fmt.Errorf("%s", msg), location))
-	})
-	bt.channel.On("download", func(ev map[string]any) {
-		url := ev["url"].(string)
-		suggestedFilename := ev["suggestedFilename"].(string)
-		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
-		var page Page
-		if ev["page"] != nil {
-			page = fromChannel(ev["page"]).(*pageImpl)
-		}
-		bt.Emit("download", newDownload(page, url, suggestedFilename, artifact))
-	})
+	// Note: the BrowserContext channel does not emit pageclose/frameattached/
+	// framedetached/framenavigated/pageload/weberror/download events. Upstream
+	// derives these context-level events from the owning Page (see page.go and
+	// frame.go, which forward to the context). The "pageError" handler below is
+	// the channel source for the weberror event.
 	bt.channel.On("route", func(params map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onRoute(fromChannel(params["route"]).(*routeImpl))

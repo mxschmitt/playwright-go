@@ -871,7 +871,9 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 		url := ev["url"].(string)
 		suggestedFilename := ev["suggestedFilename"].(string)
 		artifact := fromChannel(ev["artifact"]).(*artifactImpl)
-		bt.Emit("download", newDownload(bt, url, suggestedFilename, artifact))
+		download := newDownload(bt, url, suggestedFilename, artifact)
+		bt.Emit("download", download)
+		bt.browserContext.Emit("download", download)
 	})
 	// PW 1.59+: video artifact comes from page initializer
 	if videoChannel, ok := initializer["video"]; ok && videoChannel != nil {
@@ -935,6 +937,7 @@ func (p *pageImpl) onFrameAttached(frame *frameImpl) {
 	frame.page = p
 	p.frames = append(p.frames, frame)
 	p.Emit("frameattached", frame)
+	p.browserContext.Emit("frameattached", frame)
 }
 
 func (p *pageImpl) onFrameDetached(frame *frameImpl) {
@@ -949,6 +952,7 @@ func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 		p.frames = frames
 	}
 	p.Emit("framedetached", frame)
+	p.browserContext.Emit("framedetached", frame)
 }
 
 func (p *pageImpl) onRoute(route *routeImpl) {
@@ -1037,6 +1041,9 @@ func (p *pageImpl) onClose() {
 	}
 	p.disposeHarRouters()
 	p.Emit("close", p)
+	if p.browserContext != nil {
+		p.browserContext.Emit("pageclose", p)
+	}
 }
 
 func (p *pageImpl) SetInputFiles(selector string, files any, options ...PageSetInputFilesOptions) error {
