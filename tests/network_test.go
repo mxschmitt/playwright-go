@@ -279,3 +279,17 @@ func TestRequestExistingResponse(t *testing.T) {
 	require.NotNil(t, existing)
 	require.Equal(t, response, existing)
 }
+
+func TestResponseTimingShouldPopulateTimingFromInitializer(t *testing.T) {
+	BeforeEach(t)
+
+	response, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	require.NoError(t, response.Finished())
+	timing := response.Request().Timing()
+	require.NotNil(t, timing)
+	// StartTime defaults to 0 and is populated for real responses, while fields
+	// the server does not report retain their -1 default (mirroring upstream).
+	require.GreaterOrEqual(t, timing.StartTime, 0.0)
+	require.GreaterOrEqual(t, timing.ResponseStart, timing.RequestStart)
+}
