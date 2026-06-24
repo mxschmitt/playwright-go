@@ -253,6 +253,10 @@ func (d *PlaywrightDriver) installBrowsers() error {
 		additionalArgs = append(additionalArgs, "--only-shell")
 	}
 
+	if d.options.NoInstallShell {
+		additionalArgs = append(additionalArgs, "--no-shell")
+	}
+
 	if d.options.DryRun {
 		additionalArgs = append(additionalArgs, "--dry-run")
 	}
@@ -286,7 +290,9 @@ type RunOptions struct {
 	//  - Linux: ~/.cache
 	DriverDirectory string
 	// OnlyInstallShell only downloads the headless shell. (For chromium browsers only)
-	OnlyInstallShell    bool
+	OnlyInstallShell bool
+	// NoInstallShell does not install chromium headless shell. (For chromium browsers only)
+	NoInstallShell      bool
 	SkipInstallBrowsers bool
 	// if not set and SkipInstallBrowsers is false, will download all browsers (chromium, firefox, webkit)
 	Browsers []string
@@ -345,6 +351,9 @@ func transformRunOptions(options ...*RunOptions) (*RunOptions, error) {
 	}
 	if len(options) == 1 {
 		option = options[0]
+	}
+	if option.OnlyInstallShell && option.NoInstallShell {
+		return nil, fmt.Errorf("OnlyInstallShell and NoInstallShell cannot be set at the same time")
 	}
 	if option.DriverDirectory == "" { // if user did not set it, try to get it from env
 		option.DriverDirectory = os.Getenv("PLAYWRIGHT_DRIVER_PATH")
