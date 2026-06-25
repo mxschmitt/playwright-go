@@ -1019,7 +1019,10 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 }
 
 func (b *browserContextImpl) IsClosed() bool {
-	return b.isClosedFlag || b.closeReason != nil
+	// Matches upstream isClosed(): true as soon as Close() begins (closing),
+	// not only after the server confirms close (closed). closeWasCalled is the
+	// Go analog of upstream's 'closing' status.
+	return b.isClosedFlag || b.closeWasCalled.Load()
 }
 
 func (b *browserContextImpl) SetStorageState(storageStatePath string) error {
