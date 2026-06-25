@@ -269,7 +269,11 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 	}
 
 	id := c.lastID.Add(1)
-	c.callbacks.Store(id, cb)
+	// The server never replies to noReply messages, so storing their callbacks
+	// would leak an entry per call for the connection's lifetime.
+	if !noReply {
+		c.callbacks.Store(id, cb)
+	}
 	var (
 		metadata = make(map[string]any, 0)
 		stack    = make([]map[string]any, 0)

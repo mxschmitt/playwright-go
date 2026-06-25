@@ -6,10 +6,12 @@ import (
 )
 
 type screencastImpl struct {
-	page     *pageImpl
-	started  bool
-	savePath *string
-	artifact *artifactImpl
+	page      *pageImpl
+	started   bool
+	savePath  *string
+	artifact  *artifactImpl
+	onFrame   func(OnFrame)
+	listening bool
 }
 
 func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
@@ -20,18 +22,27 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 	overrides := map[string]any{}
 	if len(options) == 1 {
 		if options[0].OnFrame != nil {
-			onFrame := options[0].OnFrame
-			s.page.channel.On("screencastFrame", func(params map[string]any) {
-				data, _ := base64.StdEncoding.DecodeString(params["data"].(string))
-				frame := OnFrame{Data: data}
-				if vw, ok := params["viewportWidth"].(float64); ok {
-					frame.ViewportWidth = int(vw)
-				}
-				if vh, ok := params["viewportHeight"].(float64); ok {
-					frame.ViewportHeight = int(vh)
-				}
-				onFrame(frame)
-			})
+			s.onFrame = options[0].OnFrame
+			// Register the channel listener once and dispatch through the
+			// mutable onFrame field, mirroring upstream. This avoids leaking a
+			// listener (and duplicate dispatch) on every Start/Stop cycle.
+			if !s.listening {
+				s.listening = true
+				s.page.channel.On("screencastFrame", func(params map[string]any) {
+					if s.onFrame == nil {
+						return
+					}
+					data, _ := base64.StdEncoding.DecodeString(params["data"].(string))
+					frame := OnFrame{Data: data}
+					if vw, ok := params["viewportWidth"].(float64); ok {
+						frame.ViewportWidth = int(vw)
+					}
+					if vh, ok := params["viewportHeight"].(float64); ok {
+						frame.ViewportHeight = int(vh)
+					}
+					s.onFrame(frame)
+				})
+			}
 			overrides["sendFrames"] = true
 			options[0].OnFrame = nil // don't serialize the callback
 		}
@@ -54,6 +65,7 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 
 func (s *screencastImpl) Stop() error {
 	s.started = false
+	s.onFrame = nil
 	if _, err := s.page.channel.Send("screencastStop"); err != nil {
 		return err
 	}
