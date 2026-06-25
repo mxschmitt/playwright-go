@@ -338,8 +338,13 @@ func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error
 		params["data"] = data
 	}
 	if len(options) == 1 {
-		if err := assignStructFields(&params, options[0], false); err != nil {
-			return err
+		// params is a map, so assignStructFields (which requires a struct dest)
+		// cannot be used here; set the option keys directly.
+		if options[0].Position != nil {
+			params["position"] = options[0].Position
+		}
+		if options[0].Timeout != nil {
+			params["timeout"] = options[0].Timeout
 		}
 	}
 	if _, ok := params["timeout"]; !ok {
