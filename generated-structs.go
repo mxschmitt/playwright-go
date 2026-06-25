@@ -727,23 +727,6 @@ type BrowserContextCloseOptions struct {
 	Reason *string `json:"reason"`
 }
 
-type BrowserContextStorageStateOptions struct {
-	// Set to `true` to include IndexedDB in the storage state snapshot. If your application uses IndexedDB to store
-	// authentication tokens, like Firebase Authentication, enable this.
-	IndexedDB *bool `json:"indexedDB"`
-	// The file path to save the storage state to. If `path` is a relative path, then it is resolved relative to current
-	// working directory. If no path is provided, storage state is still returned, but won't be saved to the disk.
-	Path *string `json:"path"`
-}
-
-type APIRequestContextStorageStateOptions struct {
-	// Set to `true` to include IndexedDB in the storage state snapshot.
-	IndexedDB *bool `json:"indexedDB"`
-	// The file path to save the storage state to. If `path` is a relative path, then it is resolved relative to current
-	// working directory. If no path is provided, storage state is still returned, but won't be saved to the disk.
-	Path *string `json:"path"`
-}
-
 type Cookie struct {
 	Name   string `json:"name"`
 	Value  string `json:"value"`
@@ -3736,11 +3719,6 @@ type PageConsoleMessagesOptions struct {
 	Filter *ConsoleMessagesFilter `json:"filter"`
 }
 
-type PagePageErrorsOptions struct {
-	// Controls which errors are returned:
-	Filter *ConsoleMessagesFilter `json:"filter"`
-}
-
 type PageLocatorOptions struct {
 	// Narrows down the results of the method to those which contain elements matching this relative locator. For example,
 	// `article` that has `text=Playwright` matches `<article><div>Playwright</div></article>`.
@@ -4486,9 +4464,6 @@ type TracingStartHarOptions struct {
 	// When set to `minimal`, only record information necessary for routing from HAR. This omits sizes, timing, page,
 	// cookies, security and other types of HAR information that are not used when replaying from HAR. Defaults to `full`.
 	Mode *HarMode `json:"mode"`
-	// If specified, resources referenced by the HAR will be saved as separate files in this directory and referenced from
-	// the HAR. Cannot be used with a `.zip` output file.
-	ResourcesDir *string `json:"resourcesDir"`
 	// A glob or regex pattern to filter requests that are stored in the HAR. Defaults to none.
 	URLFilter any `json:"urlFilter"`
 }

@@ -87,7 +87,7 @@ type APIRequestContext interface {
 
 	// Returns storage state for this request context, contains current cookies and local storage snapshot if it was
 	// passed to the constructor.
-	StorageState(options ...APIRequestContextStorageStateOptions) (*StorageState, error)
+	StorageState(path ...string) (*StorageState, error)
 
 	Tracing() Tracing
 }
@@ -501,7 +501,7 @@ type BrowserContext interface {
 
 	// Returns storage state for this browser context, contains current cookies, local storage snapshot and IndexedDB
 	// snapshot.
-	StorageState(options ...BrowserContextStorageStateOptions) (*StorageState, error)
+	StorageState(path ...string) (*StorageState, error)
 
 	// Clears the existing cookies, local storage and IndexedDB entries for all origins and sets the new storage state.
 	//
@@ -3823,7 +3823,7 @@ type Page interface {
 	ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error)
 
 	// Returns up to (currently) 200 last page errors from this page. See [Page.OnPageError] for more details.
-	PageErrors(options ...PagePageErrorsOptions) ([]string, error)
+	PageErrors() ([]string, error)
 
 	// The method returns an element locator that can be used to perform actions on this page / frame. Locator is resolved
 	// to the element immediately before performing an action, so a series of actions on the same locator can in fact be

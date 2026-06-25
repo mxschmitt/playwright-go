@@ -280,7 +280,7 @@ func TestStorageStateShouldRoundTripThroughFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 	tempfile := filepath.Join(t.TempDir(), "storage-state.json")
-	actual, err := request.StorageState(playwright.APIRequestContextStorageStateOptions{Path: playwright.String(tempfile)})
+	actual, err := request.StorageState(tempfile)
 	require.NoError(t, err)
 	require.Equal(t, storageState, actual)
 	stateWritten, err := os.ReadFile(tempfile)
