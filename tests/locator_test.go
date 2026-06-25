@@ -9,6 +9,21 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLocatorClickTimeoutIncludesCallLog verifies the server-provided call log
+// is appended to command-error messages (e.g. action timeouts), matching the
+// upstream client which formats `log` onto the error.
+func TestLocatorClickTimeoutIncludesCallLog(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div>no button here</div>`))
+	err := page.Locator("button#missing").Click(playwright.LocatorClickOptions{
+		Timeout: playwright.Float(500),
+	})
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.Contains(t, err.Error(), "Call log:")
+	require.Contains(t, err.Error(), "waiting for")
+}
+
 func TestLocatorAllInnerTexts(t *testing.T) {
 	BeforeEach(t)
 

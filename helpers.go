@@ -586,6 +586,30 @@ func deserializeNameAndValueToMap(headersArray []map[string]string) map[string]s
 	return unserialized
 }
 
+// addSourceURLToScript appends a sourceURL comment so scripts loaded from a file
+// path are attributed to that path in stack traces and DevTools, mirroring
+// upstream addSourceUrlToScript.
+func addSourceURLToScript(source string, path string) string {
+	return source + "\n//# sourceURL=" + strings.ReplaceAll(path, "\n", "")
+}
+
+// formatCallLog renders the server-provided call log appended to command error
+// messages, mirroring upstream formatCallLog. Returns an empty string when the
+// log is absent or contains only empty entries.
+func formatCallLog(log []string) string {
+	hasContent := false
+	for _, l := range log {
+		if l != "" {
+			hasContent = true
+			break
+		}
+	}
+	if !hasContent {
+		return ""
+	}
+	return "\nCall log:\n" + strings.Join(log, "\n")
+}
+
 // mergeHeaders converts a name/value header array into a map, merging multiple
 // set-cookie headers into a single newline-separated value (route.Fulfill does
 // not support multiple set-cookie headers).

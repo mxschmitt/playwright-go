@@ -126,8 +126,12 @@ func (c *connection) Dispatch(msg *message) {
 		if cb.noReply {
 			return
 		}
-		if msg.Error != nil {
-			cb.SetError(parseError(msg.Error.Error))
+		if msg.Error != nil && msg.Result == nil {
+			err := parseError(msg.Error.Error)
+			if log := formatCallLog(msg.Log); log != "" {
+				err = fmt.Errorf("%w%s", err, log)
+			}
+			cb.SetError(err)
 		} else {
 			// Always resolve GUIDs in responses, regardless of connection type
 			// The protocol guarantees that __create__ events arrive before responses that reference those objects
