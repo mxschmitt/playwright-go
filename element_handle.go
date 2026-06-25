@@ -409,6 +409,15 @@ func (e *elementHandleImpl) SetChecked(checked bool, options ...ElementHandleSet
 func newElementHandle(parent *channelOwner, objectType string, guid string, initializer map[string]any) *elementHandleImpl {
 	bt := &elementHandleImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
+	// ElementHandle extends JSHandle: initialize the preview from the initializer
+	// and keep it in sync, so String() returns the element preview (newJSHandle
+	// does this, but ElementHandle is constructed directly).
+	if preview, ok := initializer["preview"].(string); ok {
+		bt.preview = preview
+	}
+	bt.channel.On("previewUpdated", func(ev map[string]any) {
+		bt.preview = ev["preview"].(string)
+	})
 	return bt
 }
 

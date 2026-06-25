@@ -298,6 +298,14 @@ func TestElementHandleString(t *testing.T) {
 	stringHandle, err := page.EvaluateHandle("() => 'a'")
 	require.NoError(t, err)
 	require.Equal(t, "a", stringHandle.String())
+
+	// A real ElementHandle renders its server-provided preview (not an empty
+	// string) — newElementHandle must initialize preview like newJSHandle.
+	require.NoError(t, page.SetContent(`<button>Submit</button>`))
+	//nolint:staticcheck
+	elementHandle, err := page.QuerySelector("button")
+	require.NoError(t, err)
+	require.NotEmpty(t, elementHandle.String())
 }
 
 func TestElementHandleCheck(t *testing.T) {
