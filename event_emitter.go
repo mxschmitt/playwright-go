@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"slices"
 	"sync"
+	"unsafe"
 )
 
 type EventEmitter interface {
@@ -131,11 +132,28 @@ func (er *eventRegister) count() int {
 }
 
 func (er *eventRegister) removeHandler(handler any) {
-	handlerPtr := reflect.ValueOf(handler).Pointer()
+	target := funcIdentity(handler)
 
 	er.listeners = slices.DeleteFunc(er.listeners, func(l listener) bool {
-		return reflect.ValueOf(l.handler).Pointer() == handlerPtr
+		return funcIdentity(l.handler) == target
 	})
+}
+
+// funcIdentity returns a value that uniquely identifies a func value, so that
+// distinct closures can be told apart when removing listeners.
+//
+// reflect.Value.Pointer() returns only the code entry point of a func, which is
+// shared by every closure produced from the same function literal (for example
+// waiter.createHandler). Removing one such closure with that pointer would match
+// and remove all its siblings, silently unsubscribing unrelated listeners. The
+// closure's data word (the second word of the func interface value) distinguishes
+// individual closures, so we compare on that instead. A nil func has a nil data
+// word; callers never register nil handlers, so that case does not arise here.
+func funcIdentity(handler any) unsafe.Pointer {
+	// A non-nil func value stored in an interface is represented as a pointer to
+	// a runtime func object; the interface's data word is that pointer and is
+	// stable for the lifetime of the closure.
+	return (*[2]unsafe.Pointer)(unsafe.Pointer(&handler))[1]
 }
 
 func (er *eventRegister) callHandlers(payloads ...any) int {

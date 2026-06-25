@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -1150,6 +1151,52 @@ func TestPageExpectResponse(t *testing.T) {
 
 		require.Nil(t, response)
 		require.ErrorContains(t, err, "Timeout 1000.00ms exceeded.")
+	})
+
+	// Regression test for https://github.com/playwright-community/playwright-go/issues/323:
+	// waiting for several responses concurrently (the Go equivalent of
+	// Promise.all) must resolve every waiter. Previously, once one waiter
+	// completed it unsubscribed all the others, so the rest timed out.
+	t.Run("should work with concurrent waiters", func(t *testing.T) {
+		BeforeEach(t)
+
+		ids := []string{"a", "b", "c", "d", "e", "f"}
+		for _, id := range ids {
+			id := id
+			server.SetRoute("/api/"+id, func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				_, err := fmt.Fprintf(w, `{"id":"%s"}`, id)
+				require.NoError(t, err)
+			})
+		}
+
+		_, err := page.Goto(server.EMPTY_PAGE)
+		require.NoError(t, err)
+
+		var wg sync.WaitGroup
+		results := make([]string, len(ids))
+		errs := make([]error, len(ids))
+		for i, id := range ids {
+			wg.Add(1)
+			go func(idx int, id string) {
+				defer wg.Done()
+				resp, err := page.ExpectResponse("**/api/"+id, func() error {
+					_, e := page.Evaluate(fmt.Sprintf(`fetch("/api/%s")`, id))
+					return e
+				}, playwright.PageExpectResponseOptions{Timeout: playwright.Float(10 * 1000)})
+				if err != nil {
+					errs[idx] = err
+					return
+				}
+				results[idx] = resp.URL()
+			}(i, id)
+		}
+		wg.Wait()
+
+		for i, id := range ids {
+			require.NoErrorf(t, errs[i], "waiter %d (id %s)", i, id)
+			require.Contains(t, results[i], "/api/"+id)
+		}
 	})
 }
 
