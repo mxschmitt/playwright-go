@@ -807,7 +807,12 @@ func (p *pageImpl) ConsoleMessages(options ...PageConsoleMessagesOptions) ([]Con
 	messages := result.([]any)
 	consoleMessages := make([]ConsoleMessage, len(messages))
 	for i, m := range messages {
-		consoleMessages[i] = newConsoleMessage(m.(map[string]any))
+		cm := newConsoleMessage(m.(map[string]any))
+		// The consoleMessages result entries do not carry a page channel
+		// (unlike the live `console` event), so set the owning page
+		// explicitly to mirror upstream behavior.
+		cm.page = p
+		consoleMessages[i] = cm
 	}
 	return consoleMessages, nil
 }
