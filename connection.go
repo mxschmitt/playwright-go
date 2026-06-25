@@ -36,18 +36,25 @@ type connection struct {
 	abortOnce    sync.Once
 	err          *safeValue[error] // for event listener error
 	closedError  *safeValue[error]
+
+	// dispatchGID is the id of the goroutine that runs the receive loop (and
+	// therefore synchronously runs event handlers). When a handler makes a
+	// blocking server call, the reply can only be delivered by this same
+	// goroutine; blocking on it would deadlock. waitResult detects that case by
+	// comparing against this id and instead pumps the receive loop re-entrantly
+	// until the reply arrives. Keeping all message processing on one goroutine
+	// preserves the original event ordering and avoids data races on the object
+	// graph.
+	dispatchGID atomic.Uint64
 }
 
 func (c *connection) Start() (*Playwright, error) {
 	go func() {
+		c.dispatchGID.Store(currentGoroutineID())
 		for {
-			msg, err := c.transport.Poll()
-			if err != nil {
-				_ = c.transport.Close()
-				c.cleanup(err)
+			if !c.pollOnce() {
 				return
 			}
-			c.Dispatch(msg)
 		}
 	}()
 
@@ -59,6 +66,21 @@ func (c *connection) Start() (*Playwright, error) {
 	}
 
 	return c.rootObject.initialize()
+}
+
+// pollOnce reads and dispatches a single message. It returns false when the
+// transport is closed or errors, signalling the receive loop to stop. It is
+// also called re-entrantly from waitResult to drain replies for a blocking
+// call made on the dispatch goroutine itself (see waitResult).
+func (c *connection) pollOnce() bool {
+	msg, err := c.transport.Poll()
+	if err != nil {
+		_ = c.transport.Close()
+		c.cleanup(err)
+		return false
+	}
+	c.Dispatch(msg)
+	return true
 }
 
 func (c *connection) Stop() error {
@@ -224,7 +246,7 @@ func (c *connection) replaceGuidsWithChannels(payload any) (any, error) {
 }
 
 func (c *connection) sendMessageToServer(object *channelOwner, method string, params any, noReply bool) (cb *protocolCallback) {
-	cb = newProtocolCallback(noReply, c.abort)
+	cb = newProtocolCallback(c, noReply, c.abort)
 
 	if err := c.closedError.Get(); err != nil {
 		cb.SetError(err)
@@ -368,12 +390,13 @@ func fromNullableChannel(v any) any {
 }
 
 type protocolCallback struct {
-	done    chan struct{}
-	noReply bool
-	abort   <-chan struct{}
-	once    sync.Once
-	value   map[string]any
-	err     error
+	connection *connection
+	done       chan struct{}
+	noReply    bool
+	abort      <-chan struct{}
+	once       sync.Once
+	value      map[string]any
+	err        error
 }
 
 func (pc *protocolCallback) setResultOnce(result map[string]any, err error) {
@@ -389,6 +412,30 @@ func (pc *protocolCallback) setResultOnce(result map[string]any, err error) {
 func (pc *protocolCallback) waitResult() {
 	if pc.noReply {
 		return
+	}
+	// A blocking call made from within an event handler runs on the dispatch
+	// goroutine, which is the only goroutine that can deliver this reply.
+	// Blocking on pc.done would deadlock, so instead drive the receive loop
+	// re-entrantly until the reply (or connection close) arrives.
+	if pc.connection.dispatchGID.Load() == currentGoroutineID() {
+		for {
+			select {
+			case <-pc.done:
+				return
+			case <-pc.abort:
+				pc.err = errors.New("Connection closed")
+				return
+			default:
+			}
+			if !pc.connection.pollOnce() {
+				select {
+				case <-pc.done:
+				default:
+					pc.err = errors.New("Connection closed")
+				}
+				return
+			}
+		}
 	}
 	select {
 	case <-pc.done: // wait for result
@@ -432,15 +479,17 @@ func (pc *protocolCallback) GetResultValue() (any, error) {
 	return pc.value, pc.err
 }
 
-func newProtocolCallback(noReply bool, abort <-chan struct{}) *protocolCallback {
+func newProtocolCallback(connection *connection, noReply bool, abort <-chan struct{}) *protocolCallback {
 	if noReply {
 		return &protocolCallback{
-			noReply: true,
-			abort:   abort,
+			connection: connection,
+			noReply:    true,
+			abort:      abort,
 		}
 	}
 	return &protocolCallback{
-		done:  make(chan struct{}, 1),
-		abort: abort,
+		connection: connection,
+		done:       make(chan struct{}, 1),
+		abort:      abort,
 	}
 }
