@@ -46,7 +46,33 @@ func escapeForTextSelector(text any, exact bool) string {
 
 func escapeRegexForSelector(re *regexp.Regexp) string {
 	pattern, flag := convertRegexp(re)
+	// Escape any unescaped quote characters so a regex containing a quote does
+	// not break the selector tokenizer when the locator is chained (`>>`).
+	// Mirrors upstream's /(^|[^\\])(\\\\)*(["'`])/g → '$1$2\\$3' replacement.
+	pattern = escapeQuotesInRegexSource(pattern)
 	return fmt.Sprintf(`/%s/%s`, strings.ReplaceAll(pattern, `>>`, `\>\>`), flag)
+}
+
+// escapeQuotesInRegexSource backslash-escapes ", ' and ` characters that are not
+// already escaped by a preceding (even-length run of) backslashes.
+func escapeQuotesInRegexSource(s string) string {
+	var b strings.Builder
+	backslashes := 0
+	for _, r := range s {
+		if r == '"' || r == '\'' || r == '`' {
+			// Already escaped only if preceded by an odd number of backslashes.
+			if backslashes%2 == 0 {
+				b.WriteByte('\\')
+			}
+		}
+		if r == '\\' {
+			backslashes++
+		} else {
+			backslashes = 0
+		}
+		b.WriteRune(r)
+	}
+	return b.String()
 }
 
 // locatorCustomDescription extracts the description embedded by Describe via the
