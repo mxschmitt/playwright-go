@@ -120,11 +120,19 @@ func (r *routeImpl) innerFulfill(options ...RouteFulfillOptions) error {
 	if option.Response != nil {
 		overrides["status"] = option.Response.Status()
 		headers = option.Response.Headers()
-		response, ok := option.Response.(*apiResponseImpl)
-		if option.Body == nil && option.Path == nil && ok && response.request.connection == r.connection {
-			overrides["fetchResponseUid"] = response.fetchUid()
-		} else {
-			option.Body, _ = option.Response.Body()
+		// Only derive the body from the response when the caller did not supply
+		// their own body/path (those are explicit overrides), matching upstream.
+		if option.Body == nil && option.Path == nil {
+			response, ok := option.Response.(*apiResponseImpl)
+			if ok && response.request.connection == r.connection {
+				overrides["fetchResponseUid"] = response.fetchUid()
+			} else {
+				body, err := option.Response.Body()
+				if err != nil {
+					return err
+				}
+				option.Body = body
+			}
 		}
 		option.Response = nil
 	}
