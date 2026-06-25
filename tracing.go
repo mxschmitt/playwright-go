@@ -179,9 +179,10 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 	if len(t.harRecorders) > 0 {
 		return fmt.Errorf("HAR recording has already been started")
 	}
+	isZip := strings.HasSuffix(strings.ToLower(path), ".zip")
 	// Default content matches upstream: attach for .zip output, embed otherwise.
 	defaultContent := HarContentPolicyEmbed
-	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+	if isZip {
 		defaultContent = HarContentPolicyAttach
 	}
 	harOptions := recordHarInputOptions{
@@ -190,6 +191,9 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 		Mode:    HarModeFull,
 	}
 	if len(options) == 1 {
+		if options[0].ResourcesDir != nil && isZip {
+			return fmt.Errorf("resourcesDir option is not compatible with a .zip har file")
+		}
 		if options[0].Content != nil {
 			harOptions.Content = options[0].Content
 		}
@@ -197,6 +201,7 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 			harOptions.Mode = options[0].Mode
 		}
 		harOptions.URL = options[0].URLFilter
+		harOptions.ResourcesDir = options[0].ResourcesDir
 	}
 	harId, err := t.channel.Send("harStart", map[string]any{
 		"options": prepareRecordHarOptions(harOptions),
@@ -205,8 +210,9 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 		return err
 	}
 	t.harRecorders[harId.(string)] = harRecordingMetadata{
-		Path:    path,
-		Content: harOptions.Content,
+		Path:         path,
+		Content:      harOptions.Content,
+		ResourcesDir: harOptions.ResourcesDir,
 	}
 	return nil
 }
@@ -266,7 +272,7 @@ func (t *tracingImpl) exportAllHars() error {
 			if err := artifact.SaveAs(tmpPath); err != nil {
 				return err
 			}
-			if err := t.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path); err != nil {
+			if err := t.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path, harMetaData.ResourcesDir); err != nil {
 				return err
 			}
 		}
