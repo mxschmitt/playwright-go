@@ -447,6 +447,23 @@ func TestDialogEventShouldWorkInImmdiatelyClosedPopup(t *testing.T) {
 	require.Equal(t, popup, msg.Page())
 }
 
+// TestBrowserContextExpectCloseEventResolves verifies that awaiting the "close"
+// event resolves rather than rejecting with TargetClosed (the reject-on-close
+// guard must not apply to the very event being awaited).
+func TestBrowserContextExpectCloseEventResolves(t *testing.T) {
+	BeforeEach(t)
+
+	browser1, err := browserType.Launch()
+	require.NoError(t, err)
+	defer browser1.Close() //nolint:errcheck
+	context1, err := browser1.NewContext()
+	require.NoError(t, err)
+	_, err = context1.ExpectEvent("close", func() error {
+		return context1.Close()
+	})
+	require.NoError(t, err)
+}
+
 func TestBrowserContextCloseShouldAbortWaitForEvent(t *testing.T) {
 	BeforeEach(t)
 

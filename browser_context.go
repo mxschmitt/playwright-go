@@ -367,7 +367,10 @@ func (b *browserContextImpl) waiterForEvent(event string, options ...BrowserCont
 		predicate = options[0].Predicate
 	}
 	waiter := newWaiter().WithTimeout(timeout)
-	waiter.RejectOnEvent(b, "close", ErrTargetClosed)
+	// Don't reject on the very event being awaited.
+	if event != "close" {
+		waiter.RejectOnEvent(b, "close", ErrTargetClosed)
+	}
 	return waiter.WaitForEvent(b, event, predicate)
 }
 
