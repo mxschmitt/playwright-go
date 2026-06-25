@@ -154,15 +154,18 @@ func (er *eventRegister) callHandlers(payloads ...any) int {
 	// lock, but invoke the handlers *without* the lock held. Handlers run
 	// arbitrary user code that may call back into the emitter (e.g. removing a
 	// listener) or block on a server round-trip; holding er across that call
-	// would serialize or deadlock those paths.
+	// would serialize or deadlock those paths. The snapshot also fixes the set
+	// of handlers for this dispatch: listeners added or removed by a handler
+	// take effect on the next Emit, matching Node's EventEmitter semantics.
 	er.Lock()
-	snapshot := make([]listener, len(er.listeners))
-	copy(snapshot, er.listeners)
-	for _, l := range snapshot {
-		if l.once {
-			er.removeHandler(l.handler)
-		}
+	if len(er.listeners) == 0 {
+		er.Unlock()
+		return 0
 	}
+	snapshot := slices.Clone(er.listeners)
+	er.listeners = slices.DeleteFunc(er.listeners, func(l listener) bool {
+		return l.once
+	})
 	er.Unlock()
 
 	for _, l := range snapshot {
