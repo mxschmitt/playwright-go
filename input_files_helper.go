@@ -40,12 +40,16 @@ func convertInputFiles(files any, context *browserContextImpl) (*inputFiles, err
 		if sizeOfInputFiles([]InputFile{items}) >= fileSizeLimitInBytes {
 			return nil, ErrInputFilesSizeExceeded
 		}
+		// Buffers are passed as payloads regardless of local/remote connection,
+		// matching upstream which returns { payloads } without calling createTempFiles.
 		converted.Payloads = normalizeFilePayloads([]InputFile{items})
+		return converted, nil
 	case []InputFile:
 		if sizeOfInputFiles(items) >= fileSizeLimitInBytes {
 			return nil, ErrInputFilesSizeExceeded
 		}
 		converted.Payloads = normalizeFilePayloads(items)
+		return converted, nil
 	case string: // local file path
 		paths = []string{items}
 	case []string:
