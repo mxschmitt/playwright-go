@@ -3,7 +3,6 @@ package playwright
 import (
 	"fmt"
 	"net/url"
-	"path"
 	"strings"
 )
 
@@ -109,9 +108,14 @@ func (pa *pageAssertionsImpl) ToHaveURL(urlOrRegExp any, options ...PageAssertio
 
 	baseURL := pa.actualPage.Context().(*browserContextImpl).options.BaseURL
 	if urlPath, ok := urlOrRegExp.(string); ok && baseURL != nil {
-		u, _ := url.Parse(*baseURL)
-		u.Path = path.Join(u.Path, urlPath)
-		urlOrRegExp = u.String()
+		// Resolve against the base URL the same way the browser's `new URL(given,
+		// base)` does, rather than naive path joining (matching upstream
+		// constructURLBasedOnBaseURL).
+		if base, err := url.Parse(*baseURL); err == nil {
+			if given, err := url.Parse(urlPath); err == nil {
+				urlOrRegExp = base.ResolveReference(given).String()
+			}
+		}
 	}
 
 	expectedValues, err := toExpectedTextValues([]any{urlOrRegExp}, false, false, ignoreCase)
