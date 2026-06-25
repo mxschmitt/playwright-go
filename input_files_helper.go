@@ -37,12 +37,12 @@ func convertInputFiles(files any, context *browserContextImpl) (*inputFiles, err
 	)
 	switch items := files.(type) {
 	case InputFile:
-		if sizeOfInputFiles([]InputFile{items}) > fileSizeLimitInBytes {
+		if sizeOfInputFiles([]InputFile{items}) >= fileSizeLimitInBytes {
 			return nil, ErrInputFilesSizeExceeded
 		}
 		converted.Payloads = normalizeFilePayloads([]InputFile{items})
 	case []InputFile:
-		if sizeOfInputFiles(items) > fileSizeLimitInBytes {
+		if sizeOfInputFiles(items) >= fileSizeLimitInBytes {
 			return nil, ErrInputFilesSizeExceeded
 		}
 		converted.Payloads = normalizeFilePayloads(items)
