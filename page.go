@@ -75,19 +75,12 @@ func (p *pageImpl) AddLocatorHandler(locator Locator, handler func(Locator), opt
 }
 
 func (p *pageImpl) onLocatorHandlerTriggered(uid float64) {
-	var remove *bool
-	handler, ok := p.locatorHandlers[uid]
-	if !ok {
-		return
-	}
-	if handler.times != nil {
-		*handler.times--
-		if *handler.times == 0 {
-			remove = Bool(true)
-		}
-	}
+	remove := false
+	// The server blocks the intercepted action until we resolve, so this must
+	// always fire — even for an unknown uid (e.g. removed while a trigger was in
+	// flight). Mirrors the upstream try/finally.
 	defer func() {
-		if remove != nil && *remove {
+		if remove {
 			delete(p.locatorHandlers, uid)
 		}
 		_, _ = p.connection.WrapAPICall(func() (any, error) {
@@ -99,7 +92,14 @@ func (p *pageImpl) onLocatorHandlerTriggered(uid float64) {
 		}, true)
 	}()
 
-	handler.handler(handler.locator)
+	handler, ok := p.locatorHandlers[uid]
+	if ok && (handler.times == nil || *handler.times != 0) {
+		if handler.times != nil {
+			*handler.times--
+		}
+		handler.handler(handler.locator)
+	}
+	remove = ok && handler.times != nil && *handler.times == 0
 }
 
 func (p *pageImpl) RemoveLocatorHandler(locator Locator) error {
@@ -213,17 +213,13 @@ func (p *pageImpl) Frames() []Frame {
 }
 
 func (p *pageImpl) SetDefaultNavigationTimeout(timeout float64) {
+	// Upstream only updates the client-side timeout settings; there is no
+	// corresponding protocol method (the old *NoReply methods were removed).
 	p.timeoutSettings.SetDefaultNavigationTimeout(&timeout)
-	p.channel.SendNoReplyInternal("setDefaultNavigationTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (p *pageImpl) SetDefaultTimeout(timeout float64) {
 	p.timeoutSettings.SetDefaultTimeout(&timeout)
-	p.channel.SendNoReplyInternal("setDefaultTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (p *pageImpl) QuerySelector(selector string, options ...PageQuerySelectorOptions) (ElementHandle, error) {
