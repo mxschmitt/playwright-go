@@ -48,7 +48,7 @@ func (ar *apiResponseAssertionsImpl) ToBeOK() error {
 	if isTextEncoding {
 		text, err := ar.actual.Text()
 		if err == nil {
-			message += fmt.Sprintf(`\n Response Text:\n %s`, subString(text, 0, 1000))
+			message += fmt.Sprintf("\nResponse text:\n%s", subString(text, 0, 1000))
 		}
 	}
 	return errors.New(message)
