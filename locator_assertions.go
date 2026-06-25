@@ -43,18 +43,18 @@ func (la *locatorAssertionsImpl) ToBeChecked(options ...LocatorAssertionsToBeChe
 	expected := "checked"
 
 	if len(options) == 1 {
+		// Always forward both keys (matching upstream), and derive the label:
+		// indeterminate (if truthy), else unchecked/checked from `checked`.
+		if options[0].Checked != nil {
+			expectedValue["checked"] = *options[0].Checked
+		}
 		if options[0].Indeterminate != nil {
 			expectedValue["indeterminate"] = *options[0].Indeterminate
-			if *options[0].Indeterminate {
-				expected = "indeterminate"
-			}
-		} else {
-			if options[0].Checked != nil {
-				expectedValue["checked"] = *options[0].Checked
-				if !*options[0].Checked {
-					expected = "unchecked"
-				}
-			}
+		}
+		if options[0].Indeterminate != nil && *options[0].Indeterminate {
+			expected = "indeterminate"
+		} else if options[0].Checked != nil && !*options[0].Checked {
+			expected = "unchecked"
 		}
 		timeout = options[0].Timeout
 	}
@@ -83,15 +83,21 @@ func (la *locatorAssertionsImpl) ToBeDisabled(options ...LocatorAssertionsToBeDi
 }
 
 func (la *locatorAssertionsImpl) ToBeEditable(options ...LocatorAssertionsToBeEditableOptions) error {
+	expression := "to.be.editable"
+	message := "Locator expected to be editable"
 	var timeout *float64
 	if len(options) == 1 {
+		if options[0].Editable != nil && !*options[0].Editable {
+			expression = "to.be.readonly"
+			message = "Locator expected to be readOnly"
+		}
 		timeout = options[0].Timeout
 	}
 	return la.expect(
-		"to.be.editable",
+		expression,
 		frameExpectOptions{Timeout: timeout},
 		nil,
-		"Locator expected to be editable",
+		message,
 	)
 }
 
@@ -109,15 +115,21 @@ func (la *locatorAssertionsImpl) ToBeEmpty(options ...LocatorAssertionsToBeEmpty
 }
 
 func (la *locatorAssertionsImpl) ToBeEnabled(options ...LocatorAssertionsToBeEnabledOptions) error {
+	expression := "to.be.enabled"
+	message := "Locator expected to be enabled"
 	var timeout *float64
 	if len(options) == 1 {
+		if options[0].Enabled != nil && !*options[0].Enabled {
+			expression = "to.be.disabled"
+			message = "Locator expected to be disabled"
+		}
 		timeout = options[0].Timeout
 	}
 	return la.expect(
-		"to.be.enabled",
+		expression,
 		frameExpectOptions{Timeout: timeout},
 		nil,
-		"Locator expected to be enabled",
+		message,
 	)
 }
 
@@ -168,15 +180,21 @@ func (la *locatorAssertionsImpl) ToBeInViewport(options ...LocatorAssertionsToBe
 }
 
 func (la *locatorAssertionsImpl) ToBeVisible(options ...LocatorAssertionsToBeVisibleOptions) error {
+	expression := "to.be.visible"
+	message := "Locator expected to be visible"
 	var timeout *float64
 	if len(options) == 1 {
+		if options[0].Visible != nil && !*options[0].Visible {
+			expression = "to.be.hidden"
+			message = "Locator expected to be hidden"
+		}
 		timeout = options[0].Timeout
 	}
 	return la.expect(
-		"to.be.visible",
+		expression,
 		frameExpectOptions{Timeout: timeout},
 		nil,
-		"Locator expected to be visible",
+		message,
 	)
 }
 
