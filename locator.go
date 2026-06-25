@@ -62,6 +62,19 @@ func (l *locatorImpl) equals(locator Locator) bool {
 	return l.frame == locator.(*locatorImpl).frame && l.err == locator.(*locatorImpl).err && l.selector == locator.(*locatorImpl).selector
 }
 
+// withError returns a copy of the locator carrying an additional error, without
+// mutating the receiver. Upstream throws on these conditions; the Go API surfaces
+// the error lazily via the returned locator's Err().
+func (l *locatorImpl) withError(err error) *locatorImpl {
+	return &locatorImpl{
+		frame:       l.frame,
+		selector:    l.selector,
+		options:     l.options,
+		description: l.description,
+		err:         errors.Join(l.err, err),
+	}
+}
+
 func (l *locatorImpl) Err() error {
 	return l.err
 }
@@ -128,10 +141,16 @@ func (l *locatorImpl) AllTextContents() ([]string, error) {
 }
 
 func (l *locatorImpl) And(locator Locator) Locator {
+	if l.frame != locator.(*locatorImpl).frame {
+		return l.withError(ErrLocatorNotSameFrame)
+	}
 	return newLocator(l.frame, l.selector+` >> internal:and=`+escapeText(locator.(*locatorImpl).selector))
 }
 
 func (l *locatorImpl) Or(locator Locator) Locator {
+	if l.frame != locator.(*locatorImpl).frame {
+		return l.withError(ErrLocatorNotSameFrame)
+	}
 	return newLocator(l.frame, l.selector+` >> internal:or=`+escapeText(locator.(*locatorImpl).selector))
 }
 
@@ -696,8 +715,7 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 	locator, ok := selectorOrLocator.(*locatorImpl)
 	if ok {
 		if l.frame != locator.frame {
-			l.err = errors.Join(l.err, ErrLocatorNotSameFrame)
-			return l
+			return l.withError(ErrLocatorNotSameFrame)
 		}
 		return newLocator(
 			l.frame,
@@ -705,8 +723,7 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 			option,
 		)
 	}
-	l.err = errors.Join(l.err, fmt.Errorf("invalid locator parameter: %v", selectorOrLocator))
-	return l
+	return l.withError(fmt.Errorf("invalid locator parameter: %v", selectorOrLocator))
 }
 
 func (l *locatorImpl) Nth(index int) Locator {

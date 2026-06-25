@@ -657,6 +657,26 @@ func TestShouldSupportLocatorOr(t *testing.T) {
 	require.NoError(t, expect.Locator(page.Locator("span").Or(page.Locator("article"))).ToHaveText("world"))
 }
 
+// TestLocatorAndOrEnforceSameFrame verifies And/Or and Locator surface an error
+// when the argument belongs to a different frame, matching upstream which throws
+// "Locators must belong to the same frame."
+func TestLocatorAndOrEnforceSameFrame(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/frames/two-frames.html")
+	require.NoError(t, err)
+	require.Greater(t, len(page.Frames()), 1)
+	frameLocator := page.Frames()[1].Locator("div")
+	mainLocator := page.Locator("div")
+
+	require.ErrorIs(t, mainLocator.And(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+	require.ErrorIs(t, mainLocator.Or(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+	require.ErrorIs(t, mainLocator.Locator(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+
+	// The original locator must NOT be corrupted by a failed cross-frame call.
+	require.NoError(t, mainLocator.Err())
+}
+
 func TestLocatorAndFrameLocatorShouldAcceptLocator(t *testing.T) {
 	BeforeEach(t)
 
