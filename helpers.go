@@ -614,19 +614,22 @@ type recordHarOptions struct {
 	UrlGlob        *string           `json:"urlGlob,omitempty"`
 	UrlRegexSource *string           `json:"urlRegexSource,omitempty"`
 	UrlRegexFlags  *string           `json:"urlRegexFlags,omitempty"`
+	ResourcesDir   *string           `json:"resourcesDir,omitempty"`
 }
 
 type recordHarInputOptions struct {
-	Path        string
-	URL         any
-	Mode        *HarMode
-	Content     *HarContentPolicy
-	OmitContent *bool
+	Path         string
+	URL          any
+	Mode         *HarMode
+	Content      *HarContentPolicy
+	OmitContent  *bool
+	ResourcesDir *string
 }
 
 type harRecordingMetadata struct {
-	Path    string
-	Content *HarContentPolicy
+	Path         string
+	Content      *HarContentPolicy
+	ResourcesDir *string
 }
 
 // resolveRecordVideoDir resolves a relative recordVideo.dir to an absolute path,
@@ -668,6 +671,7 @@ func prepareRecordHarOptions(option recordHarInputOptions) recordHarOptions {
 	} else if option.OmitContent != nil && *option.OmitContent {
 		out.Content = HarContentPolicyOmit
 	}
+	out.ResourcesDir = option.ResourcesDir
 	return out
 }
 

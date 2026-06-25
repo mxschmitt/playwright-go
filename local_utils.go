@@ -110,13 +110,15 @@ func (l *localUtilsImpl) HarClose(harId string) error {
 	return err
 }
 
-func (l *localUtilsImpl) HarUnzip(zipFile, harFile string) error {
-	_, err := l.channel.Send("harUnzip", []map[string]any{
-		{
-			"zipFile": zipFile,
-			"harFile": harFile,
-		},
-	})
+func (l *localUtilsImpl) HarUnzip(zipFile, harFile string, resourcesDir ...*string) error {
+	params := map[string]any{
+		"zipFile": zipFile,
+		"harFile": harFile,
+	}
+	if len(resourcesDir) > 0 && resourcesDir[0] != nil {
+		params["resourcesDir"] = *resourcesDir[0]
+	}
+	_, err := l.channel.Send("harUnzip", []map[string]any{params})
 	return err
 }
 
