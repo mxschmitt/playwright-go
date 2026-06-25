@@ -458,6 +458,12 @@ func (p *pageImpl) Screenshot(options ...PageScreenshotOptions) ([]byte, error) 
 	if len(options) == 1 {
 		path = options[0].Path
 		options[0].Path = nil
+		// Infer the image type from the path extension when not set, matching upstream.
+		typ, err := determineScreenshotType(path, options[0].Type)
+		if err != nil {
+			return nil, err
+		}
+		options[0].Type = typ
 		if options[0].Mask != nil {
 			masks := make([]map[string]any, 0)
 			for _, m := range options[0].Mask {
@@ -753,7 +759,7 @@ func (p *pageImpl) Keyboard() Keyboard {
 }
 
 func (p *pageImpl) ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error) {
-	result, err := p.channel.Send("consoleMessages", nil)
+	result, err := p.channel.Send("consoleMessages", options)
 	if err != nil {
 		return nil, err
 	}
