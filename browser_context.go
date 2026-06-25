@@ -48,10 +48,9 @@ func (b *browserContextImpl) SetDefaultNavigationTimeout(timeout float64) {
 }
 
 func (b *browserContextImpl) setDefaultNavigationTimeoutImpl(timeout *float64) {
+	// Upstream only updates the client-side timeout settings; there is no
+	// corresponding protocol method (the old *NoReply methods were removed).
 	b.timeoutSettings.SetDefaultNavigationTimeout(timeout)
-	b.channel.SendNoReplyInternal("setDefaultNavigationTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (b *browserContextImpl) SetDefaultTimeout(timeout float64) {
@@ -60,9 +59,6 @@ func (b *browserContextImpl) SetDefaultTimeout(timeout float64) {
 
 func (b *browserContextImpl) setDefaultTimeoutImpl(timeout *float64) {
 	b.timeoutSettings.SetDefaultTimeout(timeout)
-	b.channel.SendNoReplyInternal("setDefaultTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (b *browserContextImpl) Pages() []Page {
