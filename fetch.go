@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -334,6 +335,9 @@ func (r *apiRequestContextImpl) StorageState(options ...APIRequestContextStorage
 		return nil, err
 	}
 	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
 		file, err := os.Create(*path)
 		if err != nil {
 			return nil, err

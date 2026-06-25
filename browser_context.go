@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -558,6 +559,9 @@ func (b *browserContextImpl) StorageState(options ...BrowserContextStorageStateO
 		return nil, err
 	}
 	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
 		file, err := os.Create(*path)
 		if err != nil {
 			return nil, err
