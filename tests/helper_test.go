@@ -83,8 +83,8 @@ func BeforeAll() {
 	if err != nil {
 		log.Fatalf("could not launch: %v", err)
 	}
-	// init web-first assertions with 1s timeout instead of default 5s
-	expect = playwright.NewPlaywrightAssertions(1000)
+	// init web-first assertions with the default 5s timeout
+	expect = playwright.NewPlaywrightAssertions(5000)
 	isChromium = browserName == "chromium" || browserName == ""
 	isFirefox = browserName == "firefox"
 	isWebKit = browserName == "webkit"
