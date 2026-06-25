@@ -452,7 +452,7 @@ func (l *locatorImpl) GetAttribute(name string, options ...LocatorGetAttributeOp
 func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -462,7 +462,7 @@ func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptio
 func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -472,7 +472,7 @@ func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) 
 func (l *locatorImpl) GetByPlaceholder(text any, options ...LocatorGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -490,7 +490,7 @@ func (l *locatorImpl) GetByTestId(testId any) Locator {
 func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -500,7 +500,7 @@ func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Lo
 func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}

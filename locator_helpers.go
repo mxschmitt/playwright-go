@@ -74,40 +74,45 @@ func getByPlaceholderSelector(text any, exact bool) string {
 }
 
 func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) string {
-	props := make(map[string]string)
+	// Keep the property ordering stable and identical to upstream, since the
+	// produced selector string must be deterministic.
+	props := make([][2]string, 0)
 	if len(options) == 1 {
+		exact := false
+		if options[0].Exact != nil {
+			exact = *options[0].Exact
+		}
 		if options[0].Checked != nil {
-			props["checked"] = fmt.Sprintf("%t", *options[0].Checked)
+			props = append(props, [2]string{"checked", fmt.Sprintf("%t", *options[0].Checked)})
 		}
 		if options[0].Disabled != nil {
-			props["disabled"] = fmt.Sprintf("%t", *options[0].Disabled)
+			props = append(props, [2]string{"disabled", fmt.Sprintf("%t", *options[0].Disabled)})
 		}
 		if options[0].Selected != nil {
-			props["selected"] = fmt.Sprintf("%t", *options[0].Selected)
+			props = append(props, [2]string{"selected", fmt.Sprintf("%t", *options[0].Selected)})
 		}
 		if options[0].Expanded != nil {
-			props["expanded"] = fmt.Sprintf("%t", *options[0].Expanded)
+			props = append(props, [2]string{"expanded", fmt.Sprintf("%t", *options[0].Expanded)})
 		}
 		if options[0].IncludeHidden != nil {
-			props["include-hidden"] = fmt.Sprintf("%t", *options[0].IncludeHidden)
+			props = append(props, [2]string{"include-hidden", fmt.Sprintf("%t", *options[0].IncludeHidden)})
 		}
 		if options[0].Level != nil {
-			props["level"] = fmt.Sprintf("%d", *options[0].Level)
+			props = append(props, [2]string{"level", fmt.Sprintf("%d", *options[0].Level)})
 		}
 		if options[0].Name != nil {
-			exact := false
-			if options[0].Exact != nil {
-				exact = *options[0].Exact
-			}
-			props["name"] = escapeForAttributeSelector(options[0].Name, exact)
+			props = append(props, [2]string{"name", escapeForAttributeSelector(options[0].Name, exact)})
+		}
+		if options[0].Description != nil {
+			props = append(props, [2]string{"description", escapeForAttributeSelector(options[0].Description, exact)})
 		}
 		if options[0].Pressed != nil {
-			props["pressed"] = fmt.Sprintf("%t", *options[0].Pressed)
+			props = append(props, [2]string{"pressed", fmt.Sprintf("%t", *options[0].Pressed)})
 		}
 	}
 	var propsStr strings.Builder
-	for k, v := range props {
-		propsStr.WriteString("[" + k + "=" + v + "]")
+	for _, p := range props {
+		propsStr.WriteString("[" + p[0] + "=" + p[1] + "]")
 	}
 	return fmt.Sprintf("internal:role=%s%s", role, propsStr.String())
 }

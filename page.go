@@ -911,7 +911,7 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 		"request":         "request",
 		"response":        "response",
 		"requestfinished": "requestFinished",
-		"responsefailed":  "responseFailed",
+		"requestfailed":   "requestFailed",
 		"filechooser":     "fileChooser",
 	})
 
@@ -945,7 +945,7 @@ func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 	frames := make([]Frame, 0)
 	for i := 0; i < len(p.frames); i++ {
 		if p.frames[i] != frame {
-			frames = append(frames, frame)
+			frames = append(frames, p.frames[i])
 		}
 	}
 	if len(frames) != len(p.frames) {
@@ -1244,7 +1244,7 @@ func (p *pageImpl) Locator(selector string, options ...PageLocatorOptions) Locat
 func (p *pageImpl) GetByAltText(text any, options ...PageGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -1254,7 +1254,7 @@ func (p *pageImpl) GetByAltText(text any, options ...PageGetByAltTextOptions) Lo
 func (p *pageImpl) GetByLabel(text any, options ...PageGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -1264,7 +1264,7 @@ func (p *pageImpl) GetByLabel(text any, options ...PageGetByLabelOptions) Locato
 func (p *pageImpl) GetByPlaceholder(text any, options ...PageGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -1285,7 +1285,7 @@ func (p *pageImpl) GetByTestId(testId any) Locator {
 func (p *pageImpl) GetByText(text any, options ...PageGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -1295,7 +1295,7 @@ func (p *pageImpl) GetByText(text any, options ...PageGetByTextOptions) Locator 
 func (p *pageImpl) GetByTitle(text any, options ...PageGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}

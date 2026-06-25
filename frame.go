@@ -235,6 +235,12 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 		return nil, err
 	}
 
+	event := eventData.(map[string]any)
+	if errVal, ok := event["error"]; ok {
+		// Any failed navigation results in a rejection.
+		return nil, errors.New(errVal.(string))
+	}
+
 	t := time.Until(deadline).Milliseconds()
 	if t > 0 {
 		err = f.waitForLoadStateImpl(string(*option.WaitUntil), Float(float64(t)), nil)
@@ -242,7 +248,6 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 			return nil, err
 		}
 	}
-	event := eventData.(map[string]any)
 	if event["newDocument"] != nil && event["newDocument"].(map[string]any)["request"] != nil {
 		request := fromChannel(event["newDocument"].(map[string]any)["request"]).(*requestImpl)
 		return request.Response()
@@ -744,7 +749,7 @@ func (f *frameImpl) Locator(selector string, options ...FrameLocatorOptions) Loc
 func (f *frameImpl) GetByAltText(text any, options ...FrameGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -754,7 +759,7 @@ func (f *frameImpl) GetByAltText(text any, options ...FrameGetByAltTextOptions) 
 func (f *frameImpl) GetByLabel(text any, options ...FrameGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -764,7 +769,7 @@ func (f *frameImpl) GetByLabel(text any, options ...FrameGetByLabelOptions) Loca
 func (f *frameImpl) GetByPlaceholder(text any, options ...FrameGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -785,7 +790,7 @@ func (f *frameImpl) GetByTestId(testId any) Locator {
 func (f *frameImpl) GetByText(text any, options ...FrameGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -795,7 +800,7 @@ func (f *frameImpl) GetByText(text any, options ...FrameGetByTextOptions) Locato
 func (f *frameImpl) GetByTitle(text any, options ...FrameGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
