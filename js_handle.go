@@ -328,6 +328,14 @@ func serializeValue(value any, handles *[]*channel, depth int) any {
 	refV := reflect.ValueOf(value)
 
 	switch refV.Kind() {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return map[string]any{
+			"n": refV.Int(),
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return map[string]any{
+			"n": refV.Uint(),
+		}
 	case reflect.Float32, reflect.Float64:
 		floatV := refV.Float()
 		if math.IsInf(floatV, 1) {

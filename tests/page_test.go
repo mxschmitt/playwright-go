@@ -219,6 +219,19 @@ func TestPageEvaluate(t *testing.T) {
 	require.Equal(t, val, big.NewInt(17))
 }
 
+// TestPageEvaluateIntegerArgTypes verifies that sized integer types (not just
+// the bare int) round-trip as numbers rather than being serialized as
+// undefined.
+func TestPageEvaluateIntegerArgTypes(t *testing.T) {
+	BeforeEach(t)
+
+	for _, arg := range []any{int8(7), int16(7), int32(7), int64(7), uint(7), uint8(7), uint16(7), uint32(7), uint64(7)} {
+		val, err := page.Evaluate(`a => a + 1`, arg)
+		require.NoError(t, err)
+		require.EqualValues(t, 8, val)
+	}
+}
+
 func TestPageEvalOnSelectorAll(t *testing.T) {
 	BeforeEach(t)
 
