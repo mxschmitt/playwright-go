@@ -299,13 +299,19 @@ func (r *apiRequestContextImpl) Post(url string, options ...APIRequestContextPos
 	return r.Fetch(url, opts)
 }
 
-func (r *apiRequestContextImpl) StorageState(path ...string) (*StorageState, error) {
-	result, err := r.channel.SendReturnAsDict("storageState")
+func (r *apiRequestContextImpl) StorageState(options ...APIRequestContextStorageStateOptions) (*StorageState, error) {
+	params := map[string]any{}
+	var path *string
+	if len(options) == 1 {
+		params["indexedDB"] = options[0].IndexedDB
+		path = options[0].Path
+	}
+	result, err := r.channel.SendReturnAsDict("storageState", params)
 	if err != nil {
 		return nil, err
 	}
-	if len(path) == 1 {
-		file, err := os.Create(path[0])
+	if path != nil {
+		file, err := os.Create(*path)
 		if err != nil {
 			return nil, err
 		}

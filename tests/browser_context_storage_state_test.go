@@ -54,6 +54,64 @@ func TestBrowserContextStorageStateShouldCaptureLocalStorage(t *testing.T) {
 	})
 }
 
+// TestBrowserContextStorageStateCaptureIndexedDB mirrors the upstream
+// "should capture cookies, local storage and IndexedDB" test
+// (browsercontext-storage-state.spec.ts): the indexedDB option must include
+// IndexedDB contents in the saved storage state.
+func TestBrowserContextStorageStateCaptureIndexedDB(t *testing.T) {
+	BeforeEach(t)
+
+	page1, err := context.NewPage()
+	require.NoError(t, err)
+	require.NoError(t, page1.Route("**/*", func(route playwright.Route) {
+		require.NoError(t, route.Fulfill(playwright.RouteFulfillOptions{
+			Body: "<html></html>",
+		}))
+	}))
+	_, err = page1.Goto("https://www.example.com")
+	require.NoError(t, err)
+	_, err = page1.Evaluate(`async () => {
+		await new Promise((resolve, reject) => {
+			const openRequest = indexedDB.open('db', 42);
+			openRequest.onupgradeneeded = () => {
+				openRequest.result.createObjectStore('store', { keyPath: 'name' });
+			};
+			openRequest.onsuccess = () => {
+				const transaction = openRequest.result.transaction(['store'], 'readwrite');
+				transaction.objectStore('store').put({ name: 'foo', value: 'bar' });
+				transaction.addEventListener('complete', resolve);
+				transaction.addEventListener('error', reject);
+			};
+		});
+	}`)
+	require.NoError(t, err)
+
+	tempfile, err := os.CreateTemp(t.TempDir(), "storage-state*.json")
+	require.NoError(t, err)
+	require.NoError(t, tempfile.Close())
+	_, err = context.StorageState(playwright.BrowserContextStorageStateOptions{
+		Path:      playwright.String(tempfile.Name()),
+		IndexedDB: playwright.Bool(true),
+	})
+	require.NoError(t, err)
+	written, err := os.ReadFile(tempfile.Name())
+	require.NoError(t, err)
+	require.Contains(t, string(written), "indexedDB")
+	require.Contains(t, string(written), "foo")
+
+	// Without the option, IndexedDB must NOT be captured.
+	tempfile2, err := os.CreateTemp(t.TempDir(), "storage-state*.json")
+	require.NoError(t, err)
+	require.NoError(t, tempfile2.Close())
+	_, err = context.StorageState(playwright.BrowserContextStorageStateOptions{
+		Path: playwright.String(tempfile2.Name()),
+	})
+	require.NoError(t, err)
+	writtenWithout, err := os.ReadFile(tempfile2.Name())
+	require.NoError(t, err)
+	require.NotContains(t, string(writtenWithout), "indexedDB")
+}
+
 func TestBrowserContextStorageStateSetLocalStorage(t *testing.T) {
 	BeforeEach(t, playwright.BrowserNewContextOptions{
 		StorageState: &playwright.OptionalStorageState{
@@ -103,7 +161,7 @@ func TestBrowserContextStorageStateRoundTripThroughTheFile(t *testing.T) {
 	require.NoError(t, err)
 	tempfile, err := os.CreateTemp(os.TempDir(), "storage-state*.json")
 	require.NoError(t, err)
-	state, err := context.StorageState(tempfile.Name())
+	state, err := context.StorageState(playwright.BrowserContextStorageStateOptions{Path: playwright.String(tempfile.Name())})
 	require.NoError(t, err)
 	stateWritten, err := os.ReadFile(tempfile.Name())
 	require.NoError(t, err)
