@@ -1,8 +1,12 @@
 package playwright
 
 import (
+	"errors"
 	"fmt"
 )
+
+// defaultLaunchTimeout matches DEFAULT_PLAYWRIGHT_LAUNCH_TIMEOUT upstream (3 minutes).
+const defaultLaunchTimeout = 3 * 60 * 1000
 
 type browserTypeImpl struct {
 	channelOwner
@@ -21,7 +25,7 @@ func (b *browserTypeImpl) Launch(options ...BrowserTypeLaunchOptions) (Browser, 
 	overrides := map[string]any{}
 	// timeout is required in Playwright v1.57+ protocol
 	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(30000) // default 30s
+		overrides["timeout"] = float64(defaultLaunchTimeout) // default 3 min
 	}
 	if len(options) == 1 && options[0].Env != nil {
 		overrides["env"] = serializeMapToNameAndValue(options[0].Env)
@@ -42,7 +46,7 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 	}
 	// timeout is required in Playwright v1.57+ protocol
 	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(30000) // default 30s
+		overrides["timeout"] = float64(defaultLaunchTimeout) // default 3 min
 	}
 	option := &BrowserNewContextOptions{}
 	var tracesDir *string = nil
@@ -116,8 +120,7 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 	overrides := map[string]any{
 		"endpoint": wsEndpoint,
 		"headers": map[string]string{
-			"x-playwright-browser":        b.Name(),
-			"x-playwright-launch-options": "{}",
+			"x-playwright-browser": b.Name(),
 		},
 	}
 	// timeout is required in Playwright v1.57+ protocol
@@ -145,7 +148,12 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 		return nil, err
 	}
 	playwright.setSelectors(b.playwright.Selectors)
-	browser := fromChannel(playwright.initializer["preLaunchedBrowser"]).(*browserImpl)
+	preLaunchedBrowser := fromNullableChannel(playwright.initializer["preLaunchedBrowser"])
+	if preLaunchedBrowser == nil {
+		connection.cleanup()
+		return nil, errors.New("malformed endpoint. Did you use BrowserType.LaunchServer method?")
+	}
+	browser := preLaunchedBrowser.(*browserImpl)
 	browser.shouldCloseConnectionOnClose = true
 	pipeClosed := func() {
 		for _, context := range browser.Contexts() {
