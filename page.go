@@ -877,6 +877,9 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 		locatorHandlers: make(map[float64]*locatorHandlerEntry, 0),
 	}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
+	if closed, ok := initializer["isClosed"].(bool); ok {
+		bt.isClosed = closed
+	}
 	bt.browserContext = fromChannel(parent.channel).(*browserContextImpl)
 	bt.timeoutSettings = newTimeoutSettings(bt.browserContext.timeoutSettings)
 	mainframe := fromChannel(initializer["mainFrame"]).(*frameImpl)
