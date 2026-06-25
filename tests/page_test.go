@@ -493,6 +493,21 @@ func TestPageReload(t *testing.T) {
 	require.Nil(t, v)
 }
 
+// TestPageReloadRespectsDefaultNavigationTimeout verifies Reload honors the
+// configured default navigation timeout (it must resolve the timeout, not fall
+// back to the hardcoded 30s serializer default).
+func TestPageReloadRespectsDefaultNavigationTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	page.SetDefaultNavigationTimeout(1)
+	server.SetRoute("/empty.html", func(w http.ResponseWriter, r *http.Request) {}) // stall
+	_, err = page.Reload()
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.ErrorContains(t, err, "Timeout 1ms exceeded.")
+}
+
 func TestPageGoBackGoForward(t *testing.T) {
 	BeforeEach(t)
 

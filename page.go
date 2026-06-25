@@ -359,7 +359,13 @@ func (p *pageImpl) Goto(url string, options ...PageGotoOptions) (Response, error
 }
 
 func (p *pageImpl) Reload(options ...PageReloadOptions) (Response, error) {
-	channel, err := p.channel.Send("reload", options)
+	overrides := map[string]any{}
+	// timeout is required by the protocol; resolve the configured navigation
+	// timeout when the caller didn't supply one (matches upstream).
+	if len(options) == 0 || options[0].Timeout == nil {
+		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
+	}
+	channel, err := p.channel.Send("reload", options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -378,7 +384,11 @@ func (p *pageImpl) WaitForLoadState(options ...PageWaitForLoadStateOptions) erro
 }
 
 func (p *pageImpl) GoBack(options ...PageGoBackOptions) (Response, error) {
-	channel, err := p.channel.Send("goBack", options)
+	overrides := map[string]any{}
+	if len(options) == 0 || options[0].Timeout == nil {
+		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
+	}
+	channel, err := p.channel.Send("goBack", options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -391,7 +401,11 @@ func (p *pageImpl) GoBack(options ...PageGoBackOptions) (Response, error) {
 }
 
 func (p *pageImpl) GoForward(options ...PageGoForwardOptions) (Response, error) {
-	channel, err := p.channel.Send("goForward", options)
+	overrides := map[string]any{}
+	if len(options) == 0 || options[0].Timeout == nil {
+		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
+	}
+	channel, err := p.channel.Send("goForward", options, overrides)
 	if err != nil {
 		return nil, err
 	}
