@@ -9,17 +9,12 @@ import (
 
 type jsonPipe struct {
 	channelOwner
-	// mu guards the queue and closed flag.
-	mu sync.Mutex
-	// queue holds messages received from the outer connection that have not yet
-	// been consumed by Poll(). It is unbounded on purpose: the outer connection's
-	// dispatch goroutine must never block while delivering a message here,
-	// otherwise it cannot deliver the reply that an in-flight Send() is waiting
-	// for, which deadlocks the whole connection (see the streaming upload path).
+	// mu guards queue and closed; cond (built on mu) lets Poll wait for either a
+	// new message or close without busy-waiting.
+	mu     sync.Mutex
+	cond   *sync.Cond
 	queue  []*message
 	closed bool
-	// signal wakes up a Poll() that is waiting for a message or for close.
-	signal chan struct{}
 }
 
 func (j *jsonPipe) Send(message map[string]any) error {
@@ -35,58 +30,49 @@ func (j *jsonPipe) Close() error {
 }
 
 func (j *jsonPipe) Poll() (*message, error) {
-	for {
-		j.mu.Lock()
-		if len(j.queue) > 0 {
-			msg := j.queue[0]
-			j.queue = j.queue[1:]
-			j.mu.Unlock()
-			return msg, nil
-		}
-		if j.closed {
-			j.mu.Unlock()
-			return nil, errors.New("jsonPipe closed")
-		}
-		j.mu.Unlock()
-		<-j.signal
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for len(j.queue) == 0 && !j.closed {
+		j.cond.Wait()
 	}
+	if len(j.queue) > 0 {
+		msg := j.queue[0]
+		j.queue = j.queue[1:]
+		return msg, nil
+	}
+	return nil, errors.New("jsonPipe closed")
 }
 
-// enqueue appends a message and wakes a waiting Poll(). It never blocks, so it
-// is safe to call from the outer connection's dispatch goroutine.
+// enqueue appends a message and wakes any waiting Poll(). It never blocks (the
+// queue is unbounded), so it is safe to call from the outer connection's
+// dispatch goroutine: that goroutine must never block delivering a message
+// here, otherwise it cannot deliver the reply an in-flight Send() is waiting
+// for, which would deadlock the whole connection (see the streaming upload
+// path). Ordering is preserved since the single dispatch goroutine is the only
+// appender.
 func (j *jsonPipe) enqueue(msg *message) {
 	j.mu.Lock()
+	defer j.mu.Unlock()
 	if j.closed {
-		j.mu.Unlock()
 		return
 	}
 	j.queue = append(j.queue, msg)
-	j.mu.Unlock()
-	j.wake()
+	j.cond.Broadcast()
 }
 
 func (j *jsonPipe) markClosed() {
 	j.mu.Lock()
+	defer j.mu.Unlock()
 	if j.closed {
-		j.mu.Unlock()
 		return
 	}
 	j.closed = true
-	j.mu.Unlock()
-	j.wake()
-}
-
-func (j *jsonPipe) wake() {
-	select {
-	case j.signal <- struct{}{}:
-	default:
-	}
+	j.cond.Broadcast()
 }
 
 func newJsonPipe(parent *channelOwner, objectType string, guid string, initializer map[string]any) *jsonPipe {
-	j := &jsonPipe{
-		signal: make(chan struct{}, 1),
-	}
+	j := &jsonPipe{}
+	j.cond = sync.NewCond(&j.mu)
 	j.createChannelOwner(j, parent, objectType, guid, initializer)
 	j.channel.On("message", func(ev map[string]any) {
 		var msg message
@@ -106,9 +92,6 @@ func newJsonPipe(parent *channelOwner, objectType string, guid string, initializ
 				},
 			}
 		}
-		// Enqueue without blocking the dispatch goroutine, while preserving
-		// message ordering. A bounded channel here could fill up and stall the
-		// dispatch goroutine, deadlocking any in-flight Send() awaiting a reply.
 		j.enqueue(&msg)
 	})
 	j.channel.Once("closed", func() {

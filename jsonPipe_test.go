@@ -2,6 +2,7 @@ package playwright
 
 import (
 	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -11,20 +12,24 @@ import (
 // newTestJsonPipe builds a jsonPipe without a backing connection so the queue
 // behavior can be tested in isolation.
 func newTestJsonPipe() *jsonPipe {
-	return &jsonPipe{
-		signal: make(chan struct{}, 1),
-	}
+	j := &jsonPipe{}
+	j.cond = sync.NewCond(&j.mu)
+	return j
 }
 
-// TestJsonPipeEnqueueNeverBlocks guards against the deadlock where the outer
-// connection's dispatch goroutine blocks delivering a message because the queue
-// is full. enqueue must always return promptly, even with no consumer polling.
+// TestJsonPipeEnqueueNeverBlocks reproduces the deadlock the unbounded queue
+// fixes: the dispatch goroutine enqueues a burst while a Send() awaits its
+// reply on the same goroutine. enqueue must never block (regardless of how many
+// messages queue up before a consumer drains them), otherwise the reply can
+// never be delivered. The Poll consumer starts only after the burst, mirroring
+// a consumer that briefly falls behind a producer spike.
 func TestJsonPipeEnqueueNeverBlocks(t *testing.T) {
 	j := newTestJsonPipe()
 
+	const burst = 1000
 	done := make(chan struct{})
 	go func() {
-		for i := 0; i < 1000; i++ {
+		for i := 0; i < burst; i++ {
 			j.enqueue(&message{ID: i})
 		}
 		close(done)
@@ -33,8 +38,53 @@ func TestJsonPipeEnqueueNeverBlocks(t *testing.T) {
 	select {
 	case <-done:
 	case <-time.After(5 * time.Second):
-		t.Fatal("enqueue blocked: producer did not finish without a consumer")
+		t.Fatal("enqueue blocked: producer did not finish without a consumer draining")
 	}
+
+	// The burst must still be fully drained in order once a consumer catches up.
+	for i := 0; i < burst; i++ {
+		msg, err := j.Poll()
+		require.NoError(t, err)
+		require.Equal(t, i, msg.ID)
+	}
+}
+
+// TestJsonPipeMultipleConsumers verifies the cond-based design supports more
+// than one concurrent Poll() consumer: every enqueued message is delivered
+// exactly once and none are stranded.
+func TestJsonPipeMultipleConsumers(t *testing.T) {
+	j := newTestJsonPipe()
+
+	const total = 200
+	got := make(chan int, total)
+	var wg sync.WaitGroup
+	for c := 0; c < 4; c++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				msg, err := j.Poll()
+				if err != nil {
+					return
+				}
+				got <- msg.ID
+			}
+		}()
+	}
+
+	for i := 0; i < total; i++ {
+		j.enqueue(&message{ID: i})
+	}
+	j.markClosed()
+	wg.Wait()
+	close(got)
+
+	seen := make(map[int]bool, total)
+	for id := range got {
+		require.False(t, seen[id], "message %d delivered more than once", id)
+		seen[id] = true
+	}
+	require.Len(t, seen, total, "every enqueued message must be delivered exactly once")
 }
 
 // TestJsonPipePreservesOrder verifies messages are delivered in the order they
