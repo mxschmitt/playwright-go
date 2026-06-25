@@ -115,7 +115,14 @@ func (c *connection) Dispatch(msg *message) {
 	}
 	method := msg.Method
 	if msg.ID != 0 {
-		cb, _ := c.callbacks.LoadAndDelete(uint32(msg.ID))
+		cb, ok := c.callbacks.LoadAndDelete(uint32(msg.ID))
+		if !ok {
+			// No pending callback for this id (duplicate or unknown reply).
+			// Upstream throws "Cannot find command to respond"; dereferencing
+			// the nil callback below would instead panic the dispatch
+			// goroutine, so guard and ignore the stray reply.
+			return
+		}
 		if cb.noReply {
 			return
 		}
