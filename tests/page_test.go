@@ -1165,7 +1165,8 @@ func TestPageExpectResponse(t *testing.T) {
 			id := id
 			server.SetRoute("/api/"+id, func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
-				fmt.Fprintf(w, `{"id":"%s"}`, id)
+				_, err := fmt.Fprintf(w, `{"id":"%s"}`, id)
+				require.NoError(t, err)
 			})
 		}
 
