@@ -117,7 +117,12 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 		overrides["url"] = request.URL()
 	}
 
-	if len(options) == 1 {
+	// Always operate on a single options value so method/headers/body are derived
+	// from the request even when Fetch(request) is called with no options.
+	if len(options) == 0 {
+		options = []APIRequestContextFetchOptions{{}}
+	}
+	{
 		if options[0].MaxRedirects != nil && *options[0].MaxRedirects < 0 {
 			return nil, errors.New("maxRedirects must be non-negative")
 		}
@@ -137,10 +142,18 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 		}
 		if options[0].Headers == nil {
 			if request != nil {
-				overrides["headers"] = serializeMapToNameAndValue(request.Headers())
+				headers := make(map[string]any)
+				for k, v := range request.Headers() {
+					headers[k] = v
+				}
+				overrides["headers"] = serializeMapToNameValue(headers)
 			}
 		} else {
-			overrides["headers"] = serializeMapToNameAndValue(options[0].Headers)
+			headers := make(map[string]any)
+			for k, v := range options[0].Headers {
+				headers[k] = v
+			}
+			overrides["headers"] = serializeMapToNameValue(headers)
 			options[0].Headers = nil
 		}
 		if options[0].Data != nil {
