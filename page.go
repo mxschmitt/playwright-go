@@ -1002,6 +1002,18 @@ func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 	if len(frames) != len(p.frames) {
 		p.frames = frames
 	}
+	// Remove the frame from its parent's childFrames so ChildFrames() doesn't
+	// keep returning a detached ghost frame (matches upstream).
+	if frame.parentFrame != nil {
+		parent := frame.parentFrame.(*frameImpl)
+		childFrames := make([]Frame, 0, len(parent.childFrames))
+		for _, child := range parent.childFrames {
+			if child != frame {
+				childFrames = append(childFrames, child)
+			}
+		}
+		parent.childFrames = childFrames
+	}
 	p.Emit("framedetached", frame)
 	p.browserContext.Emit("framedetached", frame)
 }
