@@ -52,6 +52,7 @@ type frameExpectOptions struct {
 	UseInnerText   *bool               `json:"useInnerText,omitempty"`
 	IsNot          bool                `json:"isNot"`
 	Timeout        *float64            `json:"timeout"`
+	Pseudo         *PseudoElement      `json:"pseudo,omitempty"`
 }
 
 type frameExpectResult struct {

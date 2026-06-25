@@ -397,8 +397,10 @@ func (la *locatorAssertionsImpl) ToHaveCount(count int, options ...LocatorAssert
 
 func (la *locatorAssertionsImpl) ToHaveCSS(name string, value any, options ...LocatorAssertionsToHaveCSSOptions) error {
 	var timeout *float64
+	var pseudo *PseudoElement
 	if len(options) == 1 {
 		timeout = options[0].Timeout
+		pseudo = options[0].Pseudo
 	}
 	expectedText, err := toExpectedTextValues([]any{value}, false, false, nil)
 	if err != nil {
@@ -410,6 +412,7 @@ func (la *locatorAssertionsImpl) ToHaveCSS(name string, value any, options ...Lo
 			ExpressionArg: name,
 			ExpectedText:  expectedText,
 			Timeout:       timeout,
+			Pseudo:        pseudo,
 		},
 		value,
 		"Locator expected to have CSS",

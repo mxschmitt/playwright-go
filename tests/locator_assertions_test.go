@@ -294,6 +294,23 @@ func TestLocatorAssertionsToHaveCSS(t *testing.T) {
 	require.NoError(t, expect.Locator(button2).Not().ToHaveCSS("display", "flex"))
 }
 
+// TestLocatorAssertionsToHaveCSSPseudo verifies the Pseudo option reads styles
+// from a pseudo-element (::before) rather than the element itself.
+func TestLocatorAssertionsToHaveCSSPseudo(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`
+	<style>#el::before { content: "x"; color: rgb(255, 0, 0); }</style>
+	<div id="el" style="color: rgb(0, 0, 255)">div</div>
+	`))
+	el := page.Locator("#el")
+	require.NoError(t, expect.Locator(el).ToHaveCSS("color", "rgb(255, 0, 0)", playwright.LocatorAssertionsToHaveCSSOptions{
+		Pseudo: playwright.PseudoElementBefore,
+	}))
+	// Without the pseudo option, the element's own color is read.
+	require.NoError(t, expect.Locator(el).ToHaveCSS("color", "rgb(0, 0, 255)"))
+}
+
 func TestLocatorAssertionsToHaveId(t *testing.T) {
 	BeforeEach(t)
 
