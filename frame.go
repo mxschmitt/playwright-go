@@ -22,12 +22,14 @@ type frameImpl struct {
 }
 
 func newFrame(parent *channelOwner, objectType string, guid string, initializer map[string]any) *frameImpl {
-	var loadStates mapset.Set[string]
-
-	if ls, ok := initializer["loadStates"].([]string); ok {
-		loadStates = mapset.NewSet[string](ls...)
-	} else {
-		loadStates = mapset.NewSet[string]()
+	loadStates := mapset.NewSet[string]()
+	// Initializers are JSON-decoded, so an array arrives as []any, never []string.
+	if ls, ok := initializer["loadStates"].([]any); ok {
+		for _, state := range ls {
+			if s, ok := state.(string); ok {
+				loadStates.Add(s)
+			}
+		}
 	}
 	f := &frameImpl{
 		name:        initializer["name"].(string),
