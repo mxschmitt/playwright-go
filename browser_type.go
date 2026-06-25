@@ -216,6 +216,14 @@ func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserT
 	b.didLaunchBrowser(browser)
 	if defaultContext, ok := response["defaultContext"]; ok {
 		context := fromChannel(defaultContext).(*browserContextImpl)
+		// The default context arrives during dispatch, before didLaunchBrowser
+		// wires the real browserType (whose playwright is non-nil), so
+		// newBrowserContext's own selectors registration was skipped. Register
+		// it now, mirroring upstream's _connectToBrowserType -> _setupBrowserContext,
+		// so custom selector engines / testId reach the CDP default context.
+		if b.playwright != nil {
+			b.playwright.Selectors.(*selectorsImpl).addContext(context)
+		}
 		b.didCreateContext(context, nil, nil)
 	}
 	return browser, nil

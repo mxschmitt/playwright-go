@@ -260,11 +260,28 @@ func TestBrowserTypeConnectOverCDP(t *testing.T) {
 	})
 	require.NoError(t, err)
 	defer browserServer.Close() //nolint:errcheck
+	// Register a custom selector engine before connecting; it must reach the
+	// CDP default context (it was previously never registered there).
+	tagSelector := `(() => ({
+		query(root, selector) { return root.querySelector(selector); },
+		queryAll(root, selector) { return Array.from(root.querySelectorAll(selector)); }
+	}))()`
+	engineName := fmt.Sprintf("cdptag_%d", time.Now().UnixNano())
+	require.NoError(t, pw.Selectors.Register(engineName, playwright.Script{Content: &tagSelector}))
+
 	browser, err := browserType.ConnectOverCDP(fmt.Sprintf("http://localhost:%d", port))
 	require.NoError(t, err)
 	require.NotNil(t, browser)
 	defer browser.Close() //nolint:errcheck
 	require.Len(t, browser.Contexts(), 1)
+
+	ctx := browser.Contexts()[0]
+	p, err := ctx.NewPage()
+	require.NoError(t, err)
+	require.NoError(t, p.SetContent(`<div><span></span></div>`))
+	name, err := p.Locator(engineName+"=DIV").Evaluate("e => e.nodeName", nil)
+	require.NoError(t, err)
+	require.Equal(t, "DIV", name)
 }
 
 func TestBrowserTypeConnectOverCDPTwice(t *testing.T) {
