@@ -232,4 +232,8 @@ func TestURLMatches(t *testing.T) {
 
 	// about:/data: URLs are not resolved against the base URL.
 	require.True(t, newURLMatcher("about:blank", String("http://playwright.dev/")).Matches("about:blank"))
+
+	// Non-ASCII characters in a glob must survive (rune, not byte, iteration).
+	require.True(t, newURLMatcher("https://example.com/ä", nil).Matches("https://example.com/ä"))
+	require.True(t, newURLMatcher("https://example.com/*/ä", nil).Matches("https://example.com/x/ä"))
 }

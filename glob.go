@@ -28,10 +28,13 @@ func globMustToRegex(glob string) *regexp.Regexp {
 	tokens := []string{"^"}
 	inGroup := false
 
-	for i := 0; i < len(glob); i++ {
-		c := rune(glob[i])
-		if c == '\\' && i+1 < len(glob) {
-			char := rune(glob[i+1])
+	// Iterate by rune (not byte) so multibyte UTF-8 characters survive intact,
+	// matching upstream which iterates UTF-16 code units.
+	runes := []rune(glob)
+	for i := 0; i < len(runes); i++ {
+		c := runes[i]
+		if c == '\\' && i+1 < len(runes) {
+			char := runes[i+1]
 			if _, ok := escapedChars[char]; ok {
 				tokens = append(tokens, "\\"+string(char))
 			} else {
@@ -41,17 +44,17 @@ func globMustToRegex(glob string) *regexp.Regexp {
 		} else if c == '*' {
 			charBefore := rune(0)
 			if i > 0 {
-				charBefore = rune(glob[i-1])
+				charBefore = runes[i-1]
 			}
 			starCount := 1
-			for i+1 < len(glob) && glob[i+1] == '*' {
+			for i+1 < len(runes) && runes[i+1] == '*' {
 				starCount++
 				i++
 			}
 			if starCount > 1 {
 				charAfter := rune(0)
-				if i+1 < len(glob) {
-					charAfter = rune(glob[i+1])
+				if i+1 < len(runes) {
+					charAfter = runes[i+1]
 				}
 				// Match either /..something../ or /.
 				if charAfter == '/' {
