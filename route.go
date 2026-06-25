@@ -3,7 +3,6 @@ package playwright
 import (
 	"encoding/base64"
 	"errors"
-	"net/http"
 	"os"
 	"reflect"
 	"strconv"
@@ -136,22 +135,21 @@ func (r *routeImpl) innerFulfill(options ...RouteFulfillOptions) error {
 
 	length := 0
 	isBase64 := false
-	var fileContentType string
-	if _, ok := option.Body.(string); ok {
-		isBase64 = false
-	} else if body, ok := option.Body.([]byte); ok {
-		option.Body = base64.StdEncoding.EncodeToString(body)
-		length = len(body)
-		isBase64 = true
-	} else if option.Path != nil {
+	if option.Path != nil {
 		content, err := os.ReadFile(*option.Path)
 		if err != nil {
 			return err
 		}
-		fileContentType = http.DetectContentType(content)
 		option.Body = base64.StdEncoding.EncodeToString(content)
 		isBase64 = true
 		length = len(content)
+	} else if body, ok := option.Body.(string); ok {
+		isBase64 = false
+		length = len(body)
+	} else if body, ok := option.Body.([]byte); ok {
+		option.Body = base64.StdEncoding.EncodeToString(body)
+		length = len(body)
+		isBase64 = true
 	}
 
 	if option.Headers != nil {
@@ -165,7 +163,12 @@ func (r *routeImpl) innerFulfill(options ...RouteFulfillOptions) error {
 		headers["content-type"] = *option.ContentType
 		option.ContentType = nil
 	} else if option.Path != nil {
-		headers["content-type"] = fileContentType
+		// Content type is inferred from the file extension, matching upstream.
+		if contentType := getMimeTypeForPath(*option.Path); contentType != "" {
+			headers["content-type"] = contentType
+		} else {
+			headers["content-type"] = "application/octet-stream"
+		}
 	}
 	if _, ok := headers["content-length"]; !ok && length > 0 {
 		headers["content-length"] = strconv.Itoa(length)

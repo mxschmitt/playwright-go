@@ -4,6 +4,8 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"strings"
 )
 
 type serializedFallbackOverrides struct {
@@ -55,6 +57,24 @@ func (r *requestImpl) PostDataJSON(v any) error {
 	body, err := r.PostDataBuffer()
 	if err != nil {
 		return err
+	}
+	// When the request is form-urlencoded, parse it into a key/value object,
+	// matching upstream postDataJSON.
+	contentType := r.Headers()["content-type"]
+	if strings.Contains(contentType, "application/x-www-form-urlencoded") {
+		parsed, err := url.ParseQuery(string(body))
+		if err != nil {
+			return err
+		}
+		entries := make(map[string]string, len(parsed))
+		for k := range parsed {
+			entries[k] = parsed.Get(k)
+		}
+		data, err := json.Marshal(entries)
+		if err != nil {
+			return err
+		}
+		return json.Unmarshal(data, v)
 	}
 	return json.Unmarshal(body, v)
 }
