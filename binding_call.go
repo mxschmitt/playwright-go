@@ -31,10 +31,17 @@ type BindingCallFunction func(source *BindingSource, args ...any) any
 func (b *bindingCallImpl) Call(f BindingCallFunction) {
 	defer func() {
 		if r := recover(); r != nil {
-			if _, err := b.channel.Send("reject", map[string]any{
-				"error": serializeError(r.(error)),
-			}); err != nil {
-				logger.Error("could not reject BindingCall", "error", err)
+			// The recovered value may not be an error (e.g. panic("boom")); coerce
+			// it so we always reject instead of panicking again on a failed type
+			// assertion (which would crash the binding goroutine).
+			err, ok := r.(error)
+			if !ok {
+				err = fmt.Errorf("%v", r)
+			}
+			if _, sendErr := b.channel.Send("reject", map[string]any{
+				"error": serializeError(err),
+			}); sendErr != nil {
+				logger.Error("could not reject BindingCall", "error", sendErr)
 			}
 		}
 	}()
