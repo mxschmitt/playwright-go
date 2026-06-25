@@ -30,7 +30,7 @@ type browserContextImpl struct {
 	bindings        *safe.SyncMap[string, BindingCallFunction]
 	tracing         *tracingImpl
 	debugger        *debuggerImpl
-	isClosedFlag    bool
+	isClosedFlag    atomic.Bool
 	request         *apiRequestContextImpl
 	harRecorders    map[string]harRecordingMetadata
 	closed          chan struct{}
@@ -577,7 +577,7 @@ func (b *browserContextImpl) onBinding(binding *bindingCallImpl) {
 }
 
 func (b *browserContextImpl) onClose() {
-	b.isClosedFlag = true
+	b.isClosedFlag.Store(true)
 	if b.browser != nil {
 		contexts := make([]BrowserContext, 0)
 		b.browser.Lock()
@@ -1071,7 +1071,7 @@ func (b *browserContextImpl) IsClosed() bool {
 	// Matches upstream isClosed(): true as soon as Close() begins (closing),
 	// not only after the server confirms close (closed). closeWasCalled is the
 	// Go analog of upstream's 'closing' status.
-	return b.isClosedFlag || b.closeWasCalled.Load()
+	return b.isClosedFlag.Load() || b.closeWasCalled.Load()
 }
 
 func (b *browserContextImpl) SetStorageState(storageStatePath string) error {
