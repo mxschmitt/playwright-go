@@ -226,8 +226,11 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 			overrides["multipartData"] = multipartData
 			options[0].Multipart = nil
 		} else if request != nil {
+			// Only forward post data when the request actually has a body; an empty
+			// buffer would otherwise be sent as "" and add a spurious
+			// content-length: 0 header (upstream omits postData for body-less requests).
 			postDataBuf, err := request.PostDataBuffer()
-			if err == nil {
+			if err == nil && len(postDataBuf) > 0 {
 				overrides["postData"] = base64.StdEncoding.EncodeToString(postDataBuf)
 			}
 		}
