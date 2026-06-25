@@ -75,8 +75,10 @@ func (e *elementHandleImpl) InnerHTML() (string, error) {
 }
 
 func (e *elementHandleImpl) DispatchEvent(typ string, initObjects ...any) error {
-	var initObject any
-	if len(initObjects) == 1 {
+	// Default eventInit to an empty object (not undefined), matching upstream's
+	// `eventInit: Object = {}`.
+	var initObject any = map[string]any{}
+	if len(initObjects) == 1 && initObjects[0] != nil {
 		initObject = initObjects[0]
 	}
 	_, err := e.channel.Send("dispatchEvent", map[string]any{
