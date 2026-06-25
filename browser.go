@@ -218,6 +218,8 @@ func (b *browserImpl) StopTracing() ([]byte, error) {
 		if err != nil {
 			return binary, err
 		}
+		// Reset so a later pathless StartTracing/StopTracing doesn't reuse it.
+		b.chromiumTracingPath = nil
 	}
 	return binary, nil
 }

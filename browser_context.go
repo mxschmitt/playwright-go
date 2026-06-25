@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"regexp"
 	"slices"
@@ -694,6 +695,35 @@ func (b *browserContextImpl) onServiceWorker(worker *workerImpl) {
 	b.Emit("serviceworker", worker)
 }
 
+func (b *browserContextImpl) isServiceWorker(worker Worker) bool {
+	b.RLock()
+	defer b.RUnlock()
+	for _, sw := range b.serviceWorkers {
+		if sw == worker {
+			return true
+		}
+	}
+	return false
+}
+
+// serviceWorkerScope returns the scope URL of a service worker (the directory of
+// its script URL with a trailing slash), mirroring upstream _serviceWorkerScope.
+func serviceWorkerScope(worker Worker) string {
+	u, err := url.Parse(worker.URL())
+	if err != nil {
+		return ""
+	}
+	ref, err := u.Parse(".")
+	if err != nil {
+		return ""
+	}
+	scope := ref.String()
+	if !strings.HasSuffix(scope, "/") {
+		scope += "/"
+	}
+	return scope
+}
+
 func (b *browserContextImpl) setOptions(options *BrowserNewContextOptions, tracesDir *string) {
 	if options == nil {
 		options = &BrowserNewContextOptions{}
@@ -925,10 +955,24 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	})
 	bt.channel.On("console", func(ev map[string]any) {
 		message := newConsoleMessage(ev)
-		bt.Emit("console", message)
+		if message.worker != nil {
+			message.worker.(*workerImpl).Emit("console", message)
+		}
 		if message.page != nil {
 			message.page.Emit("console", message)
 		}
+		// Service worker console messages flow through the context channel; fan
+		// them out to pages within the worker's scope, matching upstream.
+		if message.worker != nil && bt.isServiceWorker(message.worker) {
+			if scope := serviceWorkerScope(message.worker); scope != "" {
+				for _, page := range bt.Pages() {
+					if strings.HasPrefix(page.URL(), scope) {
+						page.(*pageImpl).Emit("console", message)
+					}
+				}
+			}
+		}
+		bt.Emit("console", message)
 	})
 	bt.channel.On("dialog", func(params map[string]any) {
 		dialog := fromChannel(params["dialog"]).(*dialogImpl)
