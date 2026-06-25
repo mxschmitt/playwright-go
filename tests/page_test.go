@@ -232,6 +232,19 @@ func TestPageEvaluateIntegerArgTypes(t *testing.T) {
 	}
 }
 
+// TestPageEvaluateReturnsRegExp verifies that a RegExp returned from page
+// evaluation is parsed into a *regexp.Regexp instead of panicking the client.
+func TestPageEvaluateReturnsRegExp(t *testing.T) {
+	BeforeEach(t)
+
+	val, err := page.Evaluate(`() => /foo.*bar/i`)
+	require.NoError(t, err)
+	re, ok := val.(*regexp.Regexp)
+	require.True(t, ok, "expected *regexp.Regexp, got %T", val)
+	require.True(t, re.MatchString("xx FOO zz BAR yy"))
+	require.False(t, re.MatchString("baz"))
+}
+
 func TestPageEvalOnSelectorAll(t *testing.T) {
 	BeforeEach(t)
 
