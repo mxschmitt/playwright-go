@@ -67,6 +67,30 @@ func TestBrowserTypeLaunchPersistentContext(t *testing.T) {
 	require.NoError(t, browser_context3.Close())
 }
 
+// TestLaunchPersistentContextAppliesSelectorEngines verifies that a custom
+// selector engine registered before LaunchPersistentContext is applied to the
+// persistent context (previously addContext was skipped for persistent contexts).
+func TestLaunchPersistentContextAppliesSelectorEngines(t *testing.T) {
+	BeforeEach(t)
+
+	tagSelector := `(() => ({
+		query(root, selector) { return root.querySelector(selector); },
+		queryAll(root, selector) { return Array.from(root.querySelectorAll(selector)); }
+	}))()`
+	engineName := fmt.Sprintf("ptag_%s_%d", browserName, time.Now().UnixNano())
+	require.NoError(t, pw.Selectors.Register(engineName, playwright.Script{Content: &tagSelector}))
+
+	ctx, err := browserType.LaunchPersistentContext(t.TempDir())
+	require.NoError(t, err)
+	defer ctx.Close() //nolint:errcheck
+	p, err := ctx.NewPage()
+	require.NoError(t, err)
+	require.NoError(t, p.SetContent(`<div><span></span></div>`))
+	name, err := p.EvalOnSelector(engineName+"=DIV", "e => e.nodeName", nil)
+	require.NoError(t, err)
+	require.Equal(t, "DIV", name)
+}
+
 func TestBrowserTypeConnect(t *testing.T) {
 	BeforeEach(t)
 

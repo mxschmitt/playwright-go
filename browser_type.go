@@ -117,6 +117,17 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 		return nil, err
 	}
 	context := fromChannel(response["context"]).(*browserContextImpl)
+	// Wire the real browserType (whose playwright is non-nil) onto the persistent
+	// context's browser, then register the context with the selectors manager.
+	// newBrowserContext's own registration ran before this wiring (its browser's
+	// browserType has a nil playwright), so custom selector engines / testId would
+	// otherwise never reach a persistent context.
+	if context.browser != nil {
+		b.didLaunchBrowser(context.browser)
+	}
+	if b.playwright != nil {
+		b.playwright.Selectors.(*selectorsImpl).addContext(context)
+	}
 	b.didCreateContext(context, option, tracesDir)
 	if err := context.initializeHarFromOptions(); err != nil {
 		return nil, err
