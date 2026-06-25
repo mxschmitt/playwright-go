@@ -108,7 +108,7 @@ func (f *frameImpl) AddScriptTag(options FrameAddScriptTagOptions) (ElementHandl
 		}
 		// Append a sourceURL so the injected script is attributed to its file
 		// path in DevTools/traces, matching upstream addSourceUrlToScript.
-		options.Content = String(string(file) + "\n//# sourceURL=" + strings.ReplaceAll(*options.Path, "\n", ""))
+		options.Content = String(addSourceURLToScript(string(file), *options.Path))
 		options.Path = nil
 	}
 	channel, err := f.channel.Send("addScriptTag", options)
@@ -253,7 +253,8 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 	}
 	if event["newDocument"] != nil && event["newDocument"].(map[string]any)["request"] != nil {
 		request := fromChannel(event["newDocument"].(map[string]any)["request"]).(*requestImpl)
-		return request.Response()
+		// The response lives on the final request after following any redirects.
+		return request.finalRequest().Response()
 	}
 	return nil, nil
 }

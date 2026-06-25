@@ -96,6 +96,16 @@ func (r *requestImpl) Headers() map[string]string {
 	return r.provisionalHeaders.Headers()
 }
 
+// finalRequest walks the redirect chain to the final request, mirroring
+// upstream _finalRequest. The response of a redirected navigation lives on the
+// final request, not the initial 3xx one.
+func (r *requestImpl) finalRequest() *requestImpl {
+	if r.redirectedTo != nil {
+		return r.redirectedTo.(*requestImpl).finalRequest()
+	}
+	return r
+}
+
 func (r *requestImpl) Response() (Response, error) {
 	channel, err := r.channel.Send("response")
 	if err != nil {
