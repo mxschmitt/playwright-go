@@ -220,10 +220,21 @@ func TestVideoRelativeDirShouldResolveToAbsolute(t *testing.T) {
 	// A relative recordVideo.dir must be resolved to an absolute path client-side
 	// (matching upstream path.resolve), so Video().Path() does not depend on the
 	// process working directory at the time it is read.
-	recordVideoDir := t.TempDir()
-	relDir, err := filepath.Rel(mustGetwd(t), recordVideoDir)
+	//
+	// Run from inside a temp dir so the relative path is valid on Windows too,
+	// where t.TempDir() and the repo may live on different drives (and thus have
+	// no relative path between them).
+	tmpDir := t.TempDir()
+	origWd, err := os.Getwd()
 	require.NoError(t, err)
-	require.False(t, filepath.IsAbs(relDir))
+	require.NoError(t, os.Chdir(tmpDir))
+	defer func() { require.NoError(t, os.Chdir(origWd)) }()
+
+	const relDir = "videos"
+	// t.TempDir() may resolve through a symlink (e.g. /var -> /private/var on
+	// macOS); resolve the expected absolute dir the same way the client does.
+	expectedDir, err := filepath.Abs(relDir)
+	require.NoError(t, err)
 
 	BeforeEach(t, playwright.BrowserNewContextOptions{
 		RecordVideo: &playwright.RecordVideo{
@@ -240,15 +251,8 @@ func TestVideoRelativeDirShouldResolveToAbsolute(t *testing.T) {
 	path, err := page.Video().Path()
 	require.NoError(t, err)
 	require.True(t, filepath.IsAbs(path), "Video().Path() should be absolute, got %q", path)
-	require.Equal(t, recordVideoDir, filepath.Dir(path))
+	require.Equal(t, expectedDir, filepath.Dir(path))
 	require.FileExists(t, path)
-}
-
-func mustGetwd(t *testing.T) string {
-	t.Helper()
-	wd, err := os.Getwd()
-	require.NoError(t, err)
-	return wd
 }
 
 func TestScreencastStartStop(t *testing.T) {
