@@ -86,7 +86,7 @@ func TestLaunchPersistentContextAppliesSelectorEngines(t *testing.T) {
 	p, err := ctx.NewPage()
 	require.NoError(t, err)
 	require.NoError(t, p.SetContent(`<div><span></span></div>`))
-	name, err := p.EvalOnSelector(engineName+"=DIV", "e => e.nodeName", nil)
+	name, err := p.Locator(engineName+"=DIV").Evaluate("e => e.nodeName", nil)
 	require.NoError(t, err)
 	require.Equal(t, "DIV", name)
 }
