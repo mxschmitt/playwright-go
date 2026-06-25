@@ -1,7 +1,6 @@
 package playwright
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 )
@@ -106,8 +105,7 @@ func (fl *frameLocatorImpl) Locator(selectorOrLocator any, options ...FrameLocat
 	locator, ok := selectorOrLocator.(*locatorImpl)
 	if ok {
 		if fl.frame != locator.frame {
-			locator.err = errors.Join(locator.err, ErrLocatorNotSameFrame)
-			return locator
+			return locator.withError(ErrLocatorNotSameFrame)
 		}
 		return newLocator(
 			locator.frame,

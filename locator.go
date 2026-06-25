@@ -172,6 +172,9 @@ func (l *locatorImpl) Blur(options ...LocatorBlurOptions) error {
 }
 
 func (l *locatorImpl) AriaSnapshot(options ...LocatorAriaSnapshotOptions) (string, error) {
+	if l.err != nil {
+		return "", l.err
+	}
 	var option LocatorAriaSnapshotOptions
 	if len(options) == 1 {
 		option = options[0]

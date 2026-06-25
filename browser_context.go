@@ -235,7 +235,7 @@ func (b *browserContextImpl) AddInitScript(script Script) error {
 		if err != nil {
 			return err
 		}
-		source = string(content)
+		source = addSourceURLToScript(string(content), *script.Path)
 	}
 	_, err := b.channel.Send("addInitScript", map[string]any{
 		"source": source,

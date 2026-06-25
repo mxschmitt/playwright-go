@@ -102,13 +102,14 @@ func (p *pageImpl) onLocatorHandlerTriggered(uid float64) {
 }
 
 func (p *pageImpl) RemoveLocatorHandler(locator Locator) error {
+	// Remove every handler whose locator matches, not just the first one,
+	// matching upstream removeLocatorHandler.
 	for uid := range p.locatorHandlers {
 		if p.locatorHandlers[uid].locator.equals(locator) {
 			delete(p.locatorHandlers, uid)
 			p.channel.SendNoReply("unregisterLocatorHandler", map[string]any{
 				"uid": uid,
 			})
-			return nil
 		}
 	}
 	return nil
@@ -746,7 +747,7 @@ func (p *pageImpl) AddInitScript(script Script) error {
 		if err != nil {
 			return err
 		}
-		source = string(content)
+		source = addSourceURLToScript(string(content), *script.Path)
 	}
 	_, err := p.channel.Send("addInitScript", map[string]any{
 		"source": source,
