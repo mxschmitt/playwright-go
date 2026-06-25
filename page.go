@@ -870,6 +870,15 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 	bt.channel.On("frameDetached", func(ev map[string]any) {
 		bt.onFrameDetached(fromChannel(ev["frame"]).(*frameImpl))
 	})
+	bt.channel.On("viewportSizeChanged", func(ev map[string]any) {
+		// Keep viewportSize in sync with server-driven changes (e.g. a sized popup).
+		if vs, ok := ev["viewportSize"].(map[string]any); ok {
+			bt.viewportSize = &Size{
+				Width:  int(vs["width"].(float64)),
+				Height: int(vs["height"].(float64)),
+			}
+		}
+	})
 	bt.channel.On("locatorHandlerTriggered", func(ev map[string]any) {
 		bt.channel.CreateTask(func() {
 			bt.onLocatorHandlerTriggered(ev["uid"].(float64))
