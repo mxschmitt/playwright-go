@@ -58,7 +58,10 @@ func getMimeTypeForPath(path string) string {
 	if dotIndex == -1 {
 		return ""
 	}
-	extension := strings.ToLower(path[dotIndex+1:])
+	// Case-sensitive lookup, matching upstream getMimeTypeForPath (its table is
+	// all-lowercase, so a ".PNG" extension yields no match → octet-stream, and
+	// determineScreenshotType errors on it rather than silently inferring png).
+	extension := path[dotIndex+1:]
 	return mimeTypesByExtension[extension]
 }
 
