@@ -3823,7 +3823,7 @@ type Page interface {
 	ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error)
 
 	// Returns up to (currently) 200 last page errors from this page. See [Page.OnPageError] for more details.
-	PageErrors(options ...PagePageErrorsOptions) ([]string, error)
+	PageErrors() ([]string, error)
 
 	// The method returns an element locator that can be used to perform actions on this page / frame. Locator is resolved
 	// to the element immediately before performing an action, so a series of actions on the same locator can in fact be
