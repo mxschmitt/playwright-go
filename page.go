@@ -124,15 +124,24 @@ func (b *pageImpl) Clock() Clock {
 }
 
 func (p *pageImpl) Close(options ...PageCloseOptions) error {
+	runBeforeUnload := false
 	if len(options) == 1 {
 		p.closeReason = options[0].Reason
+		runBeforeUnload = options[0].RunBeforeUnload != nil && *options[0].RunBeforeUnload
 	}
-	p.closeWasCalled.Store(true)
-	_, err := p.channel.Send("close", options)
-	if err == nil && p.ownedContext != nil {
+	// Only mark the page as being closed when it is actually torn down. With
+	// runBeforeUnload the page is not necessarily closing, so route handling
+	// must keep working.
+	if !runBeforeUnload {
+		p.closeWasCalled.Store(true)
+	}
+	var err error
+	if p.ownedContext != nil {
 		err = p.ownedContext.Close()
+	} else {
+		_, err = p.channel.Send("close", options)
 	}
-	if errors.Is(err, ErrTargetClosed) || (len(options) == 1 && options[0].RunBeforeUnload != nil && *options[0].RunBeforeUnload) {
+	if errors.Is(err, ErrTargetClosed) && !runBeforeUnload {
 		return nil
 	}
 	return err
@@ -540,8 +549,13 @@ func (p *pageImpl) waiterForEvent(event string, options ...PageWaitForEventOptio
 		predicate = options[0].Predicate
 	}
 	waiter := newWaiter().WithTimeout(timeout)
-	waiter.RejectOnEvent(p, "close", p.closeErrorWithReason())
-	waiter.RejectOnEvent(p, "crash", errors.New("page crashed"))
+	// Don't reject on the very event being awaited.
+	if event != "crash" {
+		waiter.RejectOnEvent(p, "crash", errors.New("page crashed"))
+	}
+	if event != "close" {
+		waiter.RejectOnEvent(p, "close", p.closeErrorWithReason())
+	}
 	return waiter.WaitForEvent(p, event, predicate)
 }
 

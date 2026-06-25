@@ -1272,11 +1272,33 @@ func TestCloseShouldRunBeforunloadIfAskedFor(t *testing.T) {
 	} else {
 		require.Contains(t, dialog.Message(), "This page is asking you to confirm that you want to leave")
 	}
+	// Accepting the beforeunload dialog closes the page, so waiting for the
+	// "close" event must resolve successfully (matching upstream beforeunload.spec.ts).
 	_, err = page.ExpectEvent("close", func() error {
-		require.NoError(t, dialog.Accept())
-		return nil
+		return dialog.Accept()
 	})
-	require.Error(t, err)
+	require.NoError(t, err)
+}
+
+// TestCloseShouldAccessPageAfterBeforeUnload mirrors upstream's "should access
+// page after beforeunload" test: with runBeforeUnload the page is not actually
+// closed after dismissing the dialog, so it remains usable.
+func TestCloseShouldAccessPageAfterBeforeUnload(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(fmt.Sprintf("%s/beforeunload.html", server.PREFIX))
+	require.NoError(t, err)
+	dialogInfo, err := page.ExpectEvent("dialog", func() error {
+		require.NoError(t, page.Locator("body").Click())
+		return page.Close(playwright.PageCloseOptions{
+			RunBeforeUnload: playwright.Bool(true),
+		})
+	})
+	require.NoError(t, err)
+	dialog := dialogInfo.(playwright.Dialog)
+	require.NoError(t, dialog.Dismiss())
+	_, err = page.Evaluate("() => document.title")
+	require.NoError(t, err)
 }
 
 func TestPageGotoShouldFailWhenExceedingBrowserContextNavigationTimeout(t *testing.T) {
