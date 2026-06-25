@@ -1,7 +1,9 @@
 package playwright
 
 import (
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -102,4 +104,42 @@ func TestEventEmitterOnLessArgsAcceptingReceiver(t *testing.T) {
 	})
 	handler.Emit(testEventName)
 	<-wasCalled
+}
+
+// TestEventEmitterHandlerCanReenter verifies that a handler may call back into
+// the same event's registry (here, registering another listener) while it is
+// running. This only works if Emit does not hold the per-event lock across
+// handler execution; otherwise the re-entrant call would deadlock.
+func TestEventEmitterHandlerCanReenter(t *testing.T) {
+	handler := &eventEmitter{}
+	done := make(chan bool, 1)
+	handler.On(testEventName, func(...any) {
+		// Re-enter the emitter from within the handler.
+		handler.On(testEventNameFoo, func(...any) {})
+		_ = handler.ListenerCount(testEventName)
+		done <- true
+	})
+
+	go handler.Emit(testEventName)
+
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("handler that re-enters the emitter deadlocked: lock held across handler execution")
+	}
+	require.Equal(t, 1, handler.ListenerCount(testEventNameFoo))
+}
+
+// TestEventEmitterOnceRunsExactlyOnce verifies a one-shot listener fires once
+// even though removal now happens before handler invocation.
+func TestEventEmitterOnceRunsExactlyOnce(t *testing.T) {
+	handler := &eventEmitter{}
+	var calls int32
+	handler.Once(testEventName, func(...any) {
+		atomic.AddInt32(&calls, 1)
+	})
+	handler.Emit(testEventName)
+	handler.Emit(testEventName)
+	require.Equal(t, int32(1), atomic.LoadInt32(&calls))
+	require.Equal(t, 0, handler.ListenerCount(testEventName))
 }
