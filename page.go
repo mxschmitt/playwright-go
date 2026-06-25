@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"slices"
 	"sync"
 	"sync/atomic"
@@ -500,6 +501,9 @@ func (p *pageImpl) Screenshot(options ...PageScreenshotOptions) ([]byte, error) 
 		return nil, fmt.Errorf("could not decode base64 :%w", err)
 	}
 	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(*path, image, 0o644); err != nil {
 			return nil, err
 		}
@@ -521,6 +525,9 @@ func (p *pageImpl) PDF(options ...PagePdfOptions) ([]byte, error) {
 		return nil, fmt.Errorf("could not decode base64 :%w", err)
 	}
 	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(*path, pdf, 0o644); err != nil {
 			return nil, err
 		}
