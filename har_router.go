@@ -63,14 +63,19 @@ func (r *harRouter) handle(route Route) error {
 	if err != nil {
 		return err
 	}
-	response, err := r.localUtils.HarLookup(harLookupOptions{
+	lookup := harLookupOptions{
 		HarId:               r.harId,
 		URL:                 request.URL(),
 		Method:              request.Method(),
 		Headers:             headers,
 		IsNavigationRequest: request.IsNavigationRequest(),
-		PostData:            postData,
-	})
+	}
+	// Omit postData for body-less requests; an empty buffer would otherwise be
+	// sent as "" and fail to match HAR entries that have no recorded body.
+	if len(postData) > 0 {
+		lookup.PostData = postData
+	}
+	response, err := r.localUtils.HarLookup(lookup)
 	if err != nil {
 		return err
 	}
