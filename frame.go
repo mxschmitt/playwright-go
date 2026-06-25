@@ -271,6 +271,12 @@ func (f *frameImpl) setNavigationWaiter(timeout *float64) (*waiter, error) {
 	} else {
 		waiter.WithTimeout(f.page.timeoutSettings.NavigationTimeout())
 	}
+	// If the page is already closed, fail immediately rather than waiting for the
+	// (already-fired) close event or the navigation timeout, matching upstream's
+	// rejectImmediately guard.
+	if f.page.IsClosed() {
+		waiter.reject(f.page.closeErrorWithReason())
+	}
 	waiter.RejectOnEvent(f.page, "close", f.page.closeErrorWithReason())
 	waiter.RejectOnEvent(f.page, "crash", fmt.Errorf("Navigation failed because page crashed!"))
 	waiter.RejectOnEvent(f.page, "framedetached", fmt.Errorf("Navigating frame was detached!"), func(payload any) bool {
