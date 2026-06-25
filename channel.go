@@ -68,7 +68,7 @@ func (c *channel) SendReturnAsDict(method string, options ...any) (map[string]an
 func (c *channel) innerSend(method string, options ...any) *protocolCallback {
 	if err := c.connection.err.Get(); err != nil {
 		c.connection.err.Set(nil)
-		pc := newProtocolCallback(false, c.connection.abort)
+		pc := newProtocolCallback(c.connection, false, c.connection.abort)
 		pc.SetError(err)
 		return pc
 	}

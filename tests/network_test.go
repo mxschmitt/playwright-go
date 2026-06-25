@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -264,6 +265,42 @@ func TestNetworkEventsShouldFireEventsInProperOrder(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, response.Finished())
 	require.Equal(t, []string{"request", "response", "requestfinished"}, events)
+}
+
+// TestBlockingServerCallInsideEventHandler reproduces the deadlock cluster
+// (#391, #481, #398, #524, #574): making a blocking server round-trip from
+// inside an event handler must not freeze the connection dispatcher.
+func TestBlockingServerCallInsideEventHandler(t *testing.T) {
+	BeforeEach(t)
+
+	type result struct {
+		headers []playwright.NameValue
+		body    []byte
+		err     error
+	}
+	done := make(chan result, 1)
+	page.OnResponse(func(response playwright.Response) {
+		// HeadersArray() and Body() each issue a blocking server call.
+		// Before the fix these run on the dispatcher goroutine and deadlock.
+		headers, err := response.HeadersArray()
+		if err != nil {
+			done <- result{err: err}
+			return
+		}
+		body, err := response.Body()
+		done <- result{headers: headers, body: body, err: err}
+	})
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+
+	select {
+	case res := <-done:
+		require.NoError(t, res.err)
+		require.NotEmpty(t, res.headers)
+	case <-time.After(10 * time.Second):
+		t.Fatal("blocking server call inside an event handler deadlocked the dispatcher")
+	}
 }
 
 func TestRequestExistingResponse(t *testing.T) {
