@@ -481,7 +481,7 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 				if err := artifact.SaveAs(tmpPath); err != nil {
 					return nil, err
 				}
-				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path, harMetaData.ResourcesDir)
+				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path)
 				if err != nil {
 					return nil, err
 				}

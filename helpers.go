@@ -578,14 +578,6 @@ func assignStructFields(dest, src any, omitExtra bool) error {
 	return nil
 }
 
-func deserializeNameAndValueToMap(headersArray []map[string]string) map[string]string {
-	unserialized := make(map[string]string)
-	for _, item := range headersArray {
-		unserialized[item["name"]] = item["value"]
-	}
-	return unserialized
-}
-
 // addSourceURLToScript appends a sourceURL comment so scripts loaded from a file
 // path are attributed to that path in stack traces and DevTools, mirroring
 // upstream addSourceUrlToScript.

@@ -298,7 +298,7 @@ func TestRequestPostDataJSONFormURLEncoded(t *testing.T) {
 		requestChan <- r
 	})
 	require.NoError(t, page.SetContent(`<form method='POST' action='/post'><input type='text' name='foo' value='bar'><input type='number' name='baz' value='123'><input type='submit'></form>`))
-	require.NoError(t, page.Click("input[type=submit]"))
+	require.NoError(t, page.Locator("input[type=submit]").Click())
 	request := <-requestChan
 	var postData map[string]interface{}
 	require.NoError(t, request.PostDataJSON(&postData))
