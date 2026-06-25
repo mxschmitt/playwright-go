@@ -150,29 +150,43 @@ func resolveGlobBase(baseURL *string, match string) string {
 			}
 		}
 	}
-	resolved := constructURLBasedOnBaseURL(baseURL, strings.Join(relativePath, "/"))
+	resolved, origin := constructURLBasedOnBaseURL(baseURL, strings.Join(relativePath, "/"))
 	for token, original := range tokenMap {
-		resolved = strings.ReplaceAll(resolved, token, original)
+		// Scheme and domain are case-insensitive: when a token resolves inside the
+		// URL origin, restore it lowercased so a mixed-case host still matches the
+		// (always-lowercased) request URL. Matches upstream resolveBaseURL.
+		replacement := original
+		if origin != "" && strings.Contains(origin, token) {
+			replacement = strings.ToLower(original)
+		}
+		resolved = strings.Replace(resolved, token, replacement, 1)
 	}
 	return resolved
 }
 
-func constructURLBasedOnBaseURL(baseURL *string, givenURL string) string {
+// constructURLBasedOnBaseURL resolves givenURL against baseURL (new URL(given,
+// base) semantics) and also returns the resolved URL's origin (scheme://host[:port]),
+// which is case-insensitive.
+func constructURLBasedOnBaseURL(baseURL *string, givenURL string) (string, string) {
 	u, err := url.Parse(givenURL)
 	if err != nil {
-		return givenURL
+		return givenURL, ""
 	}
 	if baseURL != nil {
 		base, err := url.Parse(*baseURL)
 		if err != nil {
-			return givenURL
+			return givenURL, ""
 		}
 		u = base.ResolveReference(u)
 	}
 	if u.Path == "" { // In Node.js, new URL('http://localhost') returns 'http://localhost/'.
 		u.Path = "/"
 	}
-	return u.String()
+	origin := ""
+	if u.Scheme != "" && u.Host != "" {
+		origin = u.Scheme + "://" + u.Host
+	}
+	return u.String(), origin
 }
 
 func toWebSocketBaseURL(baseURL *string) *string {

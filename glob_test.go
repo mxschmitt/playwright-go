@@ -225,4 +225,11 @@ func TestURLMatches(t *testing.T) {
 	require.True(t, newURLMatcher("\\\\?bar", String("http://playwright.dev/foo")).Matches("http://playwright.dev/foo?bar"))
 	require.True(t, newURLMatcher("**/foo", String("http://first.host/")).Matches("http://second.host/foo"))
 	require.True(t, newURLMatcher("*//localhost/", String("http://playwright.dev/")).Matches("http://localhost/"))
+
+	// Scheme and host are case-insensitive (the request URL is always lowercased).
+	require.True(t, newURLMatcher("HTTPS://EXAMPLE.COM/Foo", nil).Matches("https://example.com/Foo"))
+	require.False(t, newURLMatcher("HTTPS://EXAMPLE.COM/FOO", nil).Matches("https://example.com/foo-bar"))
+
+	// about:/data: URLs are not resolved against the base URL.
+	require.True(t, newURLMatcher("about:blank", String("http://playwright.dev/")).Matches("about:blank"))
 }
