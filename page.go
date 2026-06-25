@@ -1442,8 +1442,8 @@ func (p *pageImpl) ClearPageErrors() error {
 	return err
 }
 
-func (p *pageImpl) PageErrors() ([]string, error) {
-	result, err := p.channel.Send("pageErrors")
+func (p *pageImpl) PageErrors(options ...PagePageErrorsOptions) ([]string, error) {
+	result, err := p.channel.Send("pageErrors", options)
 	if err != nil {
 		return nil, err
 	}
