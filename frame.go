@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -105,7 +106,9 @@ func (f *frameImpl) AddScriptTag(options FrameAddScriptTagOptions) (ElementHandl
 		if err != nil {
 			return nil, err
 		}
-		options.Content = String(string(file))
+		// Append a sourceURL so the injected script is attributed to its file
+		// path in DevTools/traces, matching upstream addSourceUrlToScript.
+		options.Content = String(string(file) + "\n//# sourceURL=" + strings.ReplaceAll(*options.Path, "\n", ""))
 		options.Path = nil
 	}
 	channel, err := f.channel.Send("addScriptTag", options)
@@ -121,7 +124,7 @@ func (f *frameImpl) AddStyleTag(options FrameAddStyleTagOptions) (ElementHandle,
 		if err != nil {
 			return nil, err
 		}
-		options.Content = String(string(file))
+		options.Content = String(string(file) + "/*# sourceURL=" + strings.ReplaceAll(*options.Path, "\n", "") + "*/")
 		options.Path = nil
 	}
 	channel, err := f.channel.Send("addStyleTag", options)
