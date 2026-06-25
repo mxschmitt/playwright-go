@@ -13,11 +13,12 @@ type localUtilsImpl struct {
 
 type (
 	localUtilsZipOptions struct {
-		ZipFile        string `json:"zipFile"`
-		Entries        []any  `json:"entries"`
-		StacksId       string `json:"stacksId"`
-		Mode           string `json:"mode"`
-		IncludeSources bool   `json:"includeSources"`
+		ZipFile           string   `json:"zipFile"`
+		Entries           []any    `json:"entries"`
+		StacksId          string   `json:"stacksId"`
+		Mode              string   `json:"mode"`
+		IncludeSources    bool     `json:"includeSources"`
+		AdditionalSources []string `json:"additionalSources"`
 	}
 
 	harLookupOptions struct {
@@ -119,9 +120,10 @@ func (l *localUtilsImpl) HarUnzip(zipFile, harFile string) error {
 	return err
 }
 
-func (l *localUtilsImpl) TracingStarted(traceName string, tracesDir ...string) (string, error) {
+func (l *localUtilsImpl) TracingStarted(traceName string, live bool, tracesDir ...string) (string, error) {
 	overrides := make(map[string]any)
 	overrides["traceName"] = traceName
+	overrides["live"] = live
 	if len(tracesDir) > 0 {
 		overrides["tracesDir"] = tracesDir[0]
 	}

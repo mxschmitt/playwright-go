@@ -7,11 +7,13 @@ import (
 
 type tracingImpl struct {
 	channelOwner
-	includeSources bool
-	isTracing      bool
-	stacksId       string
-	tracesDir      string
-	harRecorders   map[string]harRecordingMetadata
+	includeSources    bool
+	isTracing         bool
+	isLive            bool
+	stacksId          string
+	tracesDir         string
+	harRecorders      map[string]harRecordingMetadata
+	additionalSources map[string]struct{}
 }
 
 func (t *tracingImpl) Start(options ...TracingStartOptions) error {
@@ -20,6 +22,7 @@ func (t *tracingImpl) Start(options ...TracingStartOptions) error {
 		if options[0].Sources != nil {
 			t.includeSources = *options[0].Sources
 		}
+		t.isLive = options[0].Live != nil && *options[0].Live
 		chunkOption.Name = options[0].Name
 		chunkOption.Title = options[0].Title
 	}
@@ -69,6 +72,13 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		t.isTracing = false
 		t.connection.setInTracing(false)
 	}
+
+	additionalSources := make([]string, 0, len(t.additionalSources))
+	for source := range t.additionalSources {
+		additionalSources = append(additionalSources, source)
+	}
+	t.additionalSources = make(map[string]struct{})
+
 	if filePath == "" {
 		// Not interested in artifacts.
 		_, err = t.channel.Send("tracingStopChunk", map[string]any{
@@ -93,11 +103,12 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 			return fmt.Errorf("could not convert result to map: %v", result)
 		}
 		_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
-			ZipFile:        filePath,
-			Entries:        entries.([]any),
-			StacksId:       t.stacksId,
-			Mode:           "write",
-			IncludeSources: t.includeSources,
+			ZipFile:           filePath,
+			Entries:           entries.([]any),
+			StacksId:          t.stacksId,
+			Mode:              "write",
+			IncludeSources:    t.includeSources,
+			AdditionalSources: additionalSources,
 		})
 		return err
 	}
@@ -128,11 +139,12 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		return err
 	}
 	_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
-		ZipFile:        filePath,
-		Entries:        []any{},
-		StacksId:       t.stacksId,
-		Mode:           "append",
-		IncludeSources: t.includeSources,
+		ZipFile:           filePath,
+		Entries:           []any{},
+		StacksId:          t.stacksId,
+		Mode:              "append",
+		IncludeSources:    t.includeSources,
+		AdditionalSources: additionalSources,
 	})
 	return err
 }
@@ -142,7 +154,7 @@ func (t *tracingImpl) startCollectingStacks(name string) (err error) {
 		t.isTracing = true
 		t.connection.setInTracing(true)
 	}
-	t.stacksId, err = t.connection.LocalUtils().TracingStarted(name, t.tracesDir)
+	t.stacksId, err = t.connection.LocalUtils().TracingStarted(name, t.isLive, t.tracesDir)
 	return
 }
 
@@ -150,6 +162,9 @@ func (t *tracingImpl) Group(name string, options ...TracingGroupOptions) error {
 	var option TracingGroupOptions
 	if len(options) == 1 {
 		option = options[0]
+		if option.Location != nil && option.Location.File != "" {
+			t.additionalSources[option.Location.File] = struct{}{}
+		}
 	}
 	_, err := t.channel.Send("tracingGroup", option, map[string]any{"name": name})
 	return err
@@ -257,7 +272,8 @@ func (t *tracingImpl) StopHar() error {
 
 func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]any) *tracingImpl {
 	bt := &tracingImpl{
-		harRecorders: make(map[string]harRecordingMetadata),
+		harRecorders:      make(map[string]harRecordingMetadata),
+		additionalSources: make(map[string]struct{}),
 	}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.markAsInternalType()
