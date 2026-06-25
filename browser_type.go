@@ -188,6 +188,17 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 	jsonPipe.On("closed", pipeClosed)
 
 	b.didLaunchBrowser(browser)
+	// When connecting to a shared browser server, the browser's pre-existing
+	// contexts are dispatched before didLaunchBrowser wires the real browserType
+	// (whose playwright is non-nil), so newBrowserContext's own selectors
+	// registration was skipped for them. Register them now, mirroring upstream's
+	// _connectToBrowserType -> _setupBrowserContext loop over all existing
+	// contexts, so custom selector engines / testId reach pre-existing contexts.
+	if b.playwright != nil {
+		for _, context := range browser.Contexts() {
+			b.playwright.Selectors.(*selectorsImpl).addContext(context.(*browserContextImpl))
+		}
+	}
 	return browser, nil
 }
 
