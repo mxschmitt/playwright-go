@@ -3,6 +3,7 @@ package playwright_test
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -223,23 +224,39 @@ func TestScreencastStartStop(t *testing.T) {
 	screencast, err := page.Screencast()
 	require.NoError(t, err)
 
-	var frames [][]byte
+	var (
+		mu         sync.Mutex
+		frames     [][]byte
+		firstFrame = make(chan struct{}, 1)
+	)
 	err = screencast.Start(playwright.ScreencastStartOptions{
 		OnFrame: func(frame playwright.OnFrame) {
+			mu.Lock()
 			frames = append(frames, frame.Data)
+			mu.Unlock()
+			select {
+			case firstFrame <- struct{}{}:
+			default:
+			}
 		},
 	})
 	require.NoError(t, err)
 
-	// Trigger some activity to generate frames
+	// Trigger some activity to generate frames, then wait until at least one
+	// frame arrives rather than racing a fixed timeout (webkit can be slow).
 	_, err = page.Reload()
 	require.NoError(t, err)
-	//nolint:staticcheck
-	page.WaitForTimeout(500)
+	select {
+	case <-firstFrame:
+	case <-time.After(30 * time.Second):
+		t.Fatal("should have received at least one frame")
+	}
 
 	err = screencast.Stop()
 	require.NoError(t, err)
 
+	mu.Lock()
+	defer mu.Unlock()
 	require.Greater(t, len(frames), 0, "should have received at least one frame")
 	require.Greater(t, len(frames[0]), 0, "frame data should not be empty")
 }
