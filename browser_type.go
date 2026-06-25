@@ -80,6 +80,11 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 			overrides["noDefaultViewport"] = true
 			options[0].NoViewport = nil
 		}
+		if options[0].RecordVideo != nil {
+			if err := resolveRecordVideoDir(options[0].RecordVideo); err != nil {
+				return nil, err
+			}
+		}
 		if options[0].RecordHarPath != nil {
 			overrides["recordHar"] = prepareRecordHarOptions(recordHarInputOptions{
 				Path:        *options[0].RecordHarPath,

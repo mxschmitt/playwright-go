@@ -72,6 +72,11 @@ func (b *browserImpl) NewContext(options ...BrowserNewContextOptions) (BrowserCo
 		overrides["noDefaultViewport"] = true
 		options[0].NoViewport = nil
 	}
+	if option.RecordVideo != nil {
+		if err := resolveRecordVideoDir(options[0].RecordVideo); err != nil {
+			return nil, err
+		}
+	}
 	if option.RecordHarPath != nil {
 		overrides["recordHar"] = prepareRecordHarOptions(recordHarInputOptions{
 			Path:        *options[0].RecordHarPath,

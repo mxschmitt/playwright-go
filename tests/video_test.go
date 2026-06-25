@@ -214,6 +214,42 @@ func TestVideo(t *testing.T) {
 	})
 }
 
+func TestVideoRelativeDirShouldResolveToAbsolute(t *testing.T) {
+	// Regression test for https://github.com/playwright-community/playwright-go/issues/565
+	// A relative recordVideo.dir must be resolved to an absolute path client-side
+	// (matching upstream path.resolve), so Video().Path() does not depend on the
+	// process working directory at the time it is read.
+	recordVideoDir := t.TempDir()
+	relDir, err := filepath.Rel(mustGetwd(t), recordVideoDir)
+	require.NoError(t, err)
+	require.False(t, filepath.IsAbs(relDir))
+
+	BeforeEach(t, playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{
+			Dir: playwright.String(relDir),
+		},
+	})
+
+	_, err = page.Goto(server.PREFIX + "/grid.html")
+	require.NoError(t, err)
+	//nolint:staticcheck
+	page.WaitForTimeout(500)
+	require.NoError(t, context.Close())
+
+	path, err := page.Video().Path()
+	require.NoError(t, err)
+	require.True(t, filepath.IsAbs(path), "Video().Path() should be absolute, got %q", path)
+	require.Equal(t, recordVideoDir, filepath.Dir(path))
+	require.FileExists(t, path)
+}
+
+func mustGetwd(t *testing.T) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	return wd
+}
+
 func TestScreencastStartStop(t *testing.T) {
 	BeforeEach(t)
 
