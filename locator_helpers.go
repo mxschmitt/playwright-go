@@ -49,6 +49,24 @@ func escapeRegexForSelector(re *regexp.Regexp) string {
 	return fmt.Sprintf(`/%s/%s`, strings.ReplaceAll(pattern, `>>`, `\>\>`), flag)
 }
 
+// locatorCustomDescription extracts the description embedded by Describe via the
+// trailing `internal:describe=<json>` selector segment, mirroring upstream
+// locatorCustomDescription. Returns "" when no description is present.
+func locatorCustomDescription(selector string) string {
+	const marker = " >> internal:describe="
+	idx := strings.LastIndex(selector, marker)
+	if idx == -1 {
+		return ""
+	}
+	// The describe segment is always the last one (Describe appends it).
+	jsonValue := selector[idx+len(marker):]
+	var description string
+	if err := json.Unmarshal([]byte(jsonValue), &description); err != nil {
+		return ""
+	}
+	return description
+}
+
 func escapeText(s string) string {
 	builder := &strings.Builder{}
 	encoder := json.NewEncoder(builder)

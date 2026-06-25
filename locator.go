@@ -12,11 +12,10 @@ var (
 )
 
 type locatorImpl struct {
-	frame       *frameImpl
-	selector    string
-	options     *LocatorOptions
-	err         error
-	description *string
+	frame    *frameImpl
+	selector string
+	options  *LocatorOptions
+	err      error
 }
 
 type LocatorOptions LocatorFilterOptions
@@ -67,11 +66,10 @@ func (l *locatorImpl) equals(locator Locator) bool {
 // the error lazily via the returned locator's Err().
 func (l *locatorImpl) withError(err error) *locatorImpl {
 	return &locatorImpl{
-		frame:       l.frame,
-		selector:    l.selector,
-		options:     l.options,
-		description: l.description,
-		err:         errors.Join(l.err, err),
+		frame:    l.frame,
+		selector: l.selector,
+		options:  l.options,
+		err:      errors.Join(l.err, err),
 	}
 }
 
@@ -80,20 +78,13 @@ func (l *locatorImpl) Err() error {
 }
 
 func (l *locatorImpl) Describe(description string) Locator {
-	return &locatorImpl{
-		frame:       l.frame,
-		selector:    l.selector,
-		options:     l.options,
-		err:         l.err,
-		description: &description,
-	}
+	// Embed the description into the selector via the internal:describe engine so
+	// it reaches the server (traces, error messages, call logs), matching upstream.
+	return newLocator(l.frame, l.selector+" >> internal:describe="+escapeText(description))
 }
 
 func (l *locatorImpl) Description() (string, error) {
-	if l.description == nil {
-		return "", nil
-	}
-	return *l.description, nil
+	return locatorCustomDescription(l.selector), nil
 }
 
 func (l *locatorImpl) All() ([]Locator, error) {
