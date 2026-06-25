@@ -634,7 +634,7 @@ func (b *browserContextImpl) onRoute(route *routeImpl) {
 	url := route.Request().URL()
 	for _, handlerEntry := range routes {
 		// If the page or the context was closed we stall all requests right away.
-		if (page != nil && page.closeWasCalled.Load()) || b.closeWasCalled.Load() {
+		if (page != nil && page.closeWasCalled.Load()) || b.IsClosed() {
 			return
 		}
 		if !handlerEntry.Matches(url) {
