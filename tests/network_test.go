@@ -303,6 +303,37 @@ func TestBlockingServerCallInsideEventHandler(t *testing.T) {
 	}
 }
 
+// TestRequestHeadersArrayInsideRouteHandler reproduces #519: calling
+// Request().HeadersArray() (or any header accessor) from inside a route handler
+// must not stall the request. The accessor previously waited on Response(),
+// which only resolves after the route is continued, deadlocking the handler.
+func TestRequestHeadersArrayInsideRouteHandler(t *testing.T) {
+	BeforeEach(t)
+
+	headersCh := make(chan []playwright.NameValue, 1)
+	err := page.Route("**/*", func(route playwright.Route) {
+		headers, err := route.Request().HeadersArray()
+		require.NoError(t, err)
+		headersCh <- headers
+		require.NoError(t, route.Continue())
+	})
+	require.NoError(t, err)
+
+	done := make(chan error, 1)
+	go func() {
+		_, err := page.Goto(server.EMPTY_PAGE)
+		done <- err
+	}()
+
+	select {
+	case err := <-done:
+		require.NoError(t, err)
+		require.NotEmpty(t, <-headersCh)
+	case <-time.After(15 * time.Second):
+		t.Fatal("HeadersArray() inside a route handler deadlocked the request (#519)")
+	}
+}
+
 func TestRequestExistingResponse(t *testing.T) {
 	BeforeEach(t)
 

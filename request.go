@@ -165,13 +165,11 @@ func (r *requestImpl) ActualHeaders() (*rawHeaders, error) {
 		return newRawHeaders(serializeMapToNameAndValue(r.fallbackOverrides.Headers)), nil
 	}
 	if r.allHeaders == nil {
-		response, err := r.Response()
-		if err != nil {
-			return nil, err
-		}
-		if response == nil {
-			return r.provisionalHeaders, nil
-		}
+		// Upstream reads the raw request headers from the channel directly. The
+		// previous code first called r.Response(), which blocks until the
+		// response arrives. Inside a route handler the response only arrives
+		// after the route is continued, so waiting on it deadlocked the handler
+		// and stalled the request (#519).
 		headers, err := r.channel.Send("rawRequestHeaders")
 		if err != nil {
 			return nil, err
