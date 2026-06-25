@@ -67,6 +67,16 @@ func (t *tracingImpl) Stop(path ...string) error {
 	return err
 }
 
+// resetStackCounter clears the in-tracing flag and decrements the connection
+// tracing counter, mirroring upstream _resetStackCounter. Called on context
+// close so an un-stopped trace doesn't keep the connection collecting stacks.
+func (t *tracingImpl) resetStackCounter() {
+	if t.isTracing {
+		t.isTracing = false
+		t.connection.setInTracing(false)
+	}
+}
+
 func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	if t.isTracing {
 		t.isTracing = false

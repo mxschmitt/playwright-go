@@ -595,6 +595,11 @@ func (b *browserContextImpl) onClose() {
 		b.browser.contexts = contexts
 		b.browser.Unlock()
 	}
+	if b.tracing != nil {
+		// Reset the connection tracing counter so an un-stopped trace on a
+		// closing context doesn't keep every later API call collecting stacks.
+		b.tracing.resetStackCounter()
+	}
 	b.disposeHarRouters()
 	b.Emit("close", b)
 }
