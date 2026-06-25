@@ -31,6 +31,30 @@ func Test_globMustToRegex(t *testing.T) {
 			want: false,
 		},
 		{
+			// `**/` must match zero or more path segments including the scheme/host,
+			// matching upstream `((.+/)|)`. It must NOT match a bare relative path.
+			args: args{
+				glob:   "**/foo.png",
+				target: "foo.png",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				glob:   "**/foo.png",
+				target: "https://localhost:8080/a/b/foo.png",
+			},
+			want: true,
+		},
+		{
+			// Embedded `**` not bounded by `/` becomes `(.*)` and may cross `/`.
+			args: args{
+				glob:   "https://example.com/a**b",
+				target: "https://example.com/a/x/y/b",
+			},
+			want: true,
+		},
+		{
 			args: args{
 				glob:   "*.js",
 				target: "https://localhost:8080/foo.js",

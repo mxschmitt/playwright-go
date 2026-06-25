@@ -39,23 +39,31 @@ func globMustToRegex(glob string) *regexp.Regexp {
 			}
 			i++
 		} else if c == '*' {
-			beforeDeep := rune(0)
+			charBefore := rune(0)
 			if i > 0 {
-				beforeDeep = rune(glob[i-1])
+				charBefore = rune(glob[i-1])
 			}
 			starCount := 1
 			for i+1 < len(glob) && glob[i+1] == '*' {
 				starCount++
 				i++
 			}
-			afterDeep := rune(0)
-			if i+1 < len(glob) {
-				afterDeep = rune(glob[i+1])
-			}
-			isDeep := starCount > 1 && (beforeDeep == '/' || beforeDeep == 0) && (afterDeep == '/' || afterDeep == 0)
-			if isDeep {
-				tokens = append(tokens, "((?:[^/]*(?:/|$))*)")
-				i++
+			if starCount > 1 {
+				charAfter := rune(0)
+				if i+1 < len(glob) {
+					charAfter = rune(glob[i+1])
+				}
+				// Match either /..something../ or /.
+				if charAfter == '/' {
+					if charBefore == '/' {
+						tokens = append(tokens, "((.+/)|)")
+					} else {
+						tokens = append(tokens, "(.*/)")
+					}
+					i++
+				} else {
+					tokens = append(tokens, "(.*)")
+				}
 			} else {
 				tokens = append(tokens, "([^/]*)")
 			}
@@ -110,6 +118,12 @@ func resolveGlobBase(baseURL *string, match string) string {
 	}
 	// Escaped `\\?` behaves the same as `?` in our glob patterns.
 	match = strings.ReplaceAll(match, `\\?`, "?")
+	// Special case about:/data:/chrome:/edge:/file: URLs as they are not relative to baseURL.
+	if strings.HasPrefix(match, "about:") || strings.HasPrefix(match, "data:") ||
+		strings.HasPrefix(match, "chrome:") || strings.HasPrefix(match, "edge:") ||
+		strings.HasPrefix(match, "file:") {
+		return match
+	}
 	// Glob symbols may be escaped in the URL and some of them such as ? affect resolution,
 	// so we replace them with safe components first.
 	relativePath := strings.Split(match, "/")
@@ -120,7 +134,11 @@ func resolveGlobBase(baseURL *string, match string) string {
 		// Handle special case of http*://, note that the new schema has to be
 		// a web schema so that slashes are properly inserted after domain.
 		if i == 0 && strings.HasSuffix(token, ":") {
-			relativePath[i] = mapToken(token, "http:")
+			// Replace any pattern with http:; preserve an explicit schema as-is as
+			// it may affect trailing slashes after the domain.
+			if strings.ContainsAny(token, "*{") {
+				relativePath[i] = mapToken(token, "http:")
+			}
 		} else {
 			questionIndex := strings.Index(token, "?")
 			if questionIndex == -1 {
