@@ -130,6 +130,35 @@ func TestEventEmitterHandlerCanReenter(t *testing.T) {
 	require.Equal(t, 1, handler.ListenerCount(testEventNameFoo))
 }
 
+// TestEventEmitterRemoveDistinctClosures guards against a regression where
+// RemoveListener compared handlers by their code pointer
+// (reflect.Value.Pointer()), which is shared by every closure created from the
+// same function literal. Removing one such closure then removed all its
+// siblings, silently unsubscribing unrelated listeners. This reproduced as
+// concurrent ExpectResponse waiters timing out once any one of them completed
+// (playwright-go issue #323).
+//
+// It uses the real waiter.createHandler, whose closures are exactly the ones
+// that collided under the old comparison.
+func TestEventEmitterRemoveDistinctClosures(t *testing.T) {
+	handler := &eventEmitter{}
+	matchAll := func(any) bool { return true }
+
+	var waiters []*waiter
+	for i := 0; i < 3; i++ {
+		w := newWaiter()
+		h := w.createHandler(make(chan any, 1), matchAll)
+		handler.On(testEventName, h)
+		w.listeners = append(w.listeners, eventListener{emitter: handler, event: testEventName, handler: h})
+		waiters = append(waiters, w)
+	}
+	require.Equal(t, 3, handler.ListenerCount(testEventName))
+
+	// Removing the first waiter's handler must leave the other two registered.
+	handler.RemoveListener(testEventName, waiters[0].listeners[0].handler)
+	require.Equal(t, 2, handler.ListenerCount(testEventName))
+}
+
 // TestEventEmitterOnceRunsExactlyOnce verifies a one-shot listener fires once
 // even though removal now happens before handler invocation.
 func TestEventEmitterOnceRunsExactlyOnce(t *testing.T) {
