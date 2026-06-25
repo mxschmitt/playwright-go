@@ -166,10 +166,15 @@ func (p *pageImpl) Opener() (Page, error) {
 	channel := p.initializer["opener"]
 	channelOwner := fromNullableChannel(channel)
 	if channelOwner == nil {
-		// not popup page or opener has been closed
+		// not a popup page
 		return nil, nil
 	}
-	return channelOwner.(*pageImpl), nil
+	opener := channelOwner.(*pageImpl)
+	if opener.IsClosed() {
+		// Opener has been closed; upstream returns null in this case.
+		return nil, nil
+	}
+	return opener, nil
 }
 
 func (p *pageImpl) MainFrame() Frame {
@@ -187,11 +192,15 @@ func (p *pageImpl) Frame(options ...PageFrameOptions) Frame {
 	}
 
 	for _, f := range p.frames {
-		if option.Name != nil && f.Name() == *option.Name {
-			return f
+		// When a name is specified, match strictly by name and never consult the
+		// URL, matching upstream.
+		if option.Name != nil {
+			if f.Name() == *option.Name {
+				return f
+			}
+			continue
 		}
-
-		if option.URL != nil && matcher != nil && matcher.Matches(f.URL()) {
+		if matcher != nil && matcher.Matches(f.URL()) {
 			return f
 		}
 	}

@@ -434,6 +434,12 @@ func TestPageOpener(t *testing.T) {
 	opener, err = page.Opener()
 	require.NoError(t, err)
 	require.Nil(t, opener)
+
+	// Once the opener page is closed, Opener() returns nil (matches upstream).
+	require.NoError(t, page.Close())
+	opener, err = popup.Opener()
+	require.NoError(t, err)
+	require.Nil(t, opener)
 }
 
 func TestPageTitle(t *testing.T) {
@@ -846,11 +852,11 @@ func TestPageFrame(t *testing.T) {
 	require.Equal(t, name, frame2.Name())
 	require.Equal(t, server.EMPTY_PAGE, frame2.URL())
 
+	// When a name is provided it takes precedence and the URL is never
+	// consulted, matching upstream (page.frame should respect name): a
+	// non-matching name returns nil regardless of the URL.
 	badName := "test"
-	frame3 := page.Frame(playwright.PageFrameOptions{Name: &badName, URL: server.EMPTY_PAGE})
-	require.Equal(t, name, frame3.Name())
-	require.Equal(t, server.EMPTY_PAGE, frame3.URL())
-
+	require.Nil(t, page.Frame(playwright.PageFrameOptions{Name: &badName, URL: server.EMPTY_PAGE}))
 	require.Nil(t, page.Frame(playwright.PageFrameOptions{Name: &badName, URL: "https://example.com"}))
 	require.Nil(t, page.Frame(playwright.PageFrameOptions{Name: &badName}))
 }
