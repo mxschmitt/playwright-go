@@ -4,11 +4,17 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 )
 
 type jsonPipe struct {
 	channelOwner
-	msgChan chan *message
+	// mu guards queue and closed; cond (built on mu) lets Poll wait for either a
+	// new message or close without busy-waiting.
+	mu     sync.Mutex
+	cond   *sync.Cond
+	queue  []*message
+	closed bool
 }
 
 func (j *jsonPipe) Send(message map[string]any) error {
@@ -24,17 +30,49 @@ func (j *jsonPipe) Close() error {
 }
 
 func (j *jsonPipe) Poll() (*message, error) {
-	msg := <-j.msgChan
-	if msg == nil {
-		return nil, errors.New("jsonPipe closed")
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	for len(j.queue) == 0 && !j.closed {
+		j.cond.Wait()
 	}
-	return msg, nil
+	if len(j.queue) > 0 {
+		msg := j.queue[0]
+		j.queue = j.queue[1:]
+		return msg, nil
+	}
+	return nil, errors.New("jsonPipe closed")
+}
+
+// enqueue appends a message and wakes any waiting Poll(). It never blocks (the
+// queue is unbounded), so it is safe to call from the outer connection's
+// dispatch goroutine: that goroutine must never block delivering a message
+// here, otherwise it cannot deliver the reply an in-flight Send() is waiting
+// for, which would deadlock the whole connection (see the streaming upload
+// path). Ordering is preserved since the single dispatch goroutine is the only
+// appender.
+func (j *jsonPipe) enqueue(msg *message) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.closed {
+		return
+	}
+	j.queue = append(j.queue, msg)
+	j.cond.Broadcast()
+}
+
+func (j *jsonPipe) markClosed() {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	if j.closed {
+		return
+	}
+	j.closed = true
+	j.cond.Broadcast()
 }
 
 func newJsonPipe(parent *channelOwner, objectType string, guid string, initializer map[string]any) *jsonPipe {
-	j := &jsonPipe{
-		msgChan: make(chan *message, 10),
-	}
+	j := &jsonPipe{}
+	j.cond = sync.NewCond(&j.mu)
 	j.createChannelOwner(j, parent, objectType, guid, initializer)
 	j.channel.On("message", func(ev map[string]any) {
 		var msg message
@@ -54,17 +92,11 @@ func newJsonPipe(parent *channelOwner, objectType string, guid string, initializ
 				},
 			}
 		}
-		// Send directly to maintain message ordering - the channel buffer prevents blocking
-		// Previously used a goroutine which could cause out-of-order delivery
-		defer func() {
-			// Recover from panic if channel is closed
-			_ = recover()
-		}()
-		j.msgChan <- &msg
+		j.enqueue(&msg)
 	})
 	j.channel.Once("closed", func() {
 		j.Emit("closed")
-		close(j.msgChan)
+		j.markClosed()
 	})
 	return j
 }
