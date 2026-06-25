@@ -816,9 +816,18 @@ func (p *pageImpl) RouteFromHAR(har string, options ...PageRouteFromHAROptions) 
 		opt = options[0]
 	}
 	if opt.Update != nil && *opt.Update {
+		var updateContent *HarContentPolicy
+		switch opt.UpdateContent {
+		case RouteFromHarUpdateContentPolicyAttach:
+			updateContent = HarContentPolicyAttach
+		case RouteFromHarUpdateContentPolicyEmbed:
+			updateContent = HarContentPolicyEmbed
+		}
 		return p.browserContext.recordIntoHar(har, browserContextRecordIntoHarOptions{
-			Page: p,
-			URL:  opt.URL,
+			Page:          p,
+			URL:           opt.URL,
+			UpdateContent: updateContent,
+			UpdateMode:    opt.UpdateMode,
 		})
 	}
 	notFound := opt.NotFound
