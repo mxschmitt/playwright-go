@@ -75,16 +75,24 @@ func (r *harRouter) handle(route Route) error {
 		}
 		return route.(*routeImpl).redirectedNavigationRequest(*response.RedirectURL)
 	case "fulfill":
+		// If the response status is -1, the request was canceled or stalled, so we just stall it here.
+		// See https://github.com/microsoft/playwright/issues/29311.
+		if response.Status != nil && *response.Status == -1 {
+			return nil
+		}
 		if response.Body == nil {
 			return errors.New("fulfill body is null")
 		}
 		return route.Fulfill(RouteFulfillOptions{
-			Body:    *response.Body,
-			Status:  response.Status,
-			Headers: deserializeNameAndValueToMap(response.Headers),
+			Body:   *response.Body,
+			Status: response.Status,
+			// route.Fulfill does not support multiple set-cookie headers, so we merge them into one.
+			Headers: mergeHeaders(response.Headers),
 		})
 	case "error":
-		logger.Error("har action error", "error", *response.Message)
+		if response.Message != nil {
+			logger.Error("har action error", "error", *response.Message)
+		}
 		fallthrough
 	case "noentry":
 	}

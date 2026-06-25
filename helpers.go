@@ -586,6 +586,27 @@ func deserializeNameAndValueToMap(headersArray []map[string]string) map[string]s
 	return unserialized
 }
 
+// mergeHeaders converts a name/value header array into a map, merging multiple
+// set-cookie headers into a single newline-separated value (route.Fulfill does
+// not support multiple set-cookie headers).
+func mergeHeaders(headersArray []map[string]string) map[string]string {
+	headers := make(map[string]string)
+	for _, item := range headersArray {
+		name := item["name"]
+		value := item["value"]
+		if strings.ToLower(name) == "set-cookie" {
+			if existing, ok := headers["set-cookie"]; ok {
+				headers["set-cookie"] = existing + "\n" + value
+			} else {
+				headers["set-cookie"] = value
+			}
+		} else {
+			headers[name] = value
+		}
+	}
+	return headers
+}
+
 type recordHarOptions struct {
 	Path           string            `json:"harPath,omitempty"`
 	Content        *HarContentPolicy `json:"content,omitempty"`
