@@ -385,7 +385,7 @@ func (r *apiResponseImpl) JSON(v any) error {
 }
 
 func (r *apiResponseImpl) Ok() bool {
-	return r.Status() == 0 || (r.Status() >= 200 && r.Status() <= 299)
+	return r.Status() >= 200 && r.Status() <= 299
 }
 
 func (r *apiResponseImpl) Status() int {

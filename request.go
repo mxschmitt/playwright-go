@@ -211,7 +211,9 @@ func (r *requestImpl) applyFallbackOverrides(options RouteFallbackOptions) {
 	if options.Method != nil {
 		r.fallbackOverrides.Method = options.Method
 	}
-	r.fallbackOverrides.Headers = options.Headers
+	if options.Headers != nil {
+		r.fallbackOverrides.Headers = options.Headers
+	}
 	if options.PostData != nil {
 		switch v := options.PostData.(type) {
 		case string:

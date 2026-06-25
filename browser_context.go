@@ -1013,7 +1013,7 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		"request":         "request",
 		"response":        "response",
 		"requestfinished": "requestFinished",
-		"responsefailed":  "responseFailed",
+		"requestfailed":   "requestFailed",
 	})
 	return bt
 }

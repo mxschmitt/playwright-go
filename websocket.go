@@ -47,28 +47,30 @@ func newWebsocket(parent *channelOwner, objectType string, guid string, initiali
 }
 
 func (ws *webSocketImpl) onFrameSent(opcode float64, data string) {
-	if opcode == 2 {
+	switch opcode {
+	case 1:
+		ws.Emit("framesent", []byte(data))
+	case 2:
 		payload, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
 			logger.Error("could not decode WebSocket.onFrameSent payload", "error", err)
 			return
 		}
 		ws.Emit("framesent", payload)
-	} else {
-		ws.Emit("framesent", []byte(data))
 	}
 }
 
 func (ws *webSocketImpl) onFrameReceived(opcode float64, data string) {
-	if opcode == 2 {
+	switch opcode {
+	case 1:
+		ws.Emit("framereceived", []byte(data))
+	case 2:
 		payload, err := base64.StdEncoding.DecodeString(data)
 		if err != nil {
 			logger.Error("could not decode WebSocket.onFrameReceived payload", "error", err)
 			return
 		}
 		ws.Emit("framereceived", payload)
-	} else {
-		ws.Emit("framereceived", []byte(data))
 	}
 }
 
