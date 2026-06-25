@@ -3,6 +3,7 @@ package playwright
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 )
 
 // defaultLaunchTimeout matches DEFAULT_PLAYWRIGHT_LAUNCH_TIMEOUT upstream (3 minutes).
@@ -41,6 +42,13 @@ func (b *browserTypeImpl) Launch(options ...BrowserTypeLaunchOptions) (Browser, 
 }
 
 func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ...BrowserTypeLaunchPersistentContextOptions) (BrowserContext, error) {
+	// Resolve a relative userDataDir to an absolute path, matching upstream, so
+	// the driver receives a path independent of the process working directory.
+	if userDataDir != "" && !filepath.IsAbs(userDataDir) {
+		if abs, err := filepath.Abs(userDataDir); err == nil {
+			userDataDir = abs
+		}
+	}
 	overrides := map[string]any{
 		"userDataDir": userDataDir,
 	}
@@ -173,6 +181,9 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 }
 
 func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserTypeConnectOverCDPOptions) (Browser, error) {
+	if b.Name() != "chromium" {
+		return nil, errors.New("connecting over CDP is only supported in Chromium")
+	}
 	overrides := map[string]any{
 		"endpointURL": endpointURL,
 	}
