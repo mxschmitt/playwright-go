@@ -148,7 +148,7 @@ func resolveGlobBase(baseURL *string, match string) string {
 				relativePath[i] = mapToken(token, "$_"+strconv.Itoa(i)+"_$")
 			} else {
 				newPrefix := mapToken(token[:questionIndex], "$_"+strconv.Itoa(i)+"_$")
-				newSuffix := mapToken(token[questionIndex:], "?$"+strconv.Itoa(i)+"_$")
+				newSuffix := mapToken(token[questionIndex:], "?$_"+strconv.Itoa(i)+"_$")
 				relativePath[i] = newPrefix + newSuffix
 			}
 		}
