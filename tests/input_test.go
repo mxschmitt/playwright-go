@@ -250,8 +250,14 @@ func TestShouldUploadAFolder(t *testing.T) {
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "file2"), []byte("file2 content"), 0o600))
 	require.Nil(t, os.Mkdir(filepath.Join(dir, "sub-dir"), 0o700))
 	require.NoError(t, os.WriteFile(filepath.Join(dir, "sub-dir", "really.txt"), []byte("sub-dir file content"), 0o600))
+	// WebKit can take longer than the default 30s action timeout to ingest a
+	// directory upload on loaded CI runners. Upstream absorbs this flake via CI
+	// retries (retries: 3); flakiness-go does not retry, so raise the per-action
+	// timeout to give the slow WebKit step room instead.
 	//nolint:staticcheck
-	require.NoError(t, input.SetInputFiles(dir))
+	require.NoError(t, input.SetInputFiles(dir, playwright.ElementHandleSetInputFilesOptions{
+		Timeout: playwright.Float(90 * 1000),
+	}))
 
 	ret, err := input.Evaluate(`e => [...e.files].map(f => f.webkitRelativePath)`)
 	require.NoError(t, err)

@@ -343,7 +343,11 @@ func TestShouldUploadAFolderRemote(t *testing.T) {
 	require.NoError(t, err)
 	page, err := browser_context.NewPage()
 	require.NoError(t, err)
-	page.SetDefaultTimeout(60 * 1000)
+	// WebKit folder upload over a remote connection (file streaming + browser
+	// ingestion) can exceed the default 30s action timeout on loaded CI runners.
+	// flakiness-go does not retry (unlike upstream's CI retries: 3), so raise the
+	// default action timeout to give the slow WebKit step room.
+	page.SetDefaultTimeout(90 * 1000)
 
 	_, err = page.Goto(fmt.Sprintf("%s%s", server.PREFIX, "/input/folderupload.html"))
 	require.NoError(t, err)
