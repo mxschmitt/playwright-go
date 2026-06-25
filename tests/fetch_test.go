@@ -578,6 +578,50 @@ func TestFetchShouldThrowWhenFailOnStatusCodeIsTrue(t *testing.T) {
 	require.NoError(t, req.Dispose())
 }
 
+// TestFetchRequestReusesMethodAndHeadersWithoutOptions verifies that
+// Fetch(request) with no options derives the method, headers and body from the
+// passed request, matching upstream (the request-fallback logic runs
+// unconditionally, not only when options are supplied).
+func TestFetchRequestReusesMethodAndHeadersWithoutOptions(t *testing.T) {
+	BeforeEach(t)
+
+	serverReqChan := make(chan *http.Request, 1)
+	bodyChan := make(chan string, 1)
+	server.SetRoute("/post-endpoint", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodyChan <- string(body)
+		serverReqChan <- r
+		w.WriteHeader(200)
+	})
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+
+	// Capture a real page request (POST with a custom header and body).
+	pageReqInfo, err := page.ExpectRequest("**/post-endpoint", func() error {
+		_, err := page.Evaluate(`url => fetch(url, {
+			method: 'POST',
+			headers: { 'x-custom': 'val' },
+			body: 'hello',
+		})`, server.PREFIX+"/post-endpoint")
+		return err
+	})
+	require.NoError(t, err)
+	<-serverReqChan
+	<-bodyChan
+
+	// Replay it through APIRequestContext.Fetch WITHOUT options.
+	resp, err := pw.Request.NewContext()
+	require.NoError(t, err)
+	_, err = resp.Fetch(pageReqInfo)
+	require.NoError(t, err)
+
+	replayed := <-serverReqChan
+	replayedBody := <-bodyChan
+	require.Equal(t, "POST", replayed.Method)
+	require.Equal(t, "val", replayed.Header.Get("x-custom"))
+	require.Equal(t, "hello", replayedBody)
+}
+
 func TestFetchShouldNotThrowWhenFailOnStatusCodeIsFalse(t *testing.T) {
 	BeforeEach(t)
 
