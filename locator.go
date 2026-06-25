@@ -998,9 +998,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		log      []string
 	)
 
-	if v, ok := result["received"]; ok {
-		received = parseResult(v)
-	}
+	received = parseExpectReceived(result["received"])
 	if v, ok := result["matches"]; ok {
 		matches = v.(bool)
 	}
