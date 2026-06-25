@@ -250,6 +250,10 @@ func (r *requestImpl) applyFallbackOverrides(options RouteFallbackOptions) {
 			r.fallbackOverrides.PostDataBuffer = []byte(v)
 		case []byte:
 			r.fallbackOverrides.PostDataBuffer = v
+		default:
+			if data, err := json.Marshal(v); err == nil {
+				r.fallbackOverrides.PostDataBuffer = data
+			}
 		}
 	}
 }
