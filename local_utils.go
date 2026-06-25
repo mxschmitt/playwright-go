@@ -22,12 +22,12 @@ type (
 	}
 
 	harLookupOptions struct {
-		HarId               string            `json:"harId"`
-		URL                 string            `json:"url"`
-		Method              string            `json:"method"`
-		Headers             map[string]string `json:"headers"`
-		IsNavigationRequest bool              `json:"isNavigationRequest"`
-		PostData            any               `json:"postData,omitempty"`
+		HarId               string      `json:"harId"`
+		URL                 string      `json:"url"`
+		Method              string      `json:"method"`
+		Headers             []NameValue `json:"headers"`
+		IsNavigationRequest bool        `json:"isNavigationRequest"`
+		PostData            any         `json:"postData,omitempty"`
 	}
 
 	harLookupResult struct {
@@ -67,7 +67,7 @@ func (l *localUtilsImpl) HarLookup(option harLookupOptions) (*harLookupResult, e
 	overrides["url"] = option.URL
 	overrides["method"] = option.Method
 	if option.Headers != nil {
-		overrides["headers"] = serializeMapToNameAndValue(option.Headers)
+		overrides["headers"] = option.Headers
 	}
 	overrides["isNavigationRequest"] = option.IsNavigationRequest
 	if option.PostData != nil {

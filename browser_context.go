@@ -466,17 +466,19 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 				return nil, err
 			}
 			artifact := fromChannel(response["artifact"]).(*artifactImpl)
-			if !needCompressed && harMetaData.Content == HarContentPolicyAttach {
+			// Non-zip output is always unzipped into HAR JSON, regardless of the
+			// content policy (matching upstream _exportHAR which gates only on isZip).
+			if needCompressed {
+				if err := artifact.SaveAs(harMetaData.Path); err != nil {
+					return nil, err
+				}
+			} else {
 				tmpPath := harMetaData.Path + ".tmp"
 				if err := artifact.SaveAs(tmpPath); err != nil {
 					return nil, err
 				}
-				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path)
+				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path, harMetaData.ResourcesDir)
 				if err != nil {
-					return nil, err
-				}
-			} else {
-				if err := artifact.SaveAs(harMetaData.Path); err != nil {
 					return nil, err
 				}
 			}

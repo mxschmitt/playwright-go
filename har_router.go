@@ -57,11 +57,17 @@ func (r *harRouter) handle(route Route) error {
 	if err != nil {
 		return err
 	}
+	// Use the actual on-wire headers (ordered, with duplicates) for matching,
+	// mirroring upstream which passes request.headersArray().
+	headers, err := request.HeadersArray()
+	if err != nil {
+		return err
+	}
 	response, err := r.localUtils.HarLookup(harLookupOptions{
 		HarId:               r.harId,
 		URL:                 request.URL(),
 		Method:              request.Method(),
-		Headers:             request.Headers(),
+		Headers:             headers,
 		IsNavigationRequest: request.IsNavigationRequest(),
 		PostData:            postData,
 	})

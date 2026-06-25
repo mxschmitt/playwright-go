@@ -221,6 +221,13 @@ func (t *tracingImpl) StopHar() error {
 	if len(t.harRecorders) == 0 {
 		return fmt.Errorf("HAR recording has not been started")
 	}
+	return t.exportAllHars()
+}
+
+// exportAllHars flushes every active HAR recording to disk. It is invoked by
+// StopHar and by APIRequestContext.Dispose so HARs started via the request
+// context are written even without an explicit StopHar call.
+func (t *tracingImpl) exportAllHars() error {
 	for harId, harMetaData := range t.harRecorders {
 		delete(t.harRecorders, harId)
 		overrides := map[string]any{}

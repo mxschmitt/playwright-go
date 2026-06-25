@@ -72,6 +72,13 @@ func (r *apiRequestContextImpl) Dispose(options ...APIRequestContextDisposeOptio
 	if len(options) == 1 {
 		r.closeReason = options[0].Reason
 	}
+	// Flush any HARs recorded via this request context before disposing,
+	// matching upstream dispose() which calls _exportAllHars().
+	if r.tracing != nil && len(r.tracing.harRecorders) > 0 {
+		if err := r.tracing.exportAllHars(); err != nil {
+			return err
+		}
+	}
 	_, err := r.channel.Send("dispose", map[string]any{
 		"reason": r.closeReason,
 	})
