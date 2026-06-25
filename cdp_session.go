@@ -37,6 +37,9 @@ func newCDPSession(parent *channelOwner, objectType string, guid string, initial
 	bt.channel.On("event", func(params map[string]any) {
 		bt.onEvent(params)
 	})
+	bt.channel.On("close", func() {
+		bt.Emit("close", bt)
+	})
 
 	return bt
 }
