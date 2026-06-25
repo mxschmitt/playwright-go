@@ -605,6 +605,9 @@ func (p *pageImpl) waiterForRequest(url any, options ...PageExpectRequestOptions
 	}
 
 	waiter := newWaiter().WithTimeout(*option.Timeout)
+	// Fail fast if the page crashes or closes while waiting, matching upstream.
+	waiter.RejectOnEvent(p, "crash", errors.New("page crashed"))
+	waiter.RejectOnEvent(p, "close", p.closeErrorWithReason())
 	return waiter.WaitForEvent(p, "request", predicate)
 }
 
@@ -628,6 +631,9 @@ func (p *pageImpl) waiterForResponse(url any, options ...PageExpectResponseOptio
 	}
 
 	waiter := newWaiter().WithTimeout(*option.Timeout)
+	// Fail fast if the page crashes or closes while waiting, matching upstream.
+	waiter.RejectOnEvent(p, "crash", errors.New("page crashed"))
+	waiter.RejectOnEvent(p, "close", p.closeErrorWithReason())
 	return waiter.WaitForEvent(p, "response", predicate)
 }
 
@@ -1063,8 +1069,10 @@ func (p *pageImpl) onRoute(route *routeImpl) {
 
 	url := route.Request().URL()
 	for _, handlerEntry := range routes {
-		// If the page was closed we stall all requests right away.
-		if p.closeWasCalled.Load() || p.browserContext.closeWasCalled.Load() {
+		// If the page or context was closed we stall all requests right away.
+		// Use IsClosed() for the context so a server-driven close is covered too,
+		// matching page.ts (this._closeWasCalled || this._browserContext.isClosed()).
+		if p.closeWasCalled.Load() || p.browserContext.IsClosed() {
 			return
 		}
 		if !handlerEntry.Matches(url) {
