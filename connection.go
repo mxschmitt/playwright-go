@@ -416,14 +416,28 @@ func (pc *protocolCallback) waitResult() {
 	// A blocking call made from within an event handler runs on the dispatch
 	// goroutine, which is the only goroutine that can deliver this reply.
 	// Blocking on pc.done would deadlock, so instead drive the receive loop
-	// re-entrantly until the reply (or connection close) arrives.
-	if pc.connection.dispatchGID.Load() == currentGoroutineID() {
+	// re-entrantly until the reply (or connection close) arrives. If a reply
+	// dispatched here triggers another event whose handler makes a blocking
+	// call, waitResult re-enters; the recursion is bounded by the nesting depth
+	// of blocking-handler chains, which mirrors the synchronous client model.
+	//
+	// dispatchGID is 0 until the receive loop records its id; currentGoroutineID
+	// also returns 0 if the stack header can't be parsed. Guarding against 0
+	// ensures neither case is mistaken for the dispatch goroutine.
+	if gid := pc.connection.dispatchGID.Load(); gid != 0 && gid == currentGoroutineID() {
 		for {
 			select {
 			case <-pc.done:
 				return
 			case <-pc.abort:
-				pc.err = errors.New("Connection closed")
+				// Prefer a delivered result over the close error: setResultOnce
+				// sets value/err before closing done, so a closed done means a
+				// real result is already available.
+				select {
+				case <-pc.done:
+				default:
+					pc.err = errors.New("Connection closed")
+				}
 				return
 			default:
 			}
