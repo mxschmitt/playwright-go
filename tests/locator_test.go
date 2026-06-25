@@ -329,6 +329,17 @@ func TestLocatorTextContent(t *testing.T) {
 	require.Equal(t, "Text,\nmore text", result)
 }
 
+func TestLocatorEvaluateShouldWorkOnHiddenElement(t *testing.T) {
+	BeforeEach(t)
+
+	// Evaluate resolves the element with state "attached" rather than the
+	// default "visible", so it must not time out on a hidden element.
+	require.NoError(t, page.SetContent(`<div id="target" style="display:none">hi</div>`))
+	tagName, err := page.Locator("#target").Evaluate(`e => e.tagName`, nil)
+	require.NoError(t, err)
+	require.Equal(t, "DIV", tagName)
+}
+
 func TestLocatorShouldFocusAndBlurButton(t *testing.T) {
 	BeforeEach(t)
 

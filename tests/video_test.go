@@ -3,6 +3,7 @@ package playwright_test
 import (
 	"os"
 	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -214,6 +215,42 @@ func TestVideo(t *testing.T) {
 	})
 }
 
+func TestVideoRelativeDirShouldResolveToAbsolute(t *testing.T) {
+	// Regression test for https://github.com/playwright-community/playwright-go/issues/565
+	// A relative recordVideo.dir must be resolved to an absolute path client-side
+	// (matching upstream path.resolve), so Video().Path() does not depend on the
+	// process working directory at the time it is read.
+	recordVideoDir := t.TempDir()
+	relDir, err := filepath.Rel(mustGetwd(t), recordVideoDir)
+	require.NoError(t, err)
+	require.False(t, filepath.IsAbs(relDir))
+
+	BeforeEach(t, playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{
+			Dir: playwright.String(relDir),
+		},
+	})
+
+	_, err = page.Goto(server.PREFIX + "/grid.html")
+	require.NoError(t, err)
+	//nolint:staticcheck
+	page.WaitForTimeout(500)
+	require.NoError(t, context.Close())
+
+	path, err := page.Video().Path()
+	require.NoError(t, err)
+	require.True(t, filepath.IsAbs(path), "Video().Path() should be absolute, got %q", path)
+	require.Equal(t, recordVideoDir, filepath.Dir(path))
+	require.FileExists(t, path)
+}
+
+func mustGetwd(t *testing.T) string {
+	t.Helper()
+	wd, err := os.Getwd()
+	require.NoError(t, err)
+	return wd
+}
+
 func TestScreencastStartStop(t *testing.T) {
 	BeforeEach(t)
 
@@ -223,23 +260,39 @@ func TestScreencastStartStop(t *testing.T) {
 	screencast, err := page.Screencast()
 	require.NoError(t, err)
 
-	var frames [][]byte
+	var (
+		mu         sync.Mutex
+		frames     [][]byte
+		firstFrame = make(chan struct{}, 1)
+	)
 	err = screencast.Start(playwright.ScreencastStartOptions{
 		OnFrame: func(frame playwright.OnFrame) {
+			mu.Lock()
 			frames = append(frames, frame.Data)
+			mu.Unlock()
+			select {
+			case firstFrame <- struct{}{}:
+			default:
+			}
 		},
 	})
 	require.NoError(t, err)
 
-	// Trigger some activity to generate frames
+	// Trigger some activity to generate frames, then wait until at least one
+	// frame arrives rather than racing a fixed timeout (webkit can be slow).
 	_, err = page.Reload()
 	require.NoError(t, err)
-	//nolint:staticcheck
-	page.WaitForTimeout(500)
+	select {
+	case <-firstFrame:
+	case <-time.After(30 * time.Second):
+		t.Fatal("should have received at least one frame")
+	}
 
 	err = screencast.Stop()
 	require.NoError(t, err)
 
+	mu.Lock()
+	defer mu.Unlock()
 	require.Greater(t, len(frames), 0, "should have received at least one frame")
 	require.Greater(t, len(frames[0]), 0, "frame data should not be empty")
 }

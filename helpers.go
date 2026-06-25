@@ -3,6 +3,7 @@ package playwright
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"regexp"
 	"strings"
@@ -605,6 +606,22 @@ type recordHarInputOptions struct {
 type harRecordingMetadata struct {
 	Path    string
 	Content *HarContentPolicy
+}
+
+// resolveRecordVideoDir resolves a relative recordVideo.dir to an absolute path,
+// mirroring the upstream JS/Python clients (path.resolve). Without this the driver
+// receives a relative directory and Video().Path() returns a path relative to the
+// process working directory, which breaks if the cwd changes before the file is read.
+func resolveRecordVideoDir(recordVideo *RecordVideo) error {
+	if recordVideo == nil || recordVideo.Dir == nil {
+		return nil
+	}
+	abs, err := filepath.Abs(*recordVideo.Dir)
+	if err != nil {
+		return err
+	}
+	recordVideo.Dir = String(abs)
+	return nil
 }
 
 func prepareRecordHarOptions(option recordHarInputOptions) recordHarOptions {

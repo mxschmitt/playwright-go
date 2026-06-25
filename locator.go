@@ -937,13 +937,24 @@ func (l *locatorImpl) withElement(
 	if l.err != nil {
 		return nil, l.err
 	}
-	handle, err := l.frame.WaitForSelector(l.selector, options...)
+	option := FrameWaitForSelectorOptions{
+		State:  WaitForSelectorStateAttached,
+		Strict: Bool(true),
+	}
+	if len(options) == 1 {
+		option.Timeout = options[0].Timeout
+	}
+	handle, err := l.frame.WaitForSelector(l.selector, option)
 	if err != nil {
 		return nil, err
 	}
 
 	result, err := callback(handle)
 	if err != nil {
+		_ = handle.Dispose()
+		return nil, err
+	}
+	if err := handle.Dispose(); err != nil {
 		return nil, err
 	}
 	return result, nil
