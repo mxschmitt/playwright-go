@@ -166,4 +166,8 @@ func TestConsoleShouldHaveLocationForConsoleAPICalls(t *testing.T) {
 	require.Equal(t, message.Type(), "log")
 	require.Equal(t, server.PREFIX+"/consolelog.html", message.Location().URL)
 	require.Equal(t, 7, message.Location().LineNumber)
+	// The non-deprecated Line/Column aliases must be populated too (upstream
+	// maps lineNumber/columnNumber onto line/column).
+	require.Equal(t, message.Location().LineNumber, message.Location().Line)
+	require.Equal(t, message.Location().ColumnNumber, message.Location().Column)
 }
