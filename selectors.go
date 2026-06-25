@@ -2,6 +2,7 @@ package playwright
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -29,6 +30,14 @@ type selectorsImpl struct {
 }
 
 func (s *selectorsImpl) Register(name string, script Script, options ...SelectorsRegisterOptions) error {
+	s.mu.RLock()
+	for _, reg := range s.registrations {
+		if reg["name"] == name {
+			s.mu.RUnlock()
+			return fmt.Errorf("selectors.register: %q selector engine has been already registered", name)
+		}
+	}
+	s.mu.RUnlock()
 	if script.Path == nil && script.Content == nil {
 		return errors.New("Either source or path should be specified")
 	}
@@ -83,9 +92,11 @@ func (s *selectorsImpl) addChannel(channel *selectorsOwnerImpl) {
 			"selectorEngine": selectorEngine,
 		}
 		channel.channel.SendNoReply("registerSelectorEngine", params)
-		channel.setTestIdAttributeName(getTestIdAttributeName())
 	}
 	s.mu.RUnlock()
+	if testIdAttr := getTestIdAttributeName(); testIdAttr != "" {
+		channel.setTestIdAttributeName(testIdAttr)
+	}
 }
 
 func (s *selectorsImpl) removeChannel(channel *selectorsOwnerImpl) {
