@@ -539,7 +539,17 @@ func (f *frameImpl) WaitForFunction(expression string, arg any, options ...Frame
 	overrides := map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
-		"polling":    option.Polling,
+	}
+	// The server expects a numeric `pollingInterval`; the string "raf" means
+	// "poll on requestAnimationFrame" and is conveyed by omitting the interval.
+	switch polling := option.Polling.(type) {
+	case string:
+		if polling != "raf" {
+			return nil, fmt.Errorf("Unknown polling option: %s", polling)
+		}
+	case nil:
+	default:
+		overrides["pollingInterval"] = option.Polling
 	}
 	// timeout is required in Playwright v1.57+ protocol
 	if option.Timeout == nil {
