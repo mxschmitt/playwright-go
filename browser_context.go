@@ -413,7 +413,11 @@ func (b *browserContextImpl) ExpectPage(cb func() error, options ...BrowserConte
 }
 
 func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error {
-	if b.closeWasCalled.Load() {
+	// Mirror upstream's `if (this.isClosed()) return;` guard, where isClosed() is
+	// `_closingStatus !== 'none'` (true once closing OR closed). Guarding only on
+	// closeWasCalled would let a Close() after a server-driven close proceed into
+	// redundant request.Dispose / HAR export / close-on-dead-channel work.
+	if b.IsClosed() {
 		return nil
 	}
 	if len(options) == 1 {
