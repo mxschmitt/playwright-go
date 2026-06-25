@@ -272,7 +272,7 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleDescription(description any, op
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]any{description}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{description}, false, true, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -291,7 +291,7 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleErrorMessage(errorMessage any, 
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]any{errorMessage}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{errorMessage}, false, true, ignoreCase)
 	if err != nil {
 		return err
 	}
@@ -310,7 +310,7 @@ func (la *locatorAssertionsImpl) ToHaveAccessibleName(name any, options ...Locat
 		timeout = options[0].Timeout
 		ignoreCase = options[0].IgnoreCase
 	}
-	expectedText, err := toExpectedTextValues([]any{name}, false, false, ignoreCase)
+	expectedText, err := toExpectedTextValues([]any{name}, false, true, ignoreCase)
 	if err != nil {
 		return err
 	}
