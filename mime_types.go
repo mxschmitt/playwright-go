@@ -75,12 +75,13 @@ func determineScreenshotType(path *string, typ *ScreenshotType) (*ScreenshotType
 	if path == nil {
 		return nil, nil
 	}
-	switch getMimeTypeForPath(*path) {
+	mimeType := getMimeTypeForPath(*path)
+	switch mimeType {
 	case "image/png":
 		return ScreenshotTypePng, nil
 	case "image/jpeg":
 		return ScreenshotTypeJpeg, nil
 	default:
-		return nil, fmt.Errorf("path: unsupported mime type %q", getMimeTypeForPath(*path))
+		return nil, fmt.Errorf("path: unsupported mime type %q", mimeType)
 	}
 }

@@ -358,14 +358,24 @@ func (p *pageImpl) Goto(url string, options ...PageGotoOptions) (Response, error
 	return p.mainFrame.Goto(url)
 }
 
-func (p *pageImpl) Reload(options ...PageReloadOptions) (Response, error) {
+// navigationTimeoutOverride returns the channel overrides that resolve the
+// configured navigation timeout when the caller supplied no per-call timeout.
+// The protocol requires a timeout on the navigation methods, so without this the
+// serializer would inject a hardcoded 30s instead of honoring SetDefaultNavigationTimeout.
+func (p *pageImpl) navigationTimeoutOverride(timeout *float64) map[string]any {
 	overrides := map[string]any{}
-	// timeout is required by the protocol; resolve the configured navigation
-	// timeout when the caller didn't supply one (matches upstream).
-	if len(options) == 0 || options[0].Timeout == nil {
+	if timeout == nil {
 		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
 	}
-	channel, err := p.channel.Send("reload", options, overrides)
+	return overrides
+}
+
+func (p *pageImpl) Reload(options ...PageReloadOptions) (Response, error) {
+	var timeout *float64
+	if len(options) == 1 {
+		timeout = options[0].Timeout
+	}
+	channel, err := p.channel.Send("reload", options, p.navigationTimeoutOverride(timeout))
 	if err != nil {
 		return nil, err
 	}
@@ -384,11 +394,11 @@ func (p *pageImpl) WaitForLoadState(options ...PageWaitForLoadStateOptions) erro
 }
 
 func (p *pageImpl) GoBack(options ...PageGoBackOptions) (Response, error) {
-	overrides := map[string]any{}
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
+	var timeout *float64
+	if len(options) == 1 {
+		timeout = options[0].Timeout
 	}
-	channel, err := p.channel.Send("goBack", options, overrides)
+	channel, err := p.channel.Send("goBack", options, p.navigationTimeoutOverride(timeout))
 	if err != nil {
 		return nil, err
 	}
@@ -401,11 +411,11 @@ func (p *pageImpl) GoBack(options ...PageGoBackOptions) (Response, error) {
 }
 
 func (p *pageImpl) GoForward(options ...PageGoForwardOptions) (Response, error) {
-	overrides := map[string]any{}
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
+	var timeout *float64
+	if len(options) == 1 {
+		timeout = options[0].Timeout
 	}
-	channel, err := p.channel.Send("goForward", options, overrides)
+	channel, err := p.channel.Send("goForward", options, p.navigationTimeoutOverride(timeout))
 	if err != nil {
 		return nil, err
 	}
