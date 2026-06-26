@@ -355,6 +355,10 @@ type RunOptions struct {
 	//  - PLAYWRIGHT_NODEJS_PATH: use a preinstalled Node.js and skip downloading
 	//    one. Required on platforms without a prebuilt Node.js binary (e.g.
 	//    linux/arm).
+	//  - PLAYWRIGHT_CLI_PATH: use a preinstalled cli.js directly, bypassing the
+	//    assumed <DriverDirectory>/package/cli.js layout. Useful for
+	//    distro-packaged drivers (e.g. the official NixOS playwright-driver,
+	//    which keeps cli.js at the package root).
 	//  - PLAYWRIGHT_GO_NPM_REGISTRY: npm registry mirror for playwright-core
 	//    (default https://registry.npmjs.org).
 	//  - NODE_MIRROR: Node.js distribution mirror (default https://nodejs.org/dist).
@@ -468,6 +472,13 @@ func getNodeExecutable(driverDirectory string) string {
 }
 
 func getDriverCliJs(driverDirectory string) string {
+	// Allow pointing directly at cli.js, e.g. for distro-packaged drivers whose
+	// layout differs from the assembled bundle (the official NixOS
+	// playwright-driver keeps cli.js at the package root, not under package/).
+	// This mirrors PLAYWRIGHT_NODEJS_PATH for the Node.js binary.
+	if envPath := os.Getenv("PLAYWRIGHT_CLI_PATH"); envPath != "" {
+		return envPath
+	}
 	return filepath.Join(driverDirectory, "package", "cli.js")
 }
 

@@ -209,6 +209,18 @@ func TestGetNodeExecutable(t *testing.T) {
 	assert.Contains(t, executable, "testDirectory")
 }
 
+func TestGetDriverCliJs(t *testing.T) {
+	// When PLAYWRIGHT_CLI_PATH is set, use that path directly.
+	t.Setenv("PLAYWRIGHT_CLI_PATH", "/custom/cli.js")
+	assert.Equal(t, "/custom/cli.js", getDriverCliJs("testDirectory"))
+
+	// Otherwise fall back to the assumed <DriverDirectory>/package/cli.js layout.
+	require.NoError(t, os.Unsetenv("PLAYWRIGHT_CLI_PATH"))
+	cliJs := getDriverCliJs("testDirectory")
+	assert.Contains(t, cliJs, "testDirectory")
+	assert.Contains(t, cliJs, "cli.js")
+}
+
 func killProcessByPid(pid int) error {
 	process, err := os.FindProcess(pid)
 	if err != nil {
