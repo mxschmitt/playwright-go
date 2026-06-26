@@ -54,6 +54,56 @@ func skipWebKitMacOSPopup(t *testing.T) {
 	}
 }
 
+// attemptT wraps *testing.T but captures assertion failures locally instead of
+// propagating them to the real test. It satisfies testify's require.TestingT
+// and the parts of testing.TB our tests use, so an existing test body can run
+// against it unchanged.
+type attemptT struct {
+	*testing.T
+	failed bool
+}
+
+func (a *attemptT) Errorf(format string, args ...interface{}) {
+	a.failed = true
+	a.Logf("[retry] "+format, args...)
+}
+
+func (a *attemptT) FailNow() {
+	a.failed = true
+	runtime.Goexit()
+}
+
+// withRetry runs body up to attempts times and passes as soon as one attempt
+// succeeds, failing the test only if every attempt fails. Each attempt runs in
+// its own goroutine so a require.* failure (which calls runtime.Goexit) ends
+// only that attempt, and gets a fresh browser context/page via BeforeEach so a
+// botched attempt never leaks state into the next one.
+//
+// Use this only for tests that are genuinely correct but occasionally too slow
+// on loaded CI runners (where upstream relies on its CI retries: 3) — not to
+// paper over real bugs. The body receives a testing.TB; pass it to require.*
+// and use it wherever the test would otherwise use t.
+func withRetry(t *testing.T, attempts int, body func(t testing.TB)) {
+	t.Helper()
+	for i := 0; i < attempts; i++ {
+		a := &attemptT{T: t}
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			BeforeEach(a.T)
+			body(a)
+		}()
+		<-done
+		if !a.failed {
+			return
+		}
+		if i < attempts-1 {
+			t.Logf("attempt %d/%d failed, retrying", i+1, attempts)
+		}
+	}
+	t.Fatalf("still failing after %d attempts", attempts)
+}
+
 // BeforeAll prepares the environment, including
 //   - start Playwright driver
 //   - launch browser depends on BROWSER env
