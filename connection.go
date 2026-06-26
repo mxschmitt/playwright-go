@@ -126,8 +126,12 @@ func (c *connection) Dispatch(msg *message) {
 		if cb.noReply {
 			return
 		}
-		if msg.Error != nil {
-			cb.SetError(parseError(msg.Error.Error))
+		if msg.Error != nil && msg.Result == nil {
+			err := parseError(msg.Error.Error)
+			if log := formatCallLog(msg.Log); log != "" {
+				err = fmt.Errorf("%w%s", err, log)
+			}
+			cb.SetError(err)
 		} else {
 			// Always resolve GUIDs in responses, regardless of connection type
 			// The protocol guarantees that __create__ events arrive before responses that reference those objects
@@ -265,7 +269,11 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 	}
 
 	id := c.lastID.Add(1)
-	c.callbacks.Store(id, cb)
+	// The server never replies to noReply messages, so storing their callbacks
+	// would leak an entry per call for the connection's lifetime.
+	if !noReply {
+		c.callbacks.Store(id, cb)
+	}
 	var (
 		metadata = make(map[string]any, 0)
 		stack    = make([]map[string]any, 0)

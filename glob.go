@@ -28,10 +28,13 @@ func globMustToRegex(glob string) *regexp.Regexp {
 	tokens := []string{"^"}
 	inGroup := false
 
-	for i := 0; i < len(glob); i++ {
-		c := rune(glob[i])
-		if c == '\\' && i+1 < len(glob) {
-			char := rune(glob[i+1])
+	// Iterate by rune (not byte) so multibyte UTF-8 characters survive intact,
+	// matching upstream which iterates UTF-16 code units.
+	runes := []rune(glob)
+	for i := 0; i < len(runes); i++ {
+		c := runes[i]
+		if c == '\\' && i+1 < len(runes) {
+			char := runes[i+1]
 			if _, ok := escapedChars[char]; ok {
 				tokens = append(tokens, "\\"+string(char))
 			} else {
@@ -39,23 +42,31 @@ func globMustToRegex(glob string) *regexp.Regexp {
 			}
 			i++
 		} else if c == '*' {
-			beforeDeep := rune(0)
+			charBefore := rune(0)
 			if i > 0 {
-				beforeDeep = rune(glob[i-1])
+				charBefore = runes[i-1]
 			}
 			starCount := 1
-			for i+1 < len(glob) && glob[i+1] == '*' {
+			for i+1 < len(runes) && runes[i+1] == '*' {
 				starCount++
 				i++
 			}
-			afterDeep := rune(0)
-			if i+1 < len(glob) {
-				afterDeep = rune(glob[i+1])
-			}
-			isDeep := starCount > 1 && (beforeDeep == '/' || beforeDeep == 0) && (afterDeep == '/' || afterDeep == 0)
-			if isDeep {
-				tokens = append(tokens, "((?:[^/]*(?:/|$))*)")
-				i++
+			if starCount > 1 {
+				charAfter := rune(0)
+				if i+1 < len(runes) {
+					charAfter = runes[i+1]
+				}
+				// Match either /..something../ or /.
+				if charAfter == '/' {
+					if charBefore == '/' {
+						tokens = append(tokens, "((.+/)|)")
+					} else {
+						tokens = append(tokens, "(.*/)")
+					}
+					i++
+				} else {
+					tokens = append(tokens, "(.*)")
+				}
 			} else {
 				tokens = append(tokens, "([^/]*)")
 			}
@@ -110,6 +121,12 @@ func resolveGlobBase(baseURL *string, match string) string {
 	}
 	// Escaped `\\?` behaves the same as `?` in our glob patterns.
 	match = strings.ReplaceAll(match, `\\?`, "?")
+	// Special case about:/data:/chrome:/edge:/file: URLs as they are not relative to baseURL.
+	if strings.HasPrefix(match, "about:") || strings.HasPrefix(match, "data:") ||
+		strings.HasPrefix(match, "chrome:") || strings.HasPrefix(match, "edge:") ||
+		strings.HasPrefix(match, "file:") {
+		return match
+	}
 	// Glob symbols may be escaped in the URL and some of them such as ? affect resolution,
 	// so we replace them with safe components first.
 	relativePath := strings.Split(match, "/")
@@ -120,41 +137,59 @@ func resolveGlobBase(baseURL *string, match string) string {
 		// Handle special case of http*://, note that the new schema has to be
 		// a web schema so that slashes are properly inserted after domain.
 		if i == 0 && strings.HasSuffix(token, ":") {
-			relativePath[i] = mapToken(token, "http:")
+			// Replace any pattern with http:; preserve an explicit schema as-is as
+			// it may affect trailing slashes after the domain.
+			if strings.ContainsAny(token, "*{") {
+				relativePath[i] = mapToken(token, "http:")
+			}
 		} else {
 			questionIndex := strings.Index(token, "?")
 			if questionIndex == -1 {
 				relativePath[i] = mapToken(token, "$_"+strconv.Itoa(i)+"_$")
 			} else {
 				newPrefix := mapToken(token[:questionIndex], "$_"+strconv.Itoa(i)+"_$")
-				newSuffix := mapToken(token[questionIndex:], "?$"+strconv.Itoa(i)+"_$")
+				newSuffix := mapToken(token[questionIndex:], "?$_"+strconv.Itoa(i)+"_$")
 				relativePath[i] = newPrefix + newSuffix
 			}
 		}
 	}
-	resolved := constructURLBasedOnBaseURL(baseURL, strings.Join(relativePath, "/"))
+	resolved, origin := constructURLBasedOnBaseURL(baseURL, strings.Join(relativePath, "/"))
 	for token, original := range tokenMap {
-		resolved = strings.ReplaceAll(resolved, token, original)
+		// Scheme and domain are case-insensitive: when a token resolves inside the
+		// URL origin, restore it lowercased so a mixed-case host still matches the
+		// (always-lowercased) request URL. Matches upstream resolveBaseURL.
+		replacement := original
+		if origin != "" && strings.Contains(origin, token) {
+			replacement = strings.ToLower(original)
+		}
+		resolved = strings.Replace(resolved, token, replacement, 1)
 	}
 	return resolved
 }
 
-func constructURLBasedOnBaseURL(baseURL *string, givenURL string) string {
+// constructURLBasedOnBaseURL resolves givenURL against baseURL (new URL(given,
+// base) semantics) and also returns the resolved URL's origin (scheme://host[:port]),
+// which is case-insensitive.
+func constructURLBasedOnBaseURL(baseURL *string, givenURL string) (string, string) {
 	u, err := url.Parse(givenURL)
 	if err != nil {
-		return givenURL
+		return givenURL, ""
 	}
 	if baseURL != nil {
 		base, err := url.Parse(*baseURL)
 		if err != nil {
-			return givenURL
+			return givenURL, ""
 		}
 		u = base.ResolveReference(u)
 	}
 	if u.Path == "" { // In Node.js, new URL('http://localhost') returns 'http://localhost/'.
 		u.Path = "/"
 	}
-	return u.String()
+	origin := ""
+	if u.Scheme != "" && u.Host != "" {
+		origin = u.Scheme + "://" + u.Host
+	}
+	return u.String(), origin
 }
 
 func toWebSocketBaseURL(baseURL *string) *string {

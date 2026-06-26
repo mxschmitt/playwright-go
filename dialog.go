@@ -1,5 +1,7 @@
 package playwright
 
+import "errors"
+
 type dialogImpl struct {
 	channelOwner
 	page Page
@@ -30,6 +32,9 @@ func (d *dialogImpl) Accept(promptTextInput ...string) error {
 
 func (d *dialogImpl) Dismiss() error {
 	_, err := d.channel.Send("dismiss")
+	if errors.Is(err, ErrTargetClosed) {
+		return nil
+	}
 	return err
 }
 

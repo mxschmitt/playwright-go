@@ -334,6 +334,15 @@ type StorageState struct {
 	Origins []Origin `json:"origins"`
 }
 
+type APIRequestContextStorageStateOptions struct {
+	// Set to `true` to include IndexedDB in the storage state snapshot.
+	IndexedDB *bool `json:"indexedDB"`
+	// The file path to save the storage state to. If “[object Object]” is a relative path, then it is resolved relative
+	// to current working directory. If no path is provided, storage state is still returned, but won't be saved to the
+	// disk.
+	Path *string `json:"path"`
+}
+
 type NameValue struct {
 	// Name of the header.
 	Name string `json:"name"`
@@ -772,6 +781,19 @@ type Geolocation struct {
 	Longitude float64 `json:"longitude"`
 	// Non-negative accuracy value. Defaults to `0`.
 	Accuracy *float64 `json:"accuracy"`
+}
+
+type BrowserContextStorageStateOptions struct {
+	// Set to `true` to include [IndexedDB] in the storage
+	// state snapshot. If your application uses IndexedDB to store authentication tokens, like Firebase Authentication,
+	// enable this.
+	//
+	// [IndexedDB]: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
+	IndexedDB *bool `json:"indexedDB"`
+	// The file path to save the storage state to. If “[object Object]” is a relative path, then it is resolved relative
+	// to current working directory. If no path is provided, storage state is still returned, but won't be saved to the
+	// disk.
+	Path *string `json:"path"`
 }
 
 type BrowserContextUnrouteAllOptions struct {
@@ -4464,6 +4486,9 @@ type TracingStartHarOptions struct {
 	// When set to `minimal`, only record information necessary for routing from HAR. This omits sizes, timing, page,
 	// cookies, security and other types of HAR information that are not used when replaying from HAR. Defaults to `full`.
 	Mode *HarMode `json:"mode"`
+	// Only used together with `content: 'attach'`. When set, response bodies are placed in this directory instead of next
+	// to the HAR file. Not compatible with a `.zip` HAR file.
+	ResourcesDir *string `json:"resourcesDir"`
 	// A glob or regex pattern to filter requests that are stored in the HAR. Defaults to none.
 	URLFilter any `json:"urlFilter"`
 }

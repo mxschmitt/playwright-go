@@ -52,6 +52,7 @@ type frameExpectOptions struct {
 	UseInnerText   *bool               `json:"useInnerText,omitempty"`
 	IsNot          bool                `json:"isNot"`
 	Timeout        *float64            `json:"timeout"`
+	Pseudo         *PseudoElement      `json:"pseudo,omitempty"`
 }
 
 type frameExpectResult struct {
@@ -97,6 +98,25 @@ func (b *assertionsBase) expect(
 		return fmt.Errorf("%s\nActual value: %v %s", message, actual, log)
 	}
 
+	return nil
+}
+
+// parseExpectReceived unwraps the `received` object returned by the `expect`
+// channel call. The server emits `received` as `{ value?: SerializedValue,
+// ariaSnapshot?: string }` (see server frameDispatcher), so we must descend into
+// the nested `value` before parsing it, falling back to `ariaSnapshot`. This
+// mirrors upstream frame._expect (client/frame.ts).
+func parseExpectReceived(received any) any {
+	recv, ok := received.(map[string]any)
+	if !ok {
+		return nil
+	}
+	if value, ok := recv["value"]; ok {
+		return parseResult(value)
+	}
+	if ariaSnapshot, ok := recv["ariaSnapshot"]; ok {
+		return ariaSnapshot
+	}
 	return nil
 }
 

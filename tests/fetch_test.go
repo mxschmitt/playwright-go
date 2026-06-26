@@ -102,6 +102,21 @@ func TestShouldWorkAfterContextDisposed(t *testing.T) {
 	require.ErrorContains(t, err, "Test ended.")
 }
 
+// TestContextRequestRespectsContextDefaultTimeout verifies that
+// BrowserContext.SetDefaultTimeout applies to the context-owned
+// request context's fetches (they share the context timeout settings).
+func TestContextRequestRespectsContextDefaultTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+	})
+	context.SetDefaultTimeout(1)
+	_, err := context.Request().Get(server.PREFIX + "/slow")
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.ErrorContains(t, err, "Timeout 1ms exceeded")
+}
+
 func TestShouldSupportGlobalUserAgentOption(t *testing.T) {
 	BeforeEach(t)
 
@@ -280,7 +295,7 @@ func TestStorageStateShouldRoundTripThroughFile(t *testing.T) {
 	})
 	require.NoError(t, err)
 	tempfile := filepath.Join(t.TempDir(), "storage-state.json")
-	actual, err := request.StorageState(tempfile)
+	actual, err := request.StorageState(playwright.APIRequestContextStorageStateOptions{Path: playwright.String(tempfile)})
 	require.NoError(t, err)
 	require.Equal(t, storageState, actual)
 	stateWritten, err := os.ReadFile(tempfile)
@@ -576,6 +591,50 @@ func TestFetchShouldThrowWhenFailOnStatusCodeIsTrue(t *testing.T) {
 	require.ErrorContains(t, err, "404 Not Found")
 
 	require.NoError(t, req.Dispose())
+}
+
+// TestFetchRequestReusesMethodAndHeadersWithoutOptions verifies that
+// Fetch(request) with no options derives the method, headers and body from the
+// passed request, matching upstream (the request-fallback logic runs
+// unconditionally, not only when options are supplied).
+func TestFetchRequestReusesMethodAndHeadersWithoutOptions(t *testing.T) {
+	BeforeEach(t)
+
+	serverReqChan := make(chan *http.Request, 1)
+	bodyChan := make(chan string, 1)
+	server.SetRoute("/post-endpoint", func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		bodyChan <- string(body)
+		serverReqChan <- r
+		w.WriteHeader(200)
+	})
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+
+	// Capture a real page request (POST with a custom header and body).
+	pageReqInfo, err := page.ExpectRequest("**/post-endpoint", func() error {
+		_, err := page.Evaluate(`url => fetch(url, {
+			method: 'POST',
+			headers: { 'x-custom': 'val' },
+			body: 'hello',
+		})`, server.PREFIX+"/post-endpoint")
+		return err
+	})
+	require.NoError(t, err)
+	<-serverReqChan
+	<-bodyChan
+
+	// Replay it through APIRequestContext.Fetch WITHOUT options.
+	resp, err := pw.Request.NewContext()
+	require.NoError(t, err)
+	_, err = resp.Fetch(pageReqInfo)
+	require.NoError(t, err)
+
+	replayed := <-serverReqChan
+	replayedBody := <-bodyChan
+	require.Equal(t, "POST", replayed.Method)
+	require.Equal(t, "val", replayed.Header.Get("x-custom"))
+	require.Equal(t, "hello", replayedBody)
 }
 
 func TestFetchShouldNotThrowWhenFailOnStatusCodeIsFalse(t *testing.T) {

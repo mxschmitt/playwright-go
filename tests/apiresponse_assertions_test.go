@@ -41,7 +41,7 @@ func TestAssertionsShouldPrintResponseWithTextContentTypeIfToBeOKFails(t *testin
 	err = expect.APIResponse(response).ToBeOK()
 	require.ErrorContains(t, err, "→ GET "+server.PREFIX+"/text-content-type")
 	require.ErrorContains(t, err, "← 404 Not Found")
-	require.ErrorContains(t, err, "Response Text:")
+	require.ErrorContains(t, err, "Response text:")
 	require.ErrorContains(t, err, "Text error")
 
 	response, err = page.Request().Get(server.PREFIX + "/no-content-type")
@@ -50,7 +50,7 @@ func TestAssertionsShouldPrintResponseWithTextContentTypeIfToBeOKFails(t *testin
 	err = expect.APIResponse(response).ToBeOK()
 	require.ErrorContains(t, err, "→ GET "+server.PREFIX+"/no-content-type")
 	require.ErrorContains(t, err, "← 404 Not Found")
-	require.NotContains(t, err.Error(), "Response Text:")
+	require.NotContains(t, err.Error(), "Response text:")
 	require.NotContains(t, err.Error(), "No content type error")
 
 	response, err = page.Request().Get(server.PREFIX + "/binary-content-type")
@@ -58,6 +58,6 @@ func TestAssertionsShouldPrintResponseWithTextContentTypeIfToBeOKFails(t *testin
 	err = expect.APIResponse(response).ToBeOK()
 	require.ErrorContains(t, err, "→ GET "+server.PREFIX+"/binary-content-type")
 	require.ErrorContains(t, err, "← 404 Not Found")
-	require.NotContains(t, err.Error(), "Response Text:")
+	require.NotContains(t, err.Error(), "Response text:")
 	require.NotContains(t, err.Error(), "Image content type error")
 }

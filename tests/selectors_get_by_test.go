@@ -157,6 +157,50 @@ func TestSelectorsGetByRoleEscaping(t *testing.T) {
 	}, []interface{}{})
 }
 
+func TestSelectorsGetByRoleWithDescription(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`
+		<div role="alert" aria-label="Upload successful" aria-description="File doc-2025.pdf was uploaded successfully">Alert 1</div>
+		<div role="alert" aria-label="Upload successful" aria-description="File report-2026.pdf was uploaded successfully">Alert 2</div>
+		<div role="alert" aria-label="Invalid file" aria-description="File demo.doc has an invalid file format">Alert 3</div>
+	`))
+
+	// description substring match (default)
+	utils.AssertResult(t, func() (interface{}, error) {
+		return page.GetByRole("alert", playwright.PageGetByRoleOptions{
+			Description: "doc-2025",
+		}).EvaluateAll(`els => els.map(e => e.textContent)`)
+	}, []interface{}{"Alert 1"})
+	utils.AssertResult(t, func() (interface{}, error) {
+		return page.GetByRole("alert", playwright.PageGetByRoleOptions{
+			Description: "report-2026",
+		}).EvaluateAll(`els => els.map(e => e.textContent)`)
+	}, []interface{}{"Alert 2"})
+
+	// description combined with name
+	utils.AssertResult(t, func() (interface{}, error) {
+		return page.GetByRole("alert", playwright.PageGetByRoleOptions{
+			Name:        "Upload successful",
+			Description: "doc-2025",
+		}).EvaluateAll(`els => els.map(e => e.textContent)`)
+	}, []interface{}{"Alert 1"})
+	utils.AssertResult(t, func() (interface{}, error) {
+		return page.GetByRole("alert", playwright.PageGetByRoleOptions{
+			Name:        "Invalid file",
+			Description: "doc-2025",
+		}).EvaluateAll(`els => els.map(e => e.textContent)`)
+	}, []interface{}{})
+
+	// description exact match
+	utils.AssertResult(t, func() (interface{}, error) {
+		return page.GetByRole("alert", playwright.PageGetByRoleOptions{
+			Description: "doc-2025",
+			Exact:       playwright.Bool(true),
+		}).EvaluateAll(`els => els.map(e => e.textContent)`)
+	}, []interface{}{})
+}
+
 func TestSelectorsIncludeHiddenShouldWork(t *testing.T) {
 	BeforeEach(t)
 

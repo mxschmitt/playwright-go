@@ -87,7 +87,7 @@ type APIRequestContext interface {
 
 	// Returns storage state for this request context, contains current cookies and local storage snapshot if it was
 	// passed to the constructor.
-	StorageState(path ...string) (*StorageState, error)
+	StorageState(options ...APIRequestContextStorageStateOptions) (*StorageState, error)
 
 	Tracing() Tracing
 }
@@ -501,7 +501,7 @@ type BrowserContext interface {
 
 	// Returns storage state for this browser context, contains current cookies, local storage snapshot and IndexedDB
 	// snapshot.
-	StorageState(path ...string) (*StorageState, error)
+	StorageState(options ...BrowserContextStorageStateOptions) (*StorageState, error)
 
 	// Clears the existing cookies, local storage and IndexedDB entries for all origins and sets the new storage state.
 	//

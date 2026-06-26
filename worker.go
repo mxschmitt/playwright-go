@@ -77,6 +77,9 @@ func (w *workerImpl) OnConsole(fn func(ConsoleMessage)) {
 func newWorker(parent *channelOwner, objectType string, guid string, initializer map[string]any) *workerImpl {
 	bt := &workerImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
+	bt.setEventSubscriptionMapping(map[string]string{
+		"console": "console",
+	})
 	bt.channel.On("close", bt.onClose)
 	bt.channel.On("console", func(ev map[string]any) {
 		bt.Emit("console", newConsoleMessage(ev))

@@ -13,20 +13,21 @@ type localUtilsImpl struct {
 
 type (
 	localUtilsZipOptions struct {
-		ZipFile        string `json:"zipFile"`
-		Entries        []any  `json:"entries"`
-		StacksId       string `json:"stacksId"`
-		Mode           string `json:"mode"`
-		IncludeSources bool   `json:"includeSources"`
+		ZipFile           string   `json:"zipFile"`
+		Entries           []any    `json:"entries"`
+		StacksId          string   `json:"stacksId"`
+		Mode              string   `json:"mode"`
+		IncludeSources    bool     `json:"includeSources"`
+		AdditionalSources []string `json:"additionalSources"`
 	}
 
 	harLookupOptions struct {
-		HarId               string            `json:"harId"`
-		URL                 string            `json:"url"`
-		Method              string            `json:"method"`
-		Headers             map[string]string `json:"headers"`
-		IsNavigationRequest bool              `json:"isNavigationRequest"`
-		PostData            any               `json:"postData,omitempty"`
+		HarId               string      `json:"harId"`
+		URL                 string      `json:"url"`
+		Method              string      `json:"method"`
+		Headers             []NameValue `json:"headers"`
+		IsNavigationRequest bool        `json:"isNavigationRequest"`
+		PostData            any         `json:"postData,omitempty"`
 	}
 
 	harLookupResult struct {
@@ -66,7 +67,7 @@ func (l *localUtilsImpl) HarLookup(option harLookupOptions) (*harLookupResult, e
 	overrides["url"] = option.URL
 	overrides["method"] = option.Method
 	if option.Headers != nil {
-		overrides["headers"] = serializeMapToNameAndValue(option.Headers)
+		overrides["headers"] = option.Headers
 	}
 	overrides["isNavigationRequest"] = option.IsNavigationRequest
 	if option.PostData != nil {
@@ -109,19 +110,22 @@ func (l *localUtilsImpl) HarClose(harId string) error {
 	return err
 }
 
-func (l *localUtilsImpl) HarUnzip(zipFile, harFile string) error {
-	_, err := l.channel.Send("harUnzip", []map[string]any{
-		{
-			"zipFile": zipFile,
-			"harFile": harFile,
-		},
-	})
+func (l *localUtilsImpl) HarUnzip(zipFile, harFile string, resourcesDir ...*string) error {
+	params := map[string]any{
+		"zipFile": zipFile,
+		"harFile": harFile,
+	}
+	if len(resourcesDir) > 0 && resourcesDir[0] != nil {
+		params["resourcesDir"] = *resourcesDir[0]
+	}
+	_, err := l.channel.Send("harUnzip", []map[string]any{params})
 	return err
 }
 
-func (l *localUtilsImpl) TracingStarted(traceName string, tracesDir ...string) (string, error) {
+func (l *localUtilsImpl) TracingStarted(traceName string, live bool, tracesDir ...string) (string, error) {
 	overrides := make(map[string]any)
 	overrides["traceName"] = traceName
+	overrides["live"] = live
 	if len(tracesDir) > 0 {
 		overrides["tracesDir"] = tracesDir[0]
 	}

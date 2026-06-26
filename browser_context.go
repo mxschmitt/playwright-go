@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
@@ -29,7 +31,7 @@ type browserContextImpl struct {
 	bindings        *safe.SyncMap[string, BindingCallFunction]
 	tracing         *tracingImpl
 	debugger        *debuggerImpl
-	isClosedFlag    bool
+	isClosedFlag    atomic.Bool
 	request         *apiRequestContextImpl
 	harRecorders    map[string]harRecordingMetadata
 	closed          chan struct{}
@@ -47,10 +49,9 @@ func (b *browserContextImpl) SetDefaultNavigationTimeout(timeout float64) {
 }
 
 func (b *browserContextImpl) setDefaultNavigationTimeoutImpl(timeout *float64) {
+	// Upstream only updates the client-side timeout settings; there is no
+	// corresponding protocol method (the old *NoReply methods were removed).
 	b.timeoutSettings.SetDefaultNavigationTimeout(timeout)
-	b.channel.SendNoReplyInternal("setDefaultNavigationTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (b *browserContextImpl) SetDefaultTimeout(timeout float64) {
@@ -59,9 +60,6 @@ func (b *browserContextImpl) SetDefaultTimeout(timeout float64) {
 
 func (b *browserContextImpl) setDefaultTimeoutImpl(timeout *float64) {
 	b.timeoutSettings.SetDefaultTimeout(timeout)
-	b.channel.SendNoReplyInternal("setDefaultTimeoutNoReply", map[string]any{
-		"timeout": timeout,
-	})
 }
 
 func (b *browserContextImpl) Pages() []Page {
@@ -235,7 +233,7 @@ func (b *browserContextImpl) AddInitScript(script Script) error {
 		if err != nil {
 			return err
 		}
-		source = string(content)
+		source = addSourceURLToScript(string(content), *script.Path)
 	}
 	_, err := b.channel.Send("addInitScript", map[string]any{
 		"source": source,
@@ -367,7 +365,10 @@ func (b *browserContextImpl) waiterForEvent(event string, options ...BrowserCont
 		predicate = options[0].Predicate
 	}
 	waiter := newWaiter().WithTimeout(timeout)
-	waiter.RejectOnEvent(b, "close", ErrTargetClosed)
+	// Don't reject on the very event being awaited.
+	if event != "close" {
+		waiter.RejectOnEvent(b, "close", targetClosedError(b.effectiveCloseReason()))
+	}
 	return waiter.WaitForEvent(b, event, predicate)
 }
 
@@ -413,7 +414,11 @@ func (b *browserContextImpl) ExpectPage(cb func() error, options ...BrowserConte
 }
 
 func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error {
-	if b.closeWasCalled.Load() {
+	// Mirror upstream's `if (this.isClosed()) return;` guard, where isClosed() is
+	// `_closingStatus !== 'none'` (true once closing OR closed). Guarding only on
+	// closeWasCalled would let a Close() after a server-driven close proceed into
+	// redundant request.Dispose / HAR export / close-on-dead-channel work.
+	if b.IsClosed() {
 		return nil
 	}
 	if len(options) == 1 {
@@ -466,17 +471,19 @@ func (b *browserContextImpl) Close(options ...BrowserContextCloseOptions) error 
 				return nil, err
 			}
 			artifact := fromChannel(response["artifact"]).(*artifactImpl)
-			if !needCompressed && harMetaData.Content == HarContentPolicyAttach {
+			// Non-zip output is always unzipped into HAR JSON, regardless of the
+			// content policy (matching upstream _exportHAR which gates only on isZip).
+			if needCompressed {
+				if err := artifact.SaveAs(harMetaData.Path); err != nil {
+					return nil, err
+				}
+			} else {
 				tmpPath := harMetaData.Path + ".tmp"
 				if err := artifact.SaveAs(tmpPath); err != nil {
 					return nil, err
 				}
-				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path)
+				err = b.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path, harMetaData.ResourcesDir)
 				if err != nil {
-					return nil, err
-				}
-			} else {
-				if err := artifact.SaveAs(harMetaData.Path); err != nil {
 					return nil, err
 				}
 			}
@@ -540,13 +547,22 @@ func (b *browserContextImpl) recordIntoHar(har string, options ...browserContext
 	return nil
 }
 
-func (b *browserContextImpl) StorageState(paths ...string) (*StorageState, error) {
-	result, err := b.channel.SendReturnAsDict("storageState")
+func (b *browserContextImpl) StorageState(options ...BrowserContextStorageStateOptions) (*StorageState, error) {
+	params := map[string]any{}
+	var path *string
+	if len(options) == 1 {
+		params["indexedDB"] = options[0].IndexedDB
+		path = options[0].Path
+	}
+	result, err := b.channel.SendReturnAsDict("storageState", params)
 	if err != nil {
 		return nil, err
 	}
-	if len(paths) == 1 {
-		file, err := os.Create(paths[0])
+	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
+		file, err := os.Create(*path)
 		if err != nil {
 			return nil, err
 		}
@@ -571,7 +587,7 @@ func (b *browserContextImpl) onBinding(binding *bindingCallImpl) {
 }
 
 func (b *browserContextImpl) onClose() {
-	b.isClosedFlag = true
+	b.isClosedFlag.Store(true)
 	if b.browser != nil {
 		contexts := make([]BrowserContext, 0)
 		b.browser.Lock()
@@ -582,6 +598,11 @@ func (b *browserContextImpl) onClose() {
 		}
 		b.browser.contexts = contexts
 		b.browser.Unlock()
+	}
+	if b.tracing != nil {
+		// Reset the connection tracing counter so an un-stopped trace on a
+		// closing context doesn't keep every later API call collecting stacks.
+		b.tracing.resetStackCounter()
 	}
 	b.disposeHarRouters()
 	b.Emit("close", b)
@@ -623,7 +644,7 @@ func (b *browserContextImpl) onRoute(route *routeImpl) {
 	url := route.Request().URL()
 	for _, handlerEntry := range routes {
 		// If the page or the context was closed we stall all requests right away.
-		if (page != nil && page.closeWasCalled.Load()) || b.closeWasCalled.Load() {
+		if (page != nil && page.closeWasCalled.Load()) || b.IsClosed() {
 			return
 		}
 		if !handlerEntry.Matches(url) {
@@ -681,6 +702,35 @@ func (b *browserContextImpl) onServiceWorker(worker *workerImpl) {
 	worker.context = b
 	b.serviceWorkers = append(b.serviceWorkers, worker)
 	b.Emit("serviceworker", worker)
+}
+
+func (b *browserContextImpl) isServiceWorker(worker Worker) bool {
+	b.RLock()
+	defer b.RUnlock()
+	for _, sw := range b.serviceWorkers {
+		if sw == worker {
+			return true
+		}
+	}
+	return false
+}
+
+// serviceWorkerScope returns the scope URL of a service worker (the directory of
+// its script URL with a trailing slash), mirroring upstream _serviceWorkerScope.
+func serviceWorkerScope(worker Worker) string {
+	u, err := url.Parse(worker.URL())
+	if err != nil {
+		return ""
+	}
+	ref, err := u.Parse(".")
+	if err != nil {
+		return ""
+	}
+	scope := ref.String()
+	if !strings.HasSuffix(scope, "/") {
+		scope += "/"
+	}
+	return scope
 }
 
 func (b *browserContextImpl) setOptions(options *BrowserNewContextOptions, tracesDir *string) {
@@ -868,6 +918,10 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		}
 	}
 	bt.request = fromChannel(initializer["requestContext"]).(*apiRequestContextImpl)
+	// Share the context's timeout settings with its owned request context so
+	// context.SetDefaultTimeout reaches context.Request() fetches, mirroring
+	// upstream (this.request._timeoutSettings = this._timeoutSettings).
+	bt.request.timeoutSettings = bt.timeoutSettings
 	bt.clock = newClock(bt)
 
 	// Register this context with the selectors manager for custom selector engines
@@ -914,10 +968,24 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	})
 	bt.channel.On("console", func(ev map[string]any) {
 		message := newConsoleMessage(ev)
-		bt.Emit("console", message)
+		if message.worker != nil {
+			message.worker.(*workerImpl).Emit("console", message)
+		}
 		if message.page != nil {
 			message.page.Emit("console", message)
 		}
+		// Service worker console messages flow through the context channel; fan
+		// them out to pages within the worker's scope, matching upstream.
+		if message.worker != nil && bt.isServiceWorker(message.worker) {
+			if scope := serviceWorkerScope(message.worker); scope != "" {
+				for _, page := range bt.Pages() {
+					if strings.HasPrefix(page.URL(), scope) {
+						page.(*pageImpl).Emit("console", message)
+					}
+				}
+			}
+		}
+		bt.Emit("console", message)
 	})
 	bt.channel.On("dialog", func(params map[string]any) {
 		dialog := fromChannel(params["dialog"]).(*dialogImpl)
@@ -1013,13 +1081,16 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		"request":         "request",
 		"response":        "response",
 		"requestfinished": "requestFinished",
-		"responsefailed":  "responseFailed",
+		"requestfailed":   "requestFailed",
 	})
 	return bt
 }
 
 func (b *browserContextImpl) IsClosed() bool {
-	return b.isClosedFlag || b.closeReason != nil
+	// Matches upstream isClosed(): true as soon as Close() begins (closing),
+	// not only after the server confirms close (closed). closeWasCalled is the
+	// Go analog of upstream's 'closing' status.
+	return b.isClosedFlag.Load() || b.closeWasCalled.Load()
 }
 
 func (b *browserContextImpl) SetStorageState(storageStatePath string) error {

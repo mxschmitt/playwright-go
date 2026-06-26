@@ -2,6 +2,7 @@ package playwright
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 )
@@ -29,6 +30,14 @@ type selectorsImpl struct {
 }
 
 func (s *selectorsImpl) Register(name string, script Script, options ...SelectorsRegisterOptions) error {
+	s.mu.RLock()
+	for _, reg := range s.registrations {
+		if reg["name"] == name {
+			s.mu.RUnlock()
+			return fmt.Errorf("selectors.register: %q selector engine has been already registered", name)
+		}
+	}
+	s.mu.RUnlock()
 	if script.Path == nil && script.Content == nil {
 		return errors.New("Either source or path should be specified")
 	}
@@ -83,9 +92,11 @@ func (s *selectorsImpl) addChannel(channel *selectorsOwnerImpl) {
 			"selectorEngine": selectorEngine,
 		}
 		channel.channel.SendNoReply("registerSelectorEngine", params)
-		channel.setTestIdAttributeName(getTestIdAttributeName())
 	}
 	s.mu.RUnlock()
+	if testIdAttr := getTestIdAttributeName(); testIdAttr != "" {
+		channel.setTestIdAttributeName(testIdAttr)
+	}
 }
 
 func (s *selectorsImpl) removeChannel(channel *selectorsOwnerImpl) {
@@ -94,7 +105,14 @@ func (s *selectorsImpl) removeChannel(channel *selectorsOwnerImpl) {
 }
 
 func (s *selectorsImpl) addContext(context *browserContextImpl) {
-	s.contexts.Store(context.guid, context)
+	// Idempotent, mirroring upstream's _contextsForSelectors Set membership: a
+	// context is set up at most once, so re-adding the same context is a no-op
+	// rather than re-sending registerSelectorEngine/setTestIdAttributeName. This
+	// lets every context-creation path call addContext without relying on a
+	// brittle "registered exactly once elsewhere" invariant.
+	if _, loaded := s.contexts.LoadOrStore(context.guid, context); loaded {
+		return
+	}
 	s.mu.RLock()
 	for _, selectorEngine := range s.registrations {
 		params := map[string]any{

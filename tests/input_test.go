@@ -158,6 +158,31 @@ func TestKeyboardType(t *testing.T) {
 	require.True(t, result.(bool))
 }
 
+// TestKeyboardTypeIntoATextarea mirrors the upstream "should type into a
+// textarea @smoke" test (tests/page/page-keyboard.spec.ts). Unlike InsertText,
+// Keyboard.Type must dispatch real per-character key events, so we also assert
+// that a keydown is fired for every typed character.
+func TestKeyboardTypeIntoATextarea(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Evaluate(`() => {
+		const textarea = document.createElement('textarea');
+		document.body.appendChild(textarea);
+		textarea.focus();
+		window.keydowns = 0;
+		textarea.addEventListener('keydown', () => window.keydowns++);
+	}`)
+	require.NoError(t, err)
+	text := "Hello world. I am the text that was typed!"
+	require.NoError(t, page.Keyboard().Type(text))
+	value, err := page.Evaluate("() => document.querySelector('textarea').value")
+	require.NoError(t, err)
+	require.Equal(t, text, value)
+	keydowns, err := page.Evaluate("() => window.keydowns")
+	require.NoError(t, err)
+	require.EqualValues(t, len(text), keydowns)
+}
+
 func TestElementHandleType(t *testing.T) {
 	BeforeEach(t)
 

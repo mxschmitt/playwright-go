@@ -61,6 +61,9 @@ func TestPageAssertionsToHaveURLWithBaseURL(t *testing.T) {
 	require.NoError(t, expect.Page(page).ToHaveURL("/empty.html"))
 	require.NoError(t, expect.Page(page).ToHaveURL(regexp.MustCompile(`.*/empty\.html`)))
 	require.NoError(t, expect.Page(page).Not().ToHaveURL("https://playwright.dev"))
+	// An absolute URL must resolve to itself against the base URL (new URL
+	// semantics), not be mangled by naive path joining.
+	require.NoError(t, expect.Page(page).ToHaveURL(server.EMPTY_PAGE))
 	require.NoError(t, page.Close())
 }
 

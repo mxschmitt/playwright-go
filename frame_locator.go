@@ -1,7 +1,6 @@
 package playwright
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 )
@@ -26,7 +25,7 @@ func (fl *frameLocatorImpl) FrameLocator(selector string) FrameLocator {
 func (fl *frameLocatorImpl) GetByAltText(text any, options ...FrameLocatorGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -36,7 +35,7 @@ func (fl *frameLocatorImpl) GetByAltText(text any, options ...FrameLocatorGetByA
 func (fl *frameLocatorImpl) GetByLabel(text any, options ...FrameLocatorGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -46,7 +45,7 @@ func (fl *frameLocatorImpl) GetByLabel(text any, options ...FrameLocatorGetByLab
 func (fl *frameLocatorImpl) GetByPlaceholder(text any, options ...FrameLocatorGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -67,7 +66,7 @@ func (fl *frameLocatorImpl) GetByTestId(testId any) Locator {
 func (fl *frameLocatorImpl) GetByText(text any, options ...FrameLocatorGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -77,7 +76,7 @@ func (fl *frameLocatorImpl) GetByText(text any, options ...FrameLocatorGetByText
 func (fl *frameLocatorImpl) GetByTitle(text any, options ...FrameLocatorGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -106,8 +105,7 @@ func (fl *frameLocatorImpl) Locator(selectorOrLocator any, options ...FrameLocat
 	locator, ok := selectorOrLocator.(*locatorImpl)
 	if ok {
 		if fl.frame != locator.frame {
-			locator.err = errors.Join(locator.err, ErrLocatorNotSameFrame)
-			return locator
+			return locator.withError(ErrLocatorNotSameFrame)
 		}
 		return newLocator(
 			locator.frame,

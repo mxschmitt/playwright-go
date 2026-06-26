@@ -27,6 +27,9 @@ func (c *cdpSessionImpl) Send(method string, params map[string]any) (any, error)
 
 func (c *cdpSessionImpl) onEvent(params map[string]any) {
 	c.Emit(params["method"].(string), params["params"])
+	// Also emit the generic "event" with the full {method, params} envelope,
+	// matching upstream cdpSession.ts.
+	c.Emit("event", params)
 }
 
 func newCDPSession(parent *channelOwner, objectType string, guid string, initializer map[string]any) *cdpSessionImpl {
@@ -36,6 +39,9 @@ func newCDPSession(parent *channelOwner, objectType string, guid string, initial
 
 	bt.channel.On("event", func(params map[string]any) {
 		bt.onEvent(params)
+	})
+	bt.channel.On("close", func() {
+		bt.Emit("close", bt)
 	})
 
 	return bt

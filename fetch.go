@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 )
 
@@ -63,14 +64,22 @@ func newApiRequestImpl(pw *Playwright) *apiRequestImpl {
 
 type apiRequestContextImpl struct {
 	channelOwner
-	tracing        *tracingImpl
-	closeReason    *string
-	defaultTimeout *float64
+	tracing         *tracingImpl
+	closeReason     *string
+	defaultTimeout  *float64
+	timeoutSettings *timeoutSettings
 }
 
 func (r *apiRequestContextImpl) Dispose(options ...APIRequestContextDisposeOptions) error {
 	if len(options) == 1 {
 		r.closeReason = options[0].Reason
+	}
+	// Flush any HARs recorded via this request context before disposing,
+	// matching upstream dispose() which calls _exportAllHars().
+	if r.tracing != nil && len(r.tracing.harRecorders) > 0 {
+		if err := r.tracing.exportAllHars(); err != nil {
+			return err
+		}
 	}
 	_, err := r.channel.Send("dispose", map[string]any{
 		"reason": r.closeReason,
@@ -117,7 +126,12 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 		overrides["url"] = request.URL()
 	}
 
-	if len(options) == 1 {
+	// Always operate on a single options value so method/headers/body are derived
+	// from the request even when Fetch(request) is called with no options.
+	if len(options) == 0 {
+		options = []APIRequestContextFetchOptions{{}}
+	}
+	{
 		if options[0].MaxRedirects != nil && *options[0].MaxRedirects < 0 {
 			return nil, errors.New("maxRedirects must be non-negative")
 		}
@@ -137,10 +151,18 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 		}
 		if options[0].Headers == nil {
 			if request != nil {
-				overrides["headers"] = serializeMapToNameAndValue(request.Headers())
+				headers := make(map[string]any)
+				for k, v := range request.Headers() {
+					headers[k] = v
+				}
+				overrides["headers"] = serializeMapToNameValue(headers)
 			}
 		} else {
-			overrides["headers"] = serializeMapToNameAndValue(options[0].Headers)
+			headers := make(map[string]any)
+			for k, v := range options[0].Headers {
+				headers[k] = v
+			}
+			overrides["headers"] = serializeMapToNameValue(headers)
 			options[0].Headers = nil
 		}
 		if options[0].Data != nil {
@@ -206,8 +228,11 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 			overrides["multipartData"] = multipartData
 			options[0].Multipart = nil
 		} else if request != nil {
+			// Only forward post data when the request actually has a body; an empty
+			// buffer would otherwise be sent as "" and add a spurious
+			// content-length: 0 header (upstream omits postData for body-less requests).
 			postDataBuf, err := request.PostDataBuffer()
-			if err == nil {
+			if err == nil && len(postDataBuf) > 0 {
 				overrides["postData"] = base64.StdEncoding.EncodeToString(postDataBuf)
 			}
 		}
@@ -215,9 +240,19 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 			overrides["params"] = serializeMapToNameValue(options[0].Params)
 			options[0].Params = nil
 		}
-		// Use context-level timeout as default if no per-request timeout specified
-		if options[0].Timeout == nil && r.defaultTimeout != nil {
-			overrides["timeout"] = *r.defaultTimeout
+		// Use the context-level default timeout when no per-request timeout is
+		// given. A standalone request context seeds r.defaultTimeout directly; a
+		// browser-context-owned request shares the context's timeoutSettings
+		// (mirroring upstream, where context.request._timeoutSettings is the
+		// context's instance), so SetDefaultTimeout reaches these fetches too.
+		if options[0].Timeout == nil {
+			if r.defaultTimeout != nil {
+				overrides["timeout"] = *r.defaultTimeout
+			} else if r.timeoutSettings != nil {
+				if dt := r.timeoutSettings.DefaultTimeout(); dt != nil {
+					overrides["timeout"] = *dt
+				}
+			}
 		}
 	}
 
@@ -299,13 +334,22 @@ func (r *apiRequestContextImpl) Post(url string, options ...APIRequestContextPos
 	return r.Fetch(url, opts)
 }
 
-func (r *apiRequestContextImpl) StorageState(path ...string) (*StorageState, error) {
-	result, err := r.channel.SendReturnAsDict("storageState")
+func (r *apiRequestContextImpl) StorageState(options ...APIRequestContextStorageStateOptions) (*StorageState, error) {
+	params := map[string]any{}
+	var path *string
+	if len(options) == 1 {
+		params["indexedDB"] = options[0].IndexedDB
+		path = options[0].Path
+	}
+	result, err := r.channel.SendReturnAsDict("storageState", params)
 	if err != nil {
 		return nil, err
 	}
-	if len(path) == 1 {
-		file, err := os.Create(path[0])
+	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
+		file, err := os.Create(*path)
 		if err != nil {
 			return nil, err
 		}
@@ -385,7 +429,7 @@ func (r *apiResponseImpl) JSON(v any) error {
 }
 
 func (r *apiResponseImpl) Ok() bool {
-	return r.Status() == 0 || (r.Status() >= 200 && r.Status() <= 299)
+	return r.Status() >= 200 && r.Status() <= 299
 }
 
 func (r *apiResponseImpl) Status() int {

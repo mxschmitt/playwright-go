@@ -31,6 +31,30 @@ func Test_globMustToRegex(t *testing.T) {
 			want: false,
 		},
 		{
+			// `**/` must match zero or more path segments including the scheme/host,
+			// matching upstream `((.+/)|)`. It must NOT match a bare relative path.
+			args: args{
+				glob:   "**/foo.png",
+				target: "foo.png",
+			},
+			want: false,
+		},
+		{
+			args: args{
+				glob:   "**/foo.png",
+				target: "https://localhost:8080/a/b/foo.png",
+			},
+			want: true,
+		},
+		{
+			// Embedded `**` not bounded by `/` becomes `(.*)` and may cross `/`.
+			args: args{
+				glob:   "https://example.com/a**b",
+				target: "https://example.com/a/x/y/b",
+			},
+			want: true,
+		},
+		{
 			args: args{
 				glob:   "*.js",
 				target: "https://localhost:8080/foo.js",
@@ -201,4 +225,15 @@ func TestURLMatches(t *testing.T) {
 	require.True(t, newURLMatcher("\\\\?bar", String("http://playwright.dev/foo")).Matches("http://playwright.dev/foo?bar"))
 	require.True(t, newURLMatcher("**/foo", String("http://first.host/")).Matches("http://second.host/foo"))
 	require.True(t, newURLMatcher("*//localhost/", String("http://playwright.dev/")).Matches("http://localhost/"))
+
+	// Scheme and host are case-insensitive (the request URL is always lowercased).
+	require.True(t, newURLMatcher("HTTPS://EXAMPLE.COM/Foo", nil).Matches("https://example.com/Foo"))
+	require.False(t, newURLMatcher("HTTPS://EXAMPLE.COM/FOO", nil).Matches("https://example.com/foo-bar"))
+
+	// about:/data: URLs are not resolved against the base URL.
+	require.True(t, newURLMatcher("about:blank", String("http://playwright.dev/")).Matches("about:blank"))
+
+	// Non-ASCII characters in a glob must survive (rune, not byte, iteration).
+	require.True(t, newURLMatcher("https://example.com/ä", nil).Matches("https://example.com/ä"))
+	require.True(t, newURLMatcher("https://example.com/*/ä", nil).Matches("https://example.com/x/ä"))
 }

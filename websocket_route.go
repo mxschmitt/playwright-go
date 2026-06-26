@@ -131,13 +131,13 @@ func (r *webSocketRouteImpl) Protocols() ([]string, error) {
 	return result, nil
 }
 
-func (r *webSocketRouteImpl) afterHandle() error {
+func (r *webSocketRouteImpl) afterHandle() {
 	if r.connected.Load() {
-		return nil
+		return
 	}
 	// Ensure that websocket is "open" and can send messages without an actual server connection.
-	_, err := r.channel.Send("ensureOpened")
-	return err
+	// If this happens after the page has been closed, ignore the error (matches upstream).
+	_, _ = r.channel.Send("ensureOpened")
 }
 
 type serverWebSocketRouteImpl struct {
@@ -213,10 +213,7 @@ func newWebSocketRouteHandler(matcher *urlMatcher, handler func(WebSocketRoute))
 
 func (h *webSocketRouteHandler) Handle(route WebSocketRoute) {
 	h.handler(route)
-	err := route.(*webSocketRouteImpl).afterHandle()
-	if err != nil {
-		panic(fmt.Errorf("Could not handle WebSocketRoute: %w", err))
-	}
+	route.(*webSocketRouteImpl).afterHandle()
 }
 
 func (h *webSocketRouteHandler) Matches(wsURL string) bool {

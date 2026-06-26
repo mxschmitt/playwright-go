@@ -20,7 +20,7 @@ index d27e22b03..fd06a0784 100644
      - `origin` <[string]>
      - `localStorage` <[Array]<[Object]>>
 diff --git a/docs/src/api/class-apirequestcontext.md b/docs/src/api/class-apirequestcontext.md
-index 2ddc3815f..7ee170ba1 100644
+index 2ddc3815f..6e80f44c0 100644
 --- a/docs/src/api/class-apirequestcontext.md
 +++ b/docs/src/api/class-apirequestcontext.md
 @@ -163,6 +163,9 @@ context cookies from the response. The method will automatically follow redirect
@@ -254,7 +254,7 @@ index 2ddc3815f..7ee170ba1 100644
  
  ### option: APIRequestContext.storageState.indexedDB
  * since: v1.51
-+* langs: js, python, java, csharp
++* langs: js, python, java, csharp, go
  - `indexedDB` ?<boolean>
  
  Set to `true` to include IndexedDB in the storage state snapshot.
@@ -346,7 +346,7 @@ index b676c64dc..4a8c9b4a1 100644
  
  :::note
 diff --git a/docs/src/api/class-browsercontext.md b/docs/src/api/class-browsercontext.md
-index e839f13a0..2acef1c13 100644
+index e839f13a0..0fb881677 100644
 --- a/docs/src/api/class-browsercontext.md
 +++ b/docs/src/api/class-browsercontext.md
 @@ -433,7 +433,7 @@ The order of evaluation of multiple scripts installed via [`method: BrowserConte
@@ -406,7 +406,7 @@ index e839f13a0..2acef1c13 100644
  
  ### option: BrowserContext.storageState.indexedDB
  * since: v1.51
-+* langs: js, python, java, csharp
++* langs: js, python, java, csharp, go
  - `indexedDB` ?<boolean>
  
  Set to `true` to include [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) in the storage state snapshot.
@@ -1258,7 +1258,7 @@ index 4c3011430..4ced2d60d 100644
    - `path` ?<[path]> Path to the JavaScript file. If `path` is a relative path, then it is resolved relative to the
      current working directory. Optional.
 diff --git a/docs/src/api/class-tracing.md b/docs/src/api/class-tracing.md
-index 1af0427bf..2c7016e92 100644
+index 1af0427bf..4f54c91e9 100644
 --- a/docs/src/api/class-tracing.md
 +++ b/docs/src/api/class-tracing.md
 @@ -156,7 +156,7 @@ If this option is true tracing will
@@ -1270,6 +1270,15 @@ index 1af0427bf..2c7016e92 100644
  - `sources` <[boolean]>
  
  Whether to include source files for trace actions.
+@@ -374,7 +374,7 @@ A glob or regex pattern to filter requests that are stored in the HAR. Defaults
+ 
+ ### option: Tracing.startHar.resourcesDir
+ * since: v1.60
+-* langs: js
++* langs: js, go
+ - `resourcesDir` <[path]>
+ 
+ Only used together with `content: 'attach'`. When set, response bodies are placed in this directory instead of next to
 diff --git a/docs/src/api/class-websocket.md b/docs/src/api/class-websocket.md
 index e33740eac..d89648d91 100644
 --- a/docs/src/api/class-websocket.md

@@ -578,12 +578,49 @@ func assignStructFields(dest, src any, omitExtra bool) error {
 	return nil
 }
 
-func deserializeNameAndValueToMap(headersArray []map[string]string) map[string]string {
-	unserialized := make(map[string]string)
-	for _, item := range headersArray {
-		unserialized[item["name"]] = item["value"]
+// addSourceURLToScript appends a sourceURL comment so scripts loaded from a file
+// path are attributed to that path in stack traces and DevTools, mirroring
+// upstream addSourceUrlToScript.
+func addSourceURLToScript(source string, path string) string {
+	return source + "\n//# sourceURL=" + strings.ReplaceAll(path, "\n", "")
+}
+
+// formatCallLog renders the server-provided call log appended to command error
+// messages, mirroring upstream formatCallLog. Returns an empty string when the
+// log is absent or contains only empty entries.
+func formatCallLog(log []string) string {
+	hasContent := false
+	for _, l := range log {
+		if l != "" {
+			hasContent = true
+			break
+		}
 	}
-	return unserialized
+	if !hasContent {
+		return ""
+	}
+	return "\nCall log:\n" + strings.Join(log, "\n")
+}
+
+// mergeHeaders converts a name/value header array into a map, merging multiple
+// set-cookie headers into a single newline-separated value (route.Fulfill does
+// not support multiple set-cookie headers).
+func mergeHeaders(headersArray []map[string]string) map[string]string {
+	headers := make(map[string]string)
+	for _, item := range headersArray {
+		name := item["name"]
+		value := item["value"]
+		if strings.ToLower(name) == "set-cookie" {
+			if existing, ok := headers["set-cookie"]; ok {
+				headers["set-cookie"] = existing + "\n" + value
+			} else {
+				headers["set-cookie"] = value
+			}
+		} else {
+			headers[name] = value
+		}
+	}
+	return headers
 }
 
 type recordHarOptions struct {
@@ -593,19 +630,22 @@ type recordHarOptions struct {
 	UrlGlob        *string           `json:"urlGlob,omitempty"`
 	UrlRegexSource *string           `json:"urlRegexSource,omitempty"`
 	UrlRegexFlags  *string           `json:"urlRegexFlags,omitempty"`
+	ResourcesDir   *string           `json:"resourcesDir,omitempty"`
 }
 
 type recordHarInputOptions struct {
-	Path        string
-	URL         any
-	Mode        *HarMode
-	Content     *HarContentPolicy
-	OmitContent *bool
+	Path         string
+	URL          any
+	Mode         *HarMode
+	Content      *HarContentPolicy
+	OmitContent  *bool
+	ResourcesDir *string
 }
 
 type harRecordingMetadata struct {
-	Path    string
-	Content *HarContentPolicy
+	Path         string
+	Content      *HarContentPolicy
+	ResourcesDir *string
 }
 
 // resolveRecordVideoDir resolves a relative recordVideo.dir to an absolute path,
@@ -647,6 +687,7 @@ func prepareRecordHarOptions(option recordHarInputOptions) recordHarOptions {
 	} else if option.OmitContent != nil && *option.OmitContent {
 		out.Content = HarContentPolicyOmit
 	}
+	out.ResourcesDir = option.ResourcesDir
 	return out
 }
 

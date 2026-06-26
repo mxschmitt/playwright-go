@@ -7,11 +7,13 @@ import (
 
 type tracingImpl struct {
 	channelOwner
-	includeSources bool
-	isTracing      bool
-	stacksId       string
-	tracesDir      string
-	harRecorders   map[string]harRecordingMetadata
+	includeSources    bool
+	isTracing         bool
+	isLive            bool
+	stacksId          string
+	tracesDir         string
+	harRecorders      map[string]harRecordingMetadata
+	additionalSources map[string]struct{}
 }
 
 func (t *tracingImpl) Start(options ...TracingStartOptions) error {
@@ -20,6 +22,7 @@ func (t *tracingImpl) Start(options ...TracingStartOptions) error {
 		if options[0].Sources != nil {
 			t.includeSources = *options[0].Sources
 		}
+		t.isLive = options[0].Live != nil && *options[0].Live
 		chunkOption.Name = options[0].Name
 		chunkOption.Title = options[0].Title
 	}
@@ -64,11 +67,28 @@ func (t *tracingImpl) Stop(path ...string) error {
 	return err
 }
 
+// resetStackCounter clears the in-tracing flag and decrements the connection
+// tracing counter, mirroring upstream _resetStackCounter. Called on context
+// close so an un-stopped trace doesn't keep the connection collecting stacks.
+func (t *tracingImpl) resetStackCounter() {
+	if t.isTracing {
+		t.isTracing = false
+		t.connection.setInTracing(false)
+	}
+}
+
 func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	if t.isTracing {
 		t.isTracing = false
 		t.connection.setInTracing(false)
 	}
+
+	additionalSources := make([]string, 0, len(t.additionalSources))
+	for source := range t.additionalSources {
+		additionalSources = append(additionalSources, source)
+	}
+	t.additionalSources = make(map[string]struct{})
+
 	if filePath == "" {
 		// Not interested in artifacts.
 		_, err = t.channel.Send("tracingStopChunk", map[string]any{
@@ -93,11 +113,12 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 			return fmt.Errorf("could not convert result to map: %v", result)
 		}
 		_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
-			ZipFile:        filePath,
-			Entries:        entries.([]any),
-			StacksId:       t.stacksId,
-			Mode:           "write",
-			IncludeSources: t.includeSources,
+			ZipFile:           filePath,
+			Entries:           entries.([]any),
+			StacksId:          t.stacksId,
+			Mode:              "write",
+			IncludeSources:    t.includeSources,
+			AdditionalSources: additionalSources,
 		})
 		return err
 	}
@@ -128,11 +149,12 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		return err
 	}
 	_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
-		ZipFile:        filePath,
-		Entries:        []any{},
-		StacksId:       t.stacksId,
-		Mode:           "append",
-		IncludeSources: t.includeSources,
+		ZipFile:           filePath,
+		Entries:           []any{},
+		StacksId:          t.stacksId,
+		Mode:              "append",
+		IncludeSources:    t.includeSources,
+		AdditionalSources: additionalSources,
 	})
 	return err
 }
@@ -142,7 +164,7 @@ func (t *tracingImpl) startCollectingStacks(name string) (err error) {
 		t.isTracing = true
 		t.connection.setInTracing(true)
 	}
-	t.stacksId, err = t.connection.LocalUtils().TracingStarted(name, t.tracesDir)
+	t.stacksId, err = t.connection.LocalUtils().TracingStarted(name, t.isLive, t.tracesDir)
 	return
 }
 
@@ -150,6 +172,9 @@ func (t *tracingImpl) Group(name string, options ...TracingGroupOptions) error {
 	var option TracingGroupOptions
 	if len(options) == 1 {
 		option = options[0]
+		if option.Location != nil && option.Location.File != "" {
+			t.additionalSources[option.Location.File] = struct{}{}
+		}
 	}
 	_, err := t.channel.Send("tracingGroup", option, map[string]any{"name": name})
 	return err
@@ -164,9 +189,10 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 	if len(t.harRecorders) > 0 {
 		return fmt.Errorf("HAR recording has already been started")
 	}
+	isZip := strings.HasSuffix(strings.ToLower(path), ".zip")
 	// Default content matches upstream: attach for .zip output, embed otherwise.
 	defaultContent := HarContentPolicyEmbed
-	if strings.HasSuffix(strings.ToLower(path), ".zip") {
+	if isZip {
 		defaultContent = HarContentPolicyAttach
 	}
 	harOptions := recordHarInputOptions{
@@ -175,6 +201,9 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 		Mode:    HarModeFull,
 	}
 	if len(options) == 1 {
+		if options[0].ResourcesDir != nil && isZip {
+			return fmt.Errorf("resourcesDir option is not compatible with a .zip har file")
+		}
 		if options[0].Content != nil {
 			harOptions.Content = options[0].Content
 		}
@@ -182,6 +211,7 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 			harOptions.Mode = options[0].Mode
 		}
 		harOptions.URL = options[0].URLFilter
+		harOptions.ResourcesDir = options[0].ResourcesDir
 	}
 	harId, err := t.channel.Send("harStart", map[string]any{
 		"options": prepareRecordHarOptions(harOptions),
@@ -190,8 +220,9 @@ func (t *tracingImpl) StartHar(path string, options ...TracingStartHarOptions) e
 		return err
 	}
 	t.harRecorders[harId.(string)] = harRecordingMetadata{
-		Path:    path,
-		Content: harOptions.Content,
+		Path:         path,
+		Content:      harOptions.Content,
+		ResourcesDir: harOptions.ResourcesDir,
 	}
 	return nil
 }
@@ -200,6 +231,13 @@ func (t *tracingImpl) StopHar() error {
 	if len(t.harRecorders) == 0 {
 		return fmt.Errorf("HAR recording has not been started")
 	}
+	return t.exportAllHars()
+}
+
+// exportAllHars flushes every active HAR recording to disk. It is invoked by
+// StopHar and by APIRequestContext.Dispose so HARs started via the request
+// context are written even without an explicit StopHar call.
+func (t *tracingImpl) exportAllHars() error {
 	for harId, harMetaData := range t.harRecorders {
 		delete(t.harRecorders, harId)
 		overrides := map[string]any{}
@@ -244,7 +282,7 @@ func (t *tracingImpl) StopHar() error {
 			if err := artifact.SaveAs(tmpPath); err != nil {
 				return err
 			}
-			if err := t.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path); err != nil {
+			if err := t.connection.localUtils.HarUnzip(tmpPath, harMetaData.Path, harMetaData.ResourcesDir); err != nil {
 				return err
 			}
 		}
@@ -257,7 +295,8 @@ func (t *tracingImpl) StopHar() error {
 
 func newTracing(parent *channelOwner, objectType string, guid string, initializer map[string]any) *tracingImpl {
 	bt := &tracingImpl{
-		harRecorders: make(map[string]harRecordingMetadata),
+		harRecorders:      make(map[string]harRecordingMetadata),
+		additionalSources: make(map[string]struct{}),
 	}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
 	bt.markAsInternalType()

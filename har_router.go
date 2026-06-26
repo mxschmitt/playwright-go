@@ -57,14 +57,25 @@ func (r *harRouter) handle(route Route) error {
 	if err != nil {
 		return err
 	}
-	response, err := r.localUtils.HarLookup(harLookupOptions{
+	// Use the actual on-wire headers (ordered, with duplicates) for matching,
+	// mirroring upstream which passes request.headersArray().
+	headers, err := request.HeadersArray()
+	if err != nil {
+		return err
+	}
+	lookup := harLookupOptions{
 		HarId:               r.harId,
 		URL:                 request.URL(),
 		Method:              request.Method(),
-		Headers:             request.Headers(),
+		Headers:             headers,
 		IsNavigationRequest: request.IsNavigationRequest(),
-		PostData:            postData,
-	})
+	}
+	// Omit postData for body-less requests; an empty buffer would otherwise be
+	// sent as "" and fail to match HAR entries that have no recorded body.
+	if len(postData) > 0 {
+		lookup.PostData = postData
+	}
+	response, err := r.localUtils.HarLookup(lookup)
 	if err != nil {
 		return err
 	}
@@ -75,16 +86,24 @@ func (r *harRouter) handle(route Route) error {
 		}
 		return route.(*routeImpl).redirectedNavigationRequest(*response.RedirectURL)
 	case "fulfill":
+		// If the response status is -1, the request was canceled or stalled, so we just stall it here.
+		// See https://github.com/microsoft/playwright/issues/29311.
+		if response.Status != nil && *response.Status == -1 {
+			return nil
+		}
 		if response.Body == nil {
 			return errors.New("fulfill body is null")
 		}
 		return route.Fulfill(RouteFulfillOptions{
-			Body:    *response.Body,
-			Status:  response.Status,
-			Headers: deserializeNameAndValueToMap(response.Headers),
+			Body:   *response.Body,
+			Status: response.Status,
+			// route.Fulfill does not support multiple set-cookie headers, so we merge them into one.
+			Headers: mergeHeaders(response.Headers),
 		})
 	case "error":
-		logger.Error("har action error", "error", *response.Message)
+		if response.Message != nil {
+			logger.Error("har action error", "error", *response.Message)
+		}
 		fallthrough
 	case "noentry":
 	}

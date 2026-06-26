@@ -67,6 +67,14 @@ func TestLocatorAssertionsToBeEditable(t *testing.T) {
 
 	require.NoError(t, expect.Locator(page.Locator("textarea")).ToBeEditable())
 	require.Error(t, expect.Locator(page.Locator("textarea")).Not().ToBeEditable())
+
+	// Editable: false asserts the readonly state.
+	require.NoError(t, expect.Locator(page.Locator("#input2")).ToBeEditable(playwright.LocatorAssertionsToBeEditableOptions{
+		Editable: playwright.Bool(false),
+	}))
+	require.Error(t, expect.Locator(page.Locator("#input1")).ToBeEditable(playwright.LocatorAssertionsToBeEditableOptions{
+		Editable: playwright.Bool(false),
+	}))
 }
 
 func TestLocatorAssertionsToBeEmpty(t *testing.T) {
@@ -111,6 +119,14 @@ func TestLocatorAssertionsToBeEnabled(t *testing.T) {
 
 	require.NoError(t, expect.Locator(page.Locator("div")).ToBeEnabled())
 	require.Error(t, expect.Locator(page.Locator("div")).Not().ToBeEnabled())
+
+	// Enabled: false asserts the disabled state.
+	require.NoError(t, expect.Locator(page.Locator(`:text("button2")`)).ToBeEnabled(playwright.LocatorAssertionsToBeEnabledOptions{
+		Enabled: playwright.Bool(false),
+	}))
+	require.Error(t, expect.Locator(page.Locator(`:text("button1")`)).ToBeEnabled(playwright.LocatorAssertionsToBeEnabledOptions{
+		Enabled: playwright.Bool(false),
+	}))
 }
 
 func TestLocatorAssertionsToBeFocused(t *testing.T) {
@@ -179,6 +195,14 @@ func TestLocatorAssertionsToBeVisible(t *testing.T) {
 	require.NoError(t, err)
 	require.Error(t, expect.Locator(locator2).ToBeVisible())
 	require.NoError(t, expect.Locator(locator2).Not().ToBeVisible())
+
+	// Visible: false asserts the hidden state.
+	require.NoError(t, expect.Locator(locator2).ToBeVisible(playwright.LocatorAssertionsToBeVisibleOptions{
+		Visible: playwright.Bool(false),
+	}))
+	require.Error(t, expect.Locator(locator).ToBeVisible(playwright.LocatorAssertionsToBeVisibleOptions{
+		Visible: playwright.Bool(false),
+	}))
 }
 
 func TestLocatorAssertionsToContainText(t *testing.T) {
@@ -292,6 +316,23 @@ func TestLocatorAssertionsToHaveCSS(t *testing.T) {
 	button2 := page.Locator("#button2")
 	require.Error(t, expect.Locator(button2).ToHaveCSS("display", "flex"))
 	require.NoError(t, expect.Locator(button2).Not().ToHaveCSS("display", "flex"))
+}
+
+// TestLocatorAssertionsToHaveCSSPseudo verifies the Pseudo option reads styles
+// from a pseudo-element (::before) rather than the element itself.
+func TestLocatorAssertionsToHaveCSSPseudo(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`
+	<style>#el::before { content: "x"; color: rgb(255, 0, 0); }</style>
+	<div id="el" style="color: rgb(0, 0, 255)">div</div>
+	`))
+	el := page.Locator("#el")
+	require.NoError(t, expect.Locator(el).ToHaveCSS("color", "rgb(255, 0, 0)", playwright.LocatorAssertionsToHaveCSSOptions{
+		Pseudo: playwright.PseudoElementBefore,
+	}))
+	// Without the pseudo option, the element's own color is read.
+	require.NoError(t, expect.Locator(el).ToHaveCSS("color", "rgb(0, 0, 255)"))
 }
 
 func TestLocatorAssertionsToHaveId(t *testing.T) {

@@ -187,10 +187,11 @@ func (b *browserImpl) StartTracing(options ...BrowserStartTracingOptions) error 
 		overrides["page"] = option.Page.(*pageImpl).channel
 		option.Page = nil
 	}
-	if option.Path != nil {
-		b.chromiumTracingPath = option.Path
-		option.Path = nil
-	}
+	// Set the path unconditionally (to nil when not provided), matching upstream
+	// `this._path = options.path`, so a later StopTracing doesn't reuse a stale
+	// path from an earlier StartTracing.
+	b.chromiumTracingPath = option.Path
+	option.Path = nil
 	_, err := b.channel.Send("startTracing", option, overrides)
 	return err
 }
@@ -218,6 +219,8 @@ func (b *browserImpl) StopTracing() ([]byte, error) {
 		if err != nil {
 			return binary, err
 		}
+		// Reset so a later pathless StartTracing/StopTracing doesn't reuse it.
+		b.chromiumTracingPath = nil
 	}
 	return binary, nil
 }

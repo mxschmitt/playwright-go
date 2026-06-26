@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strings"
 	"time"
 
 	mapset "github.com/deckarep/golang-set/v2"
@@ -21,12 +22,14 @@ type frameImpl struct {
 }
 
 func newFrame(parent *channelOwner, objectType string, guid string, initializer map[string]any) *frameImpl {
-	var loadStates mapset.Set[string]
-
-	if ls, ok := initializer["loadStates"].([]string); ok {
-		loadStates = mapset.NewSet[string](ls...)
-	} else {
-		loadStates = mapset.NewSet[string]()
+	loadStates := mapset.NewSet[string]()
+	// Initializers are JSON-decoded, so an array arrives as []any, never []string.
+	if ls, ok := initializer["loadStates"].([]any); ok {
+		for _, state := range ls {
+			if s, ok := state.(string); ok {
+				loadStates.Add(s)
+			}
+		}
 	}
 	f := &frameImpl{
 		name:        initializer["name"].(string),
@@ -105,7 +108,9 @@ func (f *frameImpl) AddScriptTag(options FrameAddScriptTagOptions) (ElementHandl
 		if err != nil {
 			return nil, err
 		}
-		options.Content = String(string(file))
+		// Append a sourceURL so the injected script is attributed to its file
+		// path in DevTools/traces, matching upstream addSourceUrlToScript.
+		options.Content = String(addSourceURLToScript(string(file), *options.Path))
 		options.Path = nil
 	}
 	channel, err := f.channel.Send("addScriptTag", options)
@@ -121,7 +126,7 @@ func (f *frameImpl) AddStyleTag(options FrameAddStyleTagOptions) (ElementHandle,
 		if err != nil {
 			return nil, err
 		}
-		options.Content = String(string(file))
+		options.Content = String(string(file) + "/*# sourceURL=" + strings.ReplaceAll(*options.Path, "\n", "") + "*/")
 		options.Path = nil
 	}
 	channel, err := f.channel.Send("addStyleTag", options)
@@ -235,6 +240,12 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 		return nil, err
 	}
 
+	event := eventData.(map[string]any)
+	if errVal, ok := event["error"]; ok {
+		// Any failed navigation results in a rejection.
+		return nil, errors.New(errVal.(string))
+	}
+
 	t := time.Until(deadline).Milliseconds()
 	if t > 0 {
 		err = f.waitForLoadStateImpl(string(*option.WaitUntil), Float(float64(t)), nil)
@@ -242,10 +253,10 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 			return nil, err
 		}
 	}
-	event := eventData.(map[string]any)
 	if event["newDocument"] != nil && event["newDocument"].(map[string]any)["request"] != nil {
 		request := fromChannel(event["newDocument"].(map[string]any)["request"]).(*requestImpl)
-		return request.Response()
+		// The response lives on the final request after following any redirects.
+		return request.finalRequest().Response()
 	}
 	return nil, nil
 }
@@ -259,6 +270,12 @@ func (f *frameImpl) setNavigationWaiter(timeout *float64) (*waiter, error) {
 		waiter.WithTimeout(*timeout)
 	} else {
 		waiter.WithTimeout(f.page.timeoutSettings.NavigationTimeout())
+	}
+	// If the page is already closed, fail immediately rather than waiting for the
+	// (already-fired) close event or the navigation timeout, matching upstream's
+	// rejectImmediately guard.
+	if f.page.IsClosed() {
+		waiter.reject(f.page.closeErrorWithReason())
 	}
 	waiter.RejectOnEvent(f.page, "close", f.page.closeErrorWithReason())
 	waiter.RejectOnEvent(f.page, "crash", fmt.Errorf("Navigation failed because page crashed!"))
@@ -534,7 +551,17 @@ func (f *frameImpl) WaitForFunction(expression string, arg any, options ...Frame
 	overrides := map[string]any{
 		"expression": expression,
 		"arg":        serializeArgument(arg),
-		"polling":    option.Polling,
+	}
+	// The server expects a numeric `pollingInterval`; the string "raf" means
+	// "poll on requestAnimationFrame" and is conveyed by omitting the interval.
+	switch polling := option.Polling.(type) {
+	case string:
+		if polling != "raf" {
+			return nil, fmt.Errorf("Unknown polling option: %s", polling)
+		}
+	case nil:
+	default:
+		overrides["pollingInterval"] = option.Polling
 	}
 	// timeout is required in Playwright v1.57+ protocol
 	if option.Timeout == nil {
@@ -744,7 +771,7 @@ func (f *frameImpl) Locator(selector string, options ...FrameLocatorOptions) Loc
 func (f *frameImpl) GetByAltText(text any, options ...FrameGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -754,7 +781,7 @@ func (f *frameImpl) GetByAltText(text any, options ...FrameGetByAltTextOptions) 
 func (f *frameImpl) GetByLabel(text any, options ...FrameGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -764,7 +791,7 @@ func (f *frameImpl) GetByLabel(text any, options ...FrameGetByLabelOptions) Loca
 func (f *frameImpl) GetByPlaceholder(text any, options ...FrameGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -785,7 +812,7 @@ func (f *frameImpl) GetByTestId(testId any) Locator {
 func (f *frameImpl) GetByText(text any, options ...FrameGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -795,7 +822,7 @@ func (f *frameImpl) GetByText(text any, options ...FrameGetByTextOptions) Locato
 func (f *frameImpl) GetByTitle(text any, options ...FrameGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}

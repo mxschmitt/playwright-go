@@ -9,6 +9,45 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLocatorClickTimeoutIncludesCallLog verifies the server-provided call log
+// is appended to command-error messages (e.g. action timeouts), matching the
+// upstream client which formats `log` onto the error.
+func TestLocatorClickTimeoutIncludesCallLog(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div>no button here</div>`))
+	err := page.Locator("button#missing").Click(playwright.LocatorClickOptions{
+		Timeout: playwright.Float(500),
+	})
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.Contains(t, err.Error(), "Call log:")
+	require.Contains(t, err.Error(), "waiting for")
+}
+
+// TestLocatorWithElementExplicitTimeoutCompletes guards the withElement budget
+// floor: when an explicit Timeout is passed, withElement waits for the selector
+// and then hands the inner action the *remaining* budget. If that remainder
+// clamped to 0, the protocol would interpret it as "disable timeout" (infinite)
+// and the action could hang; the floor of 1ms keeps these methods completing.
+func TestLocatorWithElementExplicitTimeoutCompletes(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div id="target">select me</div>`))
+	target := page.Locator("#target")
+
+	require.NoError(t, target.ScrollIntoViewIfNeeded(playwright.LocatorScrollIntoViewIfNeededOptions{
+		Timeout: playwright.Float(5000),
+	}))
+	require.NoError(t, target.SelectText(playwright.LocatorSelectTextOptions{
+		Timeout: playwright.Float(5000),
+	}))
+	shot, err := target.Screenshot(playwright.LocatorScreenshotOptions{
+		Timeout: playwright.Float(5000),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, shot)
+}
+
 func TestLocatorAllInnerTexts(t *testing.T) {
 	BeforeEach(t)
 
@@ -655,6 +694,26 @@ func TestShouldSupportLocatorOr(t *testing.T) {
 	require.NoError(t, expect.Locator(page.Locator("article").Or(page.Locator("span"))).ToHaveText("world"))
 	require.NoError(t, expect.Locator(page.Locator("div").Or(page.Locator("article"))).ToHaveText("hello"))
 	require.NoError(t, expect.Locator(page.Locator("span").Or(page.Locator("article"))).ToHaveText("world"))
+}
+
+// TestLocatorAndOrEnforceSameFrame verifies And/Or and Locator surface an error
+// when the argument belongs to a different frame, matching upstream which throws
+// "Locators must belong to the same frame."
+func TestLocatorAndOrEnforceSameFrame(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/frames/two-frames.html")
+	require.NoError(t, err)
+	require.Greater(t, len(page.Frames()), 1)
+	frameLocator := page.Frames()[1].Locator("div")
+	mainLocator := page.Locator("div")
+
+	require.ErrorIs(t, mainLocator.And(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+	require.ErrorIs(t, mainLocator.Or(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+	require.ErrorIs(t, mainLocator.Locator(frameLocator).Err(), playwright.ErrLocatorNotSameFrame)
+
+	// The original locator must NOT be corrupted by a failed cross-frame call.
+	require.NoError(t, mainLocator.Err())
 }
 
 func TestLocatorAndFrameLocatorShouldAcceptLocator(t *testing.T) {

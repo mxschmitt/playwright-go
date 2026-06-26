@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 )
 
 type elementHandleImpl struct {
@@ -74,8 +75,10 @@ func (e *elementHandleImpl) InnerHTML() (string, error) {
 }
 
 func (e *elementHandleImpl) DispatchEvent(typ string, initObjects ...any) error {
-	var initObject any
-	if len(initObjects) == 1 {
+	// Default eventInit to an empty object (not undefined), matching upstream's
+	// `eventInit: Object = {}`.
+	var initObject any = map[string]any{}
+	if len(initObjects) == 1 && initObjects[0] != nil {
 		initObject = initObjects[0]
 	}
 	_, err := e.channel.Send("dispatchEvent", map[string]any{
@@ -256,6 +259,12 @@ func (e *elementHandleImpl) Screenshot(options ...ElementHandleScreenshotOptions
 	if len(options) == 1 {
 		path = options[0].Path
 		options[0].Path = nil
+		// Infer the image type from the path extension when not set, matching upstream.
+		typ, err := determineScreenshotType(path, options[0].Type)
+		if err != nil {
+			return nil, err
+		}
+		options[0].Type = typ
 		if options[0].Mask != nil {
 			masks := make([]map[string]any, 0)
 			for _, m := range options[0].Mask {
@@ -283,6 +292,9 @@ func (e *elementHandleImpl) Screenshot(options ...ElementHandleScreenshotOptions
 		return nil, fmt.Errorf("could not decode base64 :%w", err)
 	}
 	if path != nil {
+		if err := os.MkdirAll(filepath.Dir(*path), 0o777); err != nil {
+			return nil, err
+		}
 		if err := os.WriteFile(*path, image, 0o644); err != nil {
 			return nil, err
 		}
@@ -399,6 +411,15 @@ func (e *elementHandleImpl) SetChecked(checked bool, options ...ElementHandleSet
 func newElementHandle(parent *channelOwner, objectType string, guid string, initializer map[string]any) *elementHandleImpl {
 	bt := &elementHandleImpl{}
 	bt.createChannelOwner(bt, parent, objectType, guid, initializer)
+	// ElementHandle extends JSHandle: initialize the preview from the initializer
+	// and keep it in sync, so String() returns the element preview (newJSHandle
+	// does this, but ElementHandle is constructed directly).
+	if preview, ok := initializer["preview"].(string); ok {
+		bt.preview = preview
+	}
+	bt.channel.On("previewUpdated", func(ev map[string]any) {
+		bt.preview = ev["preview"].(string)
+	})
 	return bt
 }
 

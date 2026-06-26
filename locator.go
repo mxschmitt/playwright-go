@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 var (
@@ -12,11 +13,10 @@ var (
 )
 
 type locatorImpl struct {
-	frame       *frameImpl
-	selector    string
-	options     *LocatorOptions
-	err         error
-	description *string
+	frame    *frameImpl
+	selector string
+	options  *LocatorOptions
+	err      error
 }
 
 type LocatorOptions LocatorFilterOptions
@@ -62,25 +62,30 @@ func (l *locatorImpl) equals(locator Locator) bool {
 	return l.frame == locator.(*locatorImpl).frame && l.err == locator.(*locatorImpl).err && l.selector == locator.(*locatorImpl).selector
 }
 
+// withError returns a copy of the locator carrying an additional error, without
+// mutating the receiver. Upstream throws on these conditions; the Go API surfaces
+// the error lazily via the returned locator's Err().
+func (l *locatorImpl) withError(err error) *locatorImpl {
+	return &locatorImpl{
+		frame:    l.frame,
+		selector: l.selector,
+		options:  l.options,
+		err:      errors.Join(l.err, err),
+	}
+}
+
 func (l *locatorImpl) Err() error {
 	return l.err
 }
 
 func (l *locatorImpl) Describe(description string) Locator {
-	return &locatorImpl{
-		frame:       l.frame,
-		selector:    l.selector,
-		options:     l.options,
-		err:         l.err,
-		description: &description,
-	}
+	// Embed the description into the selector via the internal:describe engine so
+	// it reaches the server (traces, error messages, call logs), matching upstream.
+	return newLocator(l.frame, l.selector+" >> internal:describe="+escapeText(description))
 }
 
 func (l *locatorImpl) Description() (string, error) {
-	if l.description == nil {
-		return "", nil
-	}
-	return *l.description, nil
+	return locatorCustomDescription(l.selector), nil
 }
 
 func (l *locatorImpl) All() ([]Locator, error) {
@@ -128,10 +133,16 @@ func (l *locatorImpl) AllTextContents() ([]string, error) {
 }
 
 func (l *locatorImpl) And(locator Locator) Locator {
+	if l.frame != locator.(*locatorImpl).frame {
+		return l.withError(ErrLocatorNotSameFrame)
+	}
 	return newLocator(l.frame, l.selector+` >> internal:and=`+escapeText(locator.(*locatorImpl).selector))
 }
 
 func (l *locatorImpl) Or(locator Locator) Locator {
+	if l.frame != locator.(*locatorImpl).frame {
+		return l.withError(ErrLocatorNotSameFrame)
+	}
 	return newLocator(l.frame, l.selector+` >> internal:or=`+escapeText(locator.(*locatorImpl).selector))
 }
 
@@ -153,6 +164,9 @@ func (l *locatorImpl) Blur(options ...LocatorBlurOptions) error {
 }
 
 func (l *locatorImpl) AriaSnapshot(options ...LocatorAriaSnapshotOptions) (string, error) {
+	if l.err != nil {
+		return "", l.err
+	}
 	var option LocatorAriaSnapshotOptions
 	if len(options) == 1 {
 		option = options[0]
@@ -174,7 +188,7 @@ func (l *locatorImpl) BoundingBox(options ...LocatorBoundingBoxOptions) (*Rect, 
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (any, error) {
+	result, err := l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.BoundingBox()
 	}, option)
 	if err != nil {
@@ -316,8 +330,13 @@ func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error
 		params["data"] = data
 	}
 	if len(options) == 1 {
-		if err := assignStructFields(&params, options[0], false); err != nil {
-			return err
+		// params is a map, so assignStructFields (which requires a struct dest)
+		// cannot be used here; set the option keys directly.
+		if options[0].Position != nil {
+			params["position"] = options[0].Position
+		}
+		if options[0].Timeout != nil {
+			params["timeout"] = options[0].Timeout
 		}
 	}
 	if _, ok := params["timeout"]; !ok {
@@ -359,7 +378,7 @@ func (l *locatorImpl) Evaluate(expression string, arg any, options ...LocatorEva
 		option.Timeout = options[0].Timeout
 	}
 
-	return l.withElement(func(handle ElementHandle) (any, error) {
+	return l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.Evaluate(expression, arg)
 	}, option)
 }
@@ -380,7 +399,7 @@ func (l *locatorImpl) EvaluateHandle(expression string, arg any, options ...Loca
 		option.Timeout = options[0].Timeout
 	}
 
-	h, err := l.withElement(func(handle ElementHandle) (any, error) {
+	h, err := l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.EvaluateHandle(expression, arg)
 	}, option)
 	if err != nil {
@@ -452,7 +471,7 @@ func (l *locatorImpl) GetAttribute(name string, options ...LocatorGetAttributeOp
 func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -462,7 +481,7 @@ func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptio
 func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -472,7 +491,7 @@ func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) 
 func (l *locatorImpl) GetByPlaceholder(text any, options ...LocatorGetByPlaceholderOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -490,7 +509,7 @@ func (l *locatorImpl) GetByTestId(testId any) Locator {
 func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -500,7 +519,7 @@ func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Lo
 func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator {
 	exact := false
 	if len(options) == 1 {
-		if *options[0].Exact {
+		if options[0].Exact != nil && *options[0].Exact {
 			exact = true
 		}
 	}
@@ -696,8 +715,7 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 	locator, ok := selectorOrLocator.(*locatorImpl)
 	if ok {
 		if l.frame != locator.frame {
-			l.err = errors.Join(l.err, ErrLocatorNotSameFrame)
-			return l
+			return l.withError(ErrLocatorNotSameFrame)
 		}
 		return newLocator(
 			l.frame,
@@ -705,8 +723,7 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 			option,
 		)
 	}
-	l.err = errors.Join(l.err, fmt.Errorf("invalid locator parameter: %v", selectorOrLocator))
-	return l
+	return l.withError(fmt.Errorf("invalid locator parameter: %v", selectorOrLocator))
 }
 
 func (l *locatorImpl) Nth(index int) Locator {
@@ -755,11 +772,12 @@ func (l *locatorImpl) Screenshot(options ...LocatorScreenshotOptions) ([]byte, e
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (any, error) {
+	result, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var screenshotOption ElementHandleScreenshotOptions
 		if len(options) == 1 {
 			screenshotOption = ElementHandleScreenshotOptions(options[0])
 		}
+		screenshotOption.Timeout = timeout
 		return handle.Screenshot(screenshotOption)
 	}, option)
 	if err != nil {
@@ -778,11 +796,9 @@ func (l *locatorImpl) ScrollIntoViewIfNeeded(options ...LocatorScrollIntoViewIfN
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (any, error) {
+	_, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var opt ElementHandleScrollIntoViewIfNeededOptions
-		if len(options) == 1 {
-			opt.Timeout = options[0].Timeout
-		}
+		opt.Timeout = timeout
 		return nil, handle.ScrollIntoViewIfNeeded(opt)
 	}, option)
 
@@ -813,11 +829,12 @@ func (l *locatorImpl) SelectText(options ...LocatorSelectTextOptions) error {
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (any, error) {
+	_, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var opt ElementHandleSelectTextOptions
 		if len(options) == 1 {
 			opt = ElementHandleSelectTextOptions(options[0])
 		}
+		opt.Timeout = timeout
 		return nil, handle.SelectText(opt)
 	}, option)
 
@@ -931,7 +948,7 @@ func (l *locatorImpl) WaitFor(options ...LocatorWaitForOptions) error {
 }
 
 func (l *locatorImpl) withElement(
-	callback func(handle ElementHandle) (any, error),
+	callback func(handle ElementHandle, timeout *float64) (any, error),
 	options ...FrameWaitForSelectorOptions,
 ) (any, error) {
 	if l.err != nil {
@@ -944,12 +961,31 @@ func (l *locatorImpl) withElement(
 	if len(options) == 1 {
 		option.Timeout = options[0].Timeout
 	}
+	// Mirror upstream `_withElement`: when an explicit timeout is provided, the
+	// total budget for waitForSelector plus the inner action is bounded by that
+	// single timeout. Compute a deadline up front and hand the inner action the
+	// remaining budget instead of repeating the full timeout.
+	var deadline *time.Time
+	if option.Timeout != nil {
+		d := time.Now().Add(time.Duration(*option.Timeout) * time.Millisecond)
+		deadline = &d
+	}
 	handle, err := l.frame.WaitForSelector(l.selector, option)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := callback(handle)
+	var remaining *float64
+	if deadline != nil {
+		ms := float64(time.Until(*deadline).Milliseconds())
+		// Floor at 1ms, not 0: the protocol treats timeout 0 as "disable timeout"
+		// (infinite), so an exhausted budget must still fail fast rather than hang.
+		if ms <= 0 {
+			ms = 1
+		}
+		remaining = Float(ms)
+	}
+	result, err := callback(handle, remaining)
 	if err != nil {
 		_ = handle.Dispose()
 		return nil, err
@@ -982,9 +1018,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		log      []string
 	)
 
-	if v, ok := result["received"]; ok {
-		received = parseResult(v)
-	}
+	received = parseExpectReceived(result["received"])
 	if v, ok := result["matches"]; ok {
 		matches = v.(bool)
 	}

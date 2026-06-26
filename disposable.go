@@ -1,11 +1,16 @@
 package playwright
 
+import "errors"
+
 type disposableImpl struct {
 	channelOwner
 }
 
 func (d *disposableImpl) Dispose() error {
 	_, err := d.channel.Send("dispose")
+	if errors.Is(err, ErrTargetClosed) {
+		return nil
+	}
 	return err
 }
 

@@ -18,7 +18,11 @@ func (a *artifactImpl) PathAfterFinished() (string, error) {
 		return "", errors.New("Path is not available when connecting remotely. Use SaveAs() to save a local copy")
 	}
 	path, err := a.channel.Send("pathAfterFinished")
-	return path.(string), err
+	if err != nil {
+		return "", err
+	}
+	s, _ := path.(string)
+	return s, nil
 }
 
 func (a *artifactImpl) SaveAs(path string) error {

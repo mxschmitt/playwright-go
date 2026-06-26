@@ -172,6 +172,27 @@ func TestRouteFulfillPath(t *testing.T) {
 	require.Equal(t, "image/png", response.Headers()["content-type"])
 }
 
+// TestRouteFulfillPathContentTypeFromExtension verifies the content type is
+// derived from the file extension (matching upstream getMimeTypeForPath) rather
+// than from content sniffing, which would report text/plain for a .css file.
+func TestRouteFulfillPathContentTypeFromExtension(t *testing.T) {
+	BeforeEach(t)
+
+	intercepted := make(chan bool, 1)
+	err := page.Route("**/empty.html", func(route playwright.Route) {
+		require.NoError(t, route.Fulfill(playwright.RouteFulfillOptions{
+			Path: playwright.String(Asset("one-style.css")),
+		}))
+		intercepted <- true
+	})
+	require.NoError(t, err)
+	response, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	require.True(t, response.Ok())
+	<-intercepted
+	require.Equal(t, "text/css", response.Headers()["content-type"])
+}
+
 func TestRequestFinished(t *testing.T) {
 	BeforeEach(t)
 
@@ -259,6 +280,59 @@ func TestRequestPostData(t *testing.T) {
 		})
 	})`, server.PREFIX+"/foobar")
 	require.NoError(t, err)
+}
+
+// TestRequestPostDataJSONFormURLEncoded mirrors upstream's "should parse the
+// data if content-type is application/x-www-form-urlencoded" test
+// (tests/page/page-network-request.spec.ts).
+func TestRequestPostDataJSONFormURLEncoded(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/post", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	requestChan := make(chan playwright.Request, 1)
+	page.OnRequest(func(r playwright.Request) {
+		requestChan <- r
+	})
+	require.NoError(t, page.SetContent(`<form method='POST' action='/post'><input type='text' name='foo' value='bar'><input type='number' name='baz' value='123'><input type='submit'></form>`))
+	require.NoError(t, page.Locator("input[type=submit]").Click())
+	request := <-requestChan
+	var postData map[string]interface{}
+	require.NoError(t, request.PostDataJSON(&postData))
+	require.Equal(t, map[string]interface{}{
+		"foo": "bar",
+		"baz": "123",
+	}, postData)
+}
+
+// TestRequestPostDataJSONFormURLEncodedDuplicateKey verifies that a repeated
+// form key keeps the LAST value, matching upstream's URLSearchParams.entries()
+// (last write wins) rather than url.Values.Get (first value).
+func TestRequestPostDataJSONFormURLEncodedDuplicateKey(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/post", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	requestChan := make(chan playwright.Request, 1)
+	page.OnRequest(func(r playwright.Request) {
+		requestChan <- r
+	})
+	_, err = page.Evaluate(`url => fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: 'foo=bar&foo=baz',
+	})`, server.PREFIX+"/post")
+	require.NoError(t, err)
+	request := <-requestChan
+	var postData map[string]interface{}
+	require.NoError(t, request.PostDataJSON(&postData))
+	require.Equal(t, map[string]interface{}{"foo": "baz"}, postData)
 }
 
 func TestFulfillWithURLOverride(t *testing.T) {

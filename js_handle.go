@@ -10,6 +10,8 @@ import (
 	"math/big"
 	"net/url"
 	"reflect"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -156,6 +158,30 @@ func parseValue(result any, refs map[float64]any) any {
 	if v, ok := vMap["d"]; ok {
 		t, _ := time.Parse(time.RFC3339Nano, v.(string))
 		return t
+	}
+	if v, ok := vMap["r"]; ok {
+		// A RegExp result from page evaluation, e.g. `() => /foo/i`. Translate the
+		// JS pattern + flags into a Go *regexp.Regexp, mapping the i/m/s flags to
+		// an inline (?ims) prefix. Mirrors upstream serializers.ts which returns
+		// `new RegExp(value.r.p, value.r.f)`.
+		r := v.(map[string]any)
+		pattern, _ := r["p"].(string)
+		flags, _ := r["f"].(string)
+		var inline strings.Builder
+		for _, f := range flags {
+			switch f {
+			case 'i', 'm', 's':
+				inline.WriteRune(f)
+			}
+		}
+		if inline.Len() > 0 {
+			pattern = "(?" + inline.String() + ")" + pattern
+		}
+		re, err := regexp.Compile(pattern)
+		if err != nil {
+			return nil
+		}
+		return re
 	}
 	if v, ok := vMap["a"]; ok {
 		aV := v.([]any)
@@ -328,6 +354,14 @@ func serializeValue(value any, handles *[]*channel, depth int) any {
 	refV := reflect.ValueOf(value)
 
 	switch refV.Kind() {
+	case reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return map[string]any{
+			"n": refV.Int(),
+		}
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return map[string]any{
+			"n": refV.Uint(),
+		}
 	case reflect.Float32, reflect.Float64:
 		floatV := refV.Float()
 		if math.IsInf(floatV, 1) {

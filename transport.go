@@ -60,6 +60,7 @@ type message struct {
 	Error  *struct {
 		Error Error `json:"error"`
 	} `json:"error,omitempty"`
+	Log []string `json:"log,omitempty"`
 }
 
 func (t *pipeTransport) Send(msg map[string]any) error {

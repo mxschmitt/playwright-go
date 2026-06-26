@@ -124,6 +124,28 @@ func TestPageExposeBindingPanic(t *testing.T) {
 	require.Contains(t, stack[4], "binding_test.go")
 }
 
+// TestPageExposeBindingPanicNonError verifies a binding that panics with a
+// non-error value (e.g. a string) rejects cleanly instead of crashing the
+// process on a failed type assertion in the recover handler.
+func TestPageExposeBindingPanicNonError(t *testing.T) {
+	BeforeEach(t)
+
+	err := page.ExposeBinding("woofString", func(source *playwright.BindingSource, args ...interface{}) interface{} {
+		panic("WOOF STRING")
+	})
+	require.NoError(t, err)
+	result, err := page.Evaluate(`async () => {
+		try {
+		  await window['woofString']();
+		} catch (e) {
+		  return {message: e.message};
+		}
+	  }`)
+	require.NoError(t, err)
+	innerError := result.(map[string]interface{})
+	require.Equal(t, "WOOF STRING", innerError["message"])
+}
+
 func TestPageBindingsNoRace(t *testing.T) {
 	BeforeEach(t)
 
