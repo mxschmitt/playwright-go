@@ -452,6 +452,28 @@ func (r *apiResponseImpl) URL() string {
 	return r.initializer["url"].(string)
 }
 
+// SecurityDetails and ServerAddr read from the response initializer (unlike
+// network Response, which calls back over the channel), mirroring upstream.
+func (r *apiResponseImpl) SecurityDetails() (*ResponseSecurityDetailsResult, error) {
+	details, ok := r.initializer["securityDetails"]
+	if !ok || details == nil {
+		return nil, nil
+	}
+	result := &ResponseSecurityDetailsResult{}
+	remapMapToStruct(details, result)
+	return result, nil
+}
+
+func (r *apiResponseImpl) ServerAddr() (*ResponseServerAddrResult, error) {
+	addr, ok := r.initializer["serverAddr"]
+	if !ok || addr == nil {
+		return nil, nil
+	}
+	result := &ResponseServerAddrResult{}
+	remapMapToStruct(addr, result)
+	return result, nil
+}
+
 func (r *apiResponseImpl) fetchUid() string {
 	return r.initializer["fetchUid"].(string)
 }

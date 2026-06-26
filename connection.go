@@ -131,6 +131,16 @@ func (c *connection) Dispatch(msg *message) {
 			if log := formatCallLog(msg.Log); log != "" {
 				err = fmt.Errorf("%w%s", err, log)
 			}
+			// Preserve structured errorDetails (e.g. assertion `expect` failures
+			// in v1.61+) so callers can reconstruct the result via errors.As.
+			if msg.ErrorDetails != nil {
+				details, derr := c.replaceGuidsWithChannels(msg.ErrorDetails)
+				if derr == nil {
+					if detailsMap, ok := details.(map[string]any); ok {
+						err = &errorWithDetails{err: err, details: detailsMap, log: msg.Log}
+					}
+				}
+			}
 			cb.SetError(err)
 		} else {
 			// Always resolve GUIDs in responses, regardless of connection type

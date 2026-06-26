@@ -19,7 +19,7 @@ import (
 )
 
 const (
-	playwrightCliVersion = "1.60.0"
+	playwrightCliVersion = "1.61.1"
 	// nodeVersion is the Node.js runtime downloaded alongside the driver when no
 	// PLAYWRIGHT_NODEJS_PATH is provided. It is kept in line with the Node.js
 	// version upstream Playwright bundles in its own driver.

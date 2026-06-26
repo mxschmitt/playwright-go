@@ -350,6 +350,27 @@ type NameValue struct {
 	Value string `json:"value"`
 }
 
+type ResponseSecurityDetailsResult struct {
+	// Common Name component of the Issuer field. from the certificate. This should only be used for informational
+	// purposes. Optional.
+	Issuer *string `json:"issuer"`
+	// The specific TLS protocol used. (e.g. `TLS 1.3`). Optional.
+	Protocol *string `json:"protocol"`
+	// Common Name component of the Subject field from the certificate. This should only be used for informational
+	// purposes. Optional.
+	SubjectName *string `json:"subjectName"`
+	// Unix timestamp (in seconds) specifying when this cert becomes valid. Optional.
+	ValidFrom *float64 `json:"validFrom"`
+	// Unix timestamp (in seconds) specifying when this cert becomes invalid. Optional.
+	ValidTo *float64 `json:"validTo"`
+}
+
+type ResponseServerAddrResult struct {
+	// IPv4 or IPV6 address of the server.
+	IpAddress string `json:"ipAddress"`
+	Port      int    `json:"port"`
+}
+
 type BrowserCloseOptions struct {
 	// The reason to be reported to the operations interrupted by the browser closure.
 	Reason *string `json:"reason"`
@@ -861,6 +882,8 @@ type BrowserTypeConnectOptions struct {
 }
 
 type BrowserTypeConnectOverCDPOptions struct {
+	// If specified, browser artifacts (such as traces and downloads) are saved into this directory.
+	ArtifactsDir *string `json:"artifactsDir"`
 	// Additional HTTP headers to be sent with connect request. Optional.
 	Headers map[string]string `json:"headers"`
 	// Tells Playwright that it runs on the same host as the CDP server. It will enable certain optimizations that rely
@@ -1176,6 +1199,37 @@ type ConsoleMessageLocation struct {
 	LineNumber int `json:"lineNumber"`
 	// 0-based column number in the resource. Deprecated, use `column` instead.
 	ColumnNumber int `json:"columnNumber"`
+}
+
+type VirtualCredential struct {
+	// Base64url-encoded credential id.
+	Id string `json:"id"`
+	// Relying party id.
+	RpId string `json:"rpId"`
+	// Base64url-encoded user handle.
+	UserHandle string `json:"userHandle"`
+	// Base64url-encoded PKCS#8 (DER) private key.
+	PrivateKey string `json:"privateKey"`
+	// Base64url-encoded SPKI (DER) public key.
+	PublicKey string `json:"publicKey"`
+}
+
+type CredentialsCreateOptions struct {
+	// Base64url-encoded credential id. Auto-generated if omitted.
+	Id *string `json:"id"`
+	// Base64url-encoded PKCS#8 (DER) private key. Auto-generated if omitted.
+	PrivateKey *string `json:"privateKey"`
+	// Base64url-encoded SPKI (DER) public key. Auto-generated if omitted.
+	PublicKey *string `json:"publicKey"`
+	// Base64url-encoded user handle. Auto-generated if omitted.
+	UserHandle *string `json:"userHandle"`
+}
+
+type CredentialsGetOptions struct {
+	// Only return the credential with this base64url-encoded id.
+	Id *string `json:"id"`
+	// Only return credentials for this relying party id.
+	RpId *string `json:"rpId"`
 }
 
 type PausedDetail struct {
@@ -4329,27 +4383,6 @@ type RequestTiming struct {
 	ResponseEnd float64 `json:"responseEnd"`
 }
 
-type ResponseSecurityDetailsResult struct {
-	// Common Name component of the Issuer field. from the certificate. This should only be used for informational
-	// purposes. Optional.
-	Issuer *string `json:"issuer"`
-	// The specific TLS protocol used. (e.g. `TLS 1.3`). Optional.
-	Protocol *string `json:"protocol"`
-	// Common Name component of the Subject field from the certificate. This should only be used for informational
-	// purposes. Optional.
-	SubjectName *string `json:"subjectName"`
-	// Unix timestamp (in seconds) specifying when this cert becomes valid. Optional.
-	ValidFrom *float64 `json:"validFrom"`
-	// Unix timestamp (in seconds) specifying when this cert becomes invalid. Optional.
-	ValidTo *float64 `json:"validTo"`
-}
-
-type ResponseServerAddrResult struct {
-	// IPv4 or IPV6 address of the server.
-	IpAddress string `json:"ipAddress"`
-	Port      int    `json:"port"`
-}
-
 type RouteContinueOptions struct {
 	// If set changes the request HTTP headers. Header values will be converted to a string.
 	Headers map[string]string `json:"headers"`
@@ -4416,6 +4449,11 @@ type ScreencastStartOptions struct {
 	Path *string `json:"path"`
 	// The quality of the image, between 0-100.
 	Quality *int `json:"quality"`
+	// Specifies the dimensions of screencast frames. The actual frame is scaled to preserve the page's aspect ratio and
+	// may be smaller than these bounds. If a screencast is already active (e.g. started by tracing or video recording),
+	// the existing configuration takes precedence and the frame size may exceed these bounds or this option may be
+	// ignored. If not specified the size will be equal to page viewport scaled down to fit into 800×800.
+	Size *Size `json:"size"`
 }
 
 type ScreencastShowOverlayOptions struct {
@@ -4432,6 +4470,9 @@ type ScreencastShowChapterOptions struct {
 }
 
 type ScreencastShowActionsOptions struct {
+	// Cursor decoration shown for pointer actions. `"pointer"` (the default) renders a mouse pointer that animates from
+	// the previous action point to the next one. `"none"` disables the cursor decoration.
+	Cursor *ScreencastCursor `json:"cursor"`
 	// How long each annotation is displayed in milliseconds. Defaults to `500`.
 	Duration *float64 `json:"duration"`
 	// Font size of the action title in pixels. Defaults to `24`.
@@ -4535,6 +4576,11 @@ type WebSocketRouteCloseOptions struct {
 	Reason *string `json:"reason"`
 }
 
+type WebStorageItem struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+}
+
 type ClientCertificate struct {
 	// Exact origin that the certificate is valid for. Origin includes `https` protocol, a hostname and optionally a port.
 	Origin string `json:"origin"`
@@ -4627,6 +4673,8 @@ type Margin struct {
 type OnFrame struct {
 	// JPEG-encoded frame data.
 	Data []byte `json:"data"`
+	// The timestamp of when the frame was presented by the browser, in milliseconds since the Unix epoch.
+	Timestamp float64 `json:"timestamp"`
 	// Width of the page viewport at the time the frame was captured.
 	ViewportWidth int `json:"viewportWidth"`
 	// Height of the page viewport at the time the frame was captured.

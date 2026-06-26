@@ -166,7 +166,21 @@ func getByTextSelector(text any, exact bool) string {
 }
 
 func getByTestIdSelector(testIdAttributeName string, testId any) string {
-	return fmt.Sprintf(`internal:testid=[%s=%s]`, testIdAttributeName, escapeForAttributeSelector(testId, true))
+	return fmt.Sprintf(`internal:testid=[%s=%s]`, encodeTestIdAttributeName(testIdAttributeName), escapeForAttributeSelector(testId, true))
+}
+
+// encodeTestIdAttributeName JSON-quotes the attribute name when it contains a
+// comma so the engine treats a comma-separated list (e.g. "data-pw,data-ti") as
+// multiple attribute names rather than malforming the selector. Mirrors upstream
+// encodeTestIdAttributeName (packages/isomorphic/locatorUtils.ts).
+func encodeTestIdAttributeName(testIdAttributeName string) string {
+	if strings.Contains(testIdAttributeName, ",") {
+		encoded, err := json.Marshal(testIdAttributeName)
+		if err == nil {
+			return string(encoded)
+		}
+	}
+	return testIdAttributeName
 }
 
 func getByTitleSelector(text any, exact bool) string {

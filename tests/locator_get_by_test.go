@@ -39,6 +39,34 @@ func TestGetByTestIdEscapeId(t *testing.T) {
 	require.Equal(t, 1, count)
 }
 
+func TestGetByTestIdCommaSeparatedAttributesShouldMatchAny(t *testing.T) {
+	BeforeEach(t)
+
+	// Since v1.61 setTestIdAttribute accepts a comma-separated list of attribute
+	// names; getByTestId matches an element carrying any of them.
+	pw.Selectors.SetTestIdAttribute("data-pw,data-ti")
+	defer pw.Selectors.SetTestIdAttribute("data-testid")
+
+	require.NoError(t, page.SetContent(`
+		<section>
+			<div data-pw='Hello'>first</div>
+			<div data-ti='Hello'>second</div>
+			<div data-testid='Hello'>third</div>
+		</section>`))
+
+	count, err := page.GetByTestId("Hello").Count()
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	count, err = page.MainFrame().GetByTestId("Hello").Count()
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+
+	count, err = page.Locator("section").GetByTestId("Hello").Count()
+	require.NoError(t, err)
+	require.Equal(t, 2, count)
+}
+
 func TestGetByText(t *testing.T) {
 	BeforeEach(t)
 
