@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"time"
 )
 
 var (
@@ -187,7 +188,7 @@ func (l *locatorImpl) BoundingBox(options ...LocatorBoundingBoxOptions) (*Rect, 
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (any, error) {
+	result, err := l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.BoundingBox()
 	}, option)
 	if err != nil {
@@ -377,7 +378,7 @@ func (l *locatorImpl) Evaluate(expression string, arg any, options ...LocatorEva
 		option.Timeout = options[0].Timeout
 	}
 
-	return l.withElement(func(handle ElementHandle) (any, error) {
+	return l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.Evaluate(expression, arg)
 	}, option)
 }
@@ -398,7 +399,7 @@ func (l *locatorImpl) EvaluateHandle(expression string, arg any, options ...Loca
 		option.Timeout = options[0].Timeout
 	}
 
-	h, err := l.withElement(func(handle ElementHandle) (any, error) {
+	h, err := l.withElement(func(handle ElementHandle, _ *float64) (any, error) {
 		return handle.EvaluateHandle(expression, arg)
 	}, option)
 	if err != nil {
@@ -771,11 +772,12 @@ func (l *locatorImpl) Screenshot(options ...LocatorScreenshotOptions) ([]byte, e
 		option.Timeout = options[0].Timeout
 	}
 
-	result, err := l.withElement(func(handle ElementHandle) (any, error) {
+	result, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var screenshotOption ElementHandleScreenshotOptions
 		if len(options) == 1 {
 			screenshotOption = ElementHandleScreenshotOptions(options[0])
 		}
+		screenshotOption.Timeout = timeout
 		return handle.Screenshot(screenshotOption)
 	}, option)
 	if err != nil {
@@ -794,11 +796,9 @@ func (l *locatorImpl) ScrollIntoViewIfNeeded(options ...LocatorScrollIntoViewIfN
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (any, error) {
+	_, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var opt ElementHandleScrollIntoViewIfNeededOptions
-		if len(options) == 1 {
-			opt.Timeout = options[0].Timeout
-		}
+		opt.Timeout = timeout
 		return nil, handle.ScrollIntoViewIfNeeded(opt)
 	}, option)
 
@@ -829,11 +829,12 @@ func (l *locatorImpl) SelectText(options ...LocatorSelectTextOptions) error {
 		option.Timeout = options[0].Timeout
 	}
 
-	_, err := l.withElement(func(handle ElementHandle) (any, error) {
+	_, err := l.withElement(func(handle ElementHandle, timeout *float64) (any, error) {
 		var opt ElementHandleSelectTextOptions
 		if len(options) == 1 {
 			opt = ElementHandleSelectTextOptions(options[0])
 		}
+		opt.Timeout = timeout
 		return nil, handle.SelectText(opt)
 	}, option)
 
@@ -947,7 +948,7 @@ func (l *locatorImpl) WaitFor(options ...LocatorWaitForOptions) error {
 }
 
 func (l *locatorImpl) withElement(
-	callback func(handle ElementHandle) (any, error),
+	callback func(handle ElementHandle, timeout *float64) (any, error),
 	options ...FrameWaitForSelectorOptions,
 ) (any, error) {
 	if l.err != nil {
@@ -960,12 +961,29 @@ func (l *locatorImpl) withElement(
 	if len(options) == 1 {
 		option.Timeout = options[0].Timeout
 	}
+	// Mirror upstream `_withElement`: when an explicit timeout is provided, the
+	// total budget for waitForSelector plus the inner action is bounded by that
+	// single timeout. Compute a deadline up front and hand the inner action the
+	// remaining budget instead of repeating the full timeout.
+	var deadline *time.Time
+	if option.Timeout != nil {
+		d := time.Now().Add(time.Duration(*option.Timeout) * time.Millisecond)
+		deadline = &d
+	}
 	handle, err := l.frame.WaitForSelector(l.selector, option)
 	if err != nil {
 		return nil, err
 	}
 
-	result, err := callback(handle)
+	var remaining *float64
+	if deadline != nil {
+		ms := float64(time.Until(*deadline).Milliseconds())
+		if ms < 0 {
+			ms = 0
+		}
+		remaining = Float(ms)
+	}
+	result, err := callback(handle, remaining)
 	if err != nil {
 		_ = handle.Dispose()
 		return nil, err
