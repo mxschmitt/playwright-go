@@ -5,7 +5,7 @@ description: Roll playwright-go to a new upstream Playwright version. Bumps the 
 
 # Roll playwright-go to a new Playwright version
 
-Roll the client from the currently-pinned version to a target version (e.g. `1.61.0`). Work autonomously; only stop for the decision points called out in **When to ask the user**.
+Roll the client from the currently-pinned version to a target version (e.g. `1.61.0`). Work autonomously; only stop for the decision points called out in **When to ask the user**. The job isn't done when the PR opens — it's done when CI is green (Step 11), so expect to iterate on cross-browser/cross-OS failures that don't reproduce locally.
 
 ## What a roll actually is
 
@@ -168,7 +168,7 @@ bash .claude/skills/roll-playwright/verify-parity.sh <NEW_VERSION>
 
 It reports three buckets:
 1. **New upstream APIs not in Go** — each `* since: vNEW` block whose `* langs:` still lacks `go`. For each, decide: intentionally omitted (matches a sibling skipping it) or a miss to fix in `patches/main.patch`.
-2. **Sibling test files added this roll** — so you can confirm you ported each one into `tests/` (Step 6b).
+2. **Sibling tests added this roll** — the test files AND the individual test function names from all three clients, so you can tick off that each has a Go counterpart in `tests/` (Step 6b).
 3. **Go API symbols added vs sibling API surface** — a rough name-level diff to spot a method you exposed that no sibling did (often a naming mistake) or vice-versa.
 
 Treat each flagged item as needing an explicit decision: fix it, or note why Go intentionally differs. The goal is that any remaining difference from python/java/dotnet is deliberate and explainable.
@@ -189,6 +189,35 @@ git add -A && git commit -m "chore: roll to Playwright v<NEW_VERSION>"
 
 Open a PR only if the user asks. Summarize new APIs added in the PR body.
 
+## Step 11 — Watch CI and keep the branch current
+
+A roll PR runs a large matrix (3 OS × 3 browsers × 2 Go versions) plus Lint, verify (type generation), and test-examples. Local chromium-green is **not** sufficient — most roll failures show up only on firefox/webkit or on Windows.
+
+```bash
+gh pr checks <num> --repo playwright-community/playwright-go     # all statuses
+# For a failing job, read the failed step (not the whole log):
+gh run view --repo playwright-community/playwright-go --job <jobId> --log-failed | grep -iE 'FAIL|Error:|\.go:[0-9]+'
+```
+
+- **Flakiness.io is a reporter, not a merge gate** — it shows "fail" only because a test job it reports on failed; it goes green when the tests do. Don't chase it directly.
+- Triage a failing test the same way as Step 6/“behavior changes”: is it my code, an engine-specific string, or an intended upstream change? Fix and re-push (amend the relevant commit to keep history clean; `--force-with-lease`).
+
+### Rebasing when `main` moves
+
+A roll commit always touches `run.go` (version) and `README.md` (browser-version badges), so if `main` advances during review you'll get conflicts there — resolve by **keeping main's structure and your roll's values**:
+- `run.go`: if main turned the version into a `const (...)` block (e.g. added `nodeVersion`/registry constants), keep that block and just set `playwrightCliVersion` to the new version.
+- `README.md`: keep main's badge text/links, keep your bumped version numbers inside the `<!-- GEN:* -->` markers.
+
+```bash
+git fetch origin main && git rebase origin/main
+# resolve run.go / README.md as above, then:
+git add run.go README.md && git rebase --continue
+# re-verify generation is idempotent + submodule still pinned, then force-push:
+go generate ./... && (cd playwright && git checkout v<NEW_VERSION>)
+git diff --ignore-submodules generated-*.go   # must be empty
+git push --force-with-lease origin roll/v<NEW_VERSION>
+```
+
 ## Existing tests may need updating for behavior changes
 
 A roll can change the behavior of an *existing* API, breaking a test that asserts the old behavior — this is not a port bug. When a pre-existing test fails:
@@ -206,7 +235,7 @@ A roll can change the behavior of an *existing* API, breaking a test that assert
 ## Files & references
 
 - `find-changes.sh` — discovery helper (read-only): upstream docs diff, new `* since:` APIs, sibling roll PRs.
-- `verify-parity.sh` — parity verifier (read-only, Step 9): new APIs missing `go`, sibling test files to port, Go-symbol diff.
+- `verify-parity.sh` — parity verifier (read-only, Step 9): new APIs missing `go`, sibling test functions to port, Go-symbol diff.
 - `references/finding-changes.md` — exact `gh` queries + roll-PR conventions for python/java/dotnet + upstream compare.
 - `references/patch-editing.md` — anatomy of `patches/main.patch`, `* langs:` gating, editing the generator (`methodNoErrArray`, return-type aliases), conflict resolution.
 
