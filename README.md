@@ -5,7 +5,7 @@
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/playwright-community/playwright-go)](https://pkg.go.dev/github.com/playwright-community/playwright-go)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 [![Go Report Card](https://goreportcard.com/badge/github.com/playwright-community/playwright-go)](https://goreportcard.com/report/github.com/playwright-community/playwright-go) ![Build Status](https://github.com/playwright-community/playwright-go/workflows/Go/badge.svg) [![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fflakiness.io%2Fapi%2Fbadge%3Finput%3D%257B%2522badgeToken%2522%253A%2522badge-6g4pNCL3d8qZbDdJEqFhSI%2522%257D)](https://flakiness.io/playwright-community/playwright-go)
-[![Join Slack](https://img.shields.io/badge/join-slack-infomational)](https://aka.ms/playwright-slack) [![Coverage Status](https://coveralls.io/repos/github/playwright-community/playwright-go/badge.svg?branch=main)](https://coveralls.io/github/playwright-community/playwright-go?branch=main) <!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-148.0.7778.96-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-150.0.2-blue.svg?logo=mozilla-firefox)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-26.4-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop -->
+[![Join Discord](https://img.shields.io/badge/join-discord-informational)](https://aka.ms/playwright/discord) [![Coverage Status](https://coveralls.io/repos/github/playwright-community/playwright-go/badge.svg?branch=main)](https://coveralls.io/github/playwright-community/playwright-go?branch=main) <!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-148.0.7778.96-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-150.0.2-blue.svg?logo=mozilla-firefox)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-26.4-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop -->
 
 [API reference](https://playwright.dev/docs/api/class-playwright) | [Example recipes](https://github.com/playwright-community/playwright-go/tree/main/examples)
 
@@ -44,7 +44,7 @@ err := playwright.Install()
 
 Playwright is built to automate the broad and growing set of web browser capabilities used by Single Page Apps and Progressive Web Apps.
 
-* Scenarios that span multiple page, domains and iframes
+* Scenarios that span multiple pages, domains and iframes
 * Auto-wait for elements to be ready before executing actions (like click, fill)
 * Intercept network activity for stubbing and mocking network requests
 * Emulate mobile devices, geolocation, permissions
@@ -57,7 +57,6 @@ Playwright is built to automate the broad and growing set of web browser capabil
 The following example crawls the current top voted items from [Hacker News](https://news.ycombinator.com).
 
 ```go
-
 package main
 
 import (
@@ -131,7 +130,7 @@ Playwright is a Node.js library which uses:
 These patches are based on the original sources of the browsers and don't modify the browser behaviour so the browsers are basically the same (see [here](https://github.com/microsoft/playwright/tree/main/browser_patches)) as you see them in the wild. The support for different programming languages is based on exposing a RPC server in the Node.js land which can be used to allow other languages to use Playwright without implementing all the custom logic:
 
 * [Playwright for Python](https://github.com/microsoft/playwright-python)
-* [Playwright for .NET](https://github.com/microsoft/playwright-sharp)
+* [Playwright for .NET](https://github.com/microsoft/playwright-dotnet)
 * [Playwright for Java](https://github.com/microsoft/playwright-java)
 * [Playwright for Go](https://github.com/playwright-community/playwright-go)
 
