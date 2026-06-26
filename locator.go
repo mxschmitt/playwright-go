@@ -978,8 +978,10 @@ func (l *locatorImpl) withElement(
 	var remaining *float64
 	if deadline != nil {
 		ms := float64(time.Until(*deadline).Milliseconds())
-		if ms < 0 {
-			ms = 0
+		// Floor at 1ms, not 0: the protocol treats timeout 0 as "disable timeout"
+		// (infinite), so an exhausted budget must still fail fast rather than hang.
+		if ms <= 0 {
+			ms = 1
 		}
 		remaining = Float(ms)
 	}

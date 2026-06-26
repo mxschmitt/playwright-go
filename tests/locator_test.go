@@ -24,6 +24,30 @@ func TestLocatorClickTimeoutIncludesCallLog(t *testing.T) {
 	require.Contains(t, err.Error(), "waiting for")
 }
 
+// TestLocatorWithElementExplicitTimeoutCompletes guards the withElement budget
+// floor: when an explicit Timeout is passed, withElement waits for the selector
+// and then hands the inner action the *remaining* budget. If that remainder
+// clamped to 0, the protocol would interpret it as "disable timeout" (infinite)
+// and the action could hang; the floor of 1ms keeps these methods completing.
+func TestLocatorWithElementExplicitTimeoutCompletes(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div id="target">select me</div>`))
+	target := page.Locator("#target")
+
+	require.NoError(t, target.ScrollIntoViewIfNeeded(playwright.LocatorScrollIntoViewIfNeededOptions{
+		Timeout: playwright.Float(5000),
+	}))
+	require.NoError(t, target.SelectText(playwright.LocatorSelectTextOptions{
+		Timeout: playwright.Float(5000),
+	}))
+	shot, err := target.Screenshot(playwright.LocatorScreenshotOptions{
+		Timeout: playwright.Float(5000),
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, shot)
+}
+
 func TestLocatorAllInnerTexts(t *testing.T) {
 	BeforeEach(t)
 
