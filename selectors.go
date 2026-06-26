@@ -105,7 +105,14 @@ func (s *selectorsImpl) removeChannel(channel *selectorsOwnerImpl) {
 }
 
 func (s *selectorsImpl) addContext(context *browserContextImpl) {
-	s.contexts.Store(context.guid, context)
+	// Idempotent, mirroring upstream's _contextsForSelectors Set membership: a
+	// context is set up at most once, so re-adding the same context is a no-op
+	// rather than re-sending registerSelectorEngine/setTestIdAttributeName. This
+	// lets every context-creation path call addContext without relying on a
+	// brittle "registered exactly once elsewhere" invariant.
+	if _, loaded := s.contexts.LoadOrStore(context.guid, context); loaded {
+		return
+	}
 	s.mu.RLock()
 	for _, selectorEngine := range s.registrations {
 		params := map[string]any{

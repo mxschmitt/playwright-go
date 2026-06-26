@@ -125,9 +125,7 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 	if context.browser != nil {
 		b.didLaunchBrowser(context.browser)
 	}
-	if b.playwright != nil {
-		b.playwright.Selectors.(*selectorsImpl).addContext(context)
-	}
+	b.registerContextSelectors(context)
 	b.didCreateContext(context, option, tracesDir)
 	if err := context.initializeHarFromOptions(); err != nil {
 		return nil, err
@@ -194,10 +192,8 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 	// registration was skipped for them. Register them now, mirroring upstream's
 	// _connectToBrowserType -> _setupBrowserContext loop over all existing
 	// contexts, so custom selector engines / testId reach pre-existing contexts.
-	if b.playwright != nil {
-		for _, context := range browser.Contexts() {
-			b.playwright.Selectors.(*selectorsImpl).addContext(context.(*browserContextImpl))
-		}
+	for _, context := range browser.Contexts() {
+		b.registerContextSelectors(context.(*browserContextImpl))
 	}
 	return browser, nil
 }
@@ -232,9 +228,7 @@ func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserT
 		// newBrowserContext's own selectors registration was skipped. Register
 		// it now, mirroring upstream's _connectToBrowserType -> _setupBrowserContext,
 		// so custom selector engines / testId reach the CDP default context.
-		if b.playwright != nil {
-			b.playwright.Selectors.(*selectorsImpl).addContext(context)
-		}
+		b.registerContextSelectors(context)
 		b.didCreateContext(context, nil, nil)
 	}
 	return browser, nil
@@ -242,6 +236,17 @@ func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserT
 
 func (b *browserTypeImpl) didCreateContext(context *browserContextImpl, contextOptions *BrowserNewContextOptions, tracesDir *string) {
 	context.setOptions(contextOptions, tracesDir)
+}
+
+// registerContextSelectors registers a context with the selectors manager,
+// mirroring upstream _setupBrowserContext. Used for contexts that arrive during
+// dispatch (persistent/connect/CDP) before didLaunchBrowser wires the real
+// browserType, so newBrowserContext's own registration was skipped. addContext
+// is idempotent, so this is safe regardless of call ordering.
+func (b *browserTypeImpl) registerContextSelectors(context *browserContextImpl) {
+	if b.playwright != nil {
+		b.playwright.Selectors.(*selectorsImpl).addContext(context)
+	}
 }
 
 func (b *browserTypeImpl) didLaunchBrowser(browser *browserImpl) {
