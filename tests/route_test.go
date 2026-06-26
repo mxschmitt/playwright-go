@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -397,7 +397,7 @@ func TestResponseServerAddrReturnNilForFulfilledRoute(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, response.Finished())
 	// A fulfilled route has no real server, so Playwright returns null for the
-	// server address. This must not panic (https://github.com/playwright-community/playwright-go/issues/543).
+	// server address. This must not panic (https://github.com/mxschmitt/playwright-go/issues/543).
 	serverAddr, err := response.ServerAddr()
 	require.NoError(t, err)
 	require.Nil(t, serverAddr)

@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/go-stack/stack"
-	"github.com/playwright-community/playwright-go/internal/safe"
+	"github.com/mxschmitt/playwright-go/internal/safe"
 )
 
 var (

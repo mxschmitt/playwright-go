@@ -7,7 +7,7 @@ The Go code is linted with [golangci-lint](https://golangci-lint.run/) and forma
 
 ### Test coverage
 
-For every Pull Request on GitHub and on the main branch the coverage data will get sent over to [Coveralls](https://coveralls.io/github/playwright-community/playwright-go), this is helpful for finding functions that aren't covered by tests.
+For every Pull Request on GitHub and on the main branch the coverage data will get sent over to [Coveralls](https://coveralls.io/github/mxschmitt/playwright-go), this is helpful for finding functions that aren't covered by tests.
 
 ### Running tests
 

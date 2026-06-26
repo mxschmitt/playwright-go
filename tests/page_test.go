@@ -15,7 +15,7 @@ import (
 	"time"
 
 	"github.com/h2non/filetype"
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -1200,7 +1200,7 @@ func TestPageExpectResponse(t *testing.T) {
 		require.ErrorContains(t, err, "Timeout 1000.00ms exceeded.")
 	})
 
-	// Regression test for https://github.com/playwright-community/playwright-go/issues/323:
+	// Regression test for https://github.com/mxschmitt/playwright-go/issues/323:
 	// waiting for several responses concurrently (the Go equivalent of
 	// Promise.all) must resolve every waiter. Previously, once one waiter
 	// completed it unsubscribed all the others, so the rest timed out.

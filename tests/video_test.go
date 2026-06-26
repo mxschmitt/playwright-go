@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/h2non/filetype"
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -216,7 +216,7 @@ func TestVideo(t *testing.T) {
 }
 
 func TestVideoRelativeDirShouldResolveToAbsolute(t *testing.T) {
-	// Regression test for https://github.com/playwright-community/playwright-go/issues/565
+	// Regression test for https://github.com/mxschmitt/playwright-go/issues/565
 	// A relative recordVideo.dir must be resolved to an absolute path client-side
 	// (matching upstream path.resolve), so Video().Path() does not depend on the
 	// process working directory at the time it is read.

@@ -10,7 +10,7 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/playwright-community/playwright-go/internal/safe"
+	"github.com/mxschmitt/playwright-go/internal/safe"
 )
 
 type pageImpl struct {

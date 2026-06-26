@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -98,7 +98,7 @@ func TestJSHandleEvaluateHandleReturningElement(t *testing.T) {
 
 	// EvaluateHandle may return an ElementHandle (e.g. element.parentElement).
 	// It must not panic when the underlying handle is an ElementHandle.
-	// See https://github.com/playwright-community/playwright-go/issues/332
+	// See https://github.com/mxschmitt/playwright-go/issues/332
 	parent, err := inner.EvaluateHandle("element => element.parentElement")
 	require.NoError(t, err)
 	require.NotNil(t, parent.AsElement())
