@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"sync"
 	"testing"
@@ -35,7 +36,7 @@ func TestRunOptionsRedirectStderr(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	t.Setenv("PLAYWRIGHT_DOWNLOAD_HOST", ts.URL)
+	t.Setenv("PLAYWRIGHT_GO_NPM_REGISTRY", ts.URL)
 	driver, err := NewDriver(options)
 	require.NoError(t, err)
 	err = driver.Install()
@@ -107,7 +108,7 @@ func TestDriverInstall(t *testing.T) {
 	}
 }
 
-func TestDriverDownloadHostEnv(t *testing.T) {
+func TestNpmRegistryEnv(t *testing.T) {
 	driverPath := t.TempDir()
 	driver, err := NewDriver(&RunOptions{
 		DriverDirectory:     driverPath,
@@ -123,14 +124,23 @@ func TestDriverDownloadHostEnv(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	err = os.Setenv("PLAYWRIGHT_DOWNLOAD_HOST", ts.URL)
-	if err != nil {
-		t.Fatalf("could not set PLAYWRIGHT_DOWNLOAD_HOST: %v", err)
-	}
-	defer os.Unsetenv("PLAYWRIGHT_DOWNLOAD_HOST") //nolint:errcheck
+	t.Setenv("PLAYWRIGHT_GO_NPM_REGISTRY", ts.URL)
 	err = driver.Install()
-	if err == nil || !strings.Contains(err.Error(), "404 Not Found") || !strings.Contains(uri, "/builds/driver") {
-		t.Fatalf("PLAYWRIGHT_DOWNLOAD_HOST do not work: %v", err)
+	if err == nil || !strings.Contains(err.Error(), "404 Not Found") || !strings.Contains(uri, "playwright-core") {
+		t.Fatalf("PLAYWRIGHT_GO_NPM_REGISTRY does not work: %v", err)
+	}
+}
+
+func TestNodePlatformSuffix(t *testing.T) {
+	suffix, err := nodePlatformSuffix()
+	switch runtime.GOARCH {
+	case "amd64", "arm64":
+		require.NoError(t, err)
+		assert.NotEmpty(t, suffix)
+	default:
+		// e.g. linux/arm has no prebuilt Node.js binary on nodejs.org.
+		require.Error(t, err)
+		assert.Contains(t, err.Error(), "PLAYWRIGHT_NODEJS_PATH")
 	}
 }
 
