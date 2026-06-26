@@ -173,9 +173,7 @@ func TestWebSocketShouldEmitErrorEvent(t *testing.T) {
 		}`, server.PORT)
 	require.NoError(t, err)
 	msg := <-chanMsg
-	if isFirefox {
-		require.Equal(t, msg, "CLOSE_ABNORMAL")
-	} else {
-		require.Contains(t, msg, ": 404")
-	}
+	// Since v1.61 Firefox reports the same ": 404" error as the other browsers
+	// instead of "CLOSE_ABNORMAL".
+	require.Contains(t, msg, ": 404")
 }

@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/playwright-community/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -17,7 +18,7 @@ import (
 
 // gotoSettled navigates to url, retrying while a concurrent navigation keeps
 // interrupting it. Since v1.61 a client-cert handshake abort triggers an async
-// navigation to chrome-error:// (and an automatic reload of the target), which
+// navigation to the error page (and an automatic reload of the target), which
 // races with the immediately-following navigation to the matching origin.
 func gotoSettled(t *testing.T, p playwright.Page, url string) {
 	t.Helper()
@@ -30,9 +31,32 @@ func gotoSettled(t *testing.T, p playwright.Page, url string) {
 		if !strings.Contains(err.Error(), "is interrupted by another navigation") {
 			break
 		}
-		p.WaitForTimeout(50)
+		time.Sleep(50 * time.Millisecond)
 	}
 	require.NoError(t, err)
+}
+
+// requireClientCertHandshakeError asserts that err is the TLS-handshake abort a
+// browser reports when it presents no client certificate to a server that
+// requires one (v1.61+ scopes the cert to its matching origin). The wording
+// varies by browser and platform, so match any of the known variants.
+func requireClientCertHandshakeError(t *testing.T, err error) {
+	t.Helper()
+	require.Error(t, err)
+	msg := err.Error()
+	variants := []string{
+		"net::ERR_BAD_SSL_CLIENT_AUTH_CERT", // chromium
+		"SSL_ERROR_UNKNOWN",                 // firefox
+		"Certificate is required",           // webkit (linux/macos)
+		"Failure when receiving data",       // webkit (windows)
+	}
+	for _, v := range variants {
+		if strings.Contains(msg, v) {
+			return
+		}
+	}
+	require.Failf(t, "unexpected client-cert handshake error",
+		"error %q did not match any known TLS-handshake abort variant", msg)
 }
 
 func NewTLSServerRequireClientCert(t *testing.T) *httptest.Server {
@@ -111,7 +135,7 @@ func TestClientCerts(t *testing.T) {
 		if tlsServer.EnableHTTP2 {
 			require.ErrorContains(t, err, "net::ERR_CONNECTION_CLOSED")
 		} else {
-			require.ErrorContains(t, err, "net::ERR_BAD_SSL_CLIENT_AUTH_CERT")
+			requireClientCertHandshakeError(t, err)
 		}
 
 		gotoSettled(t, page, tlsServer.URL)
@@ -146,7 +170,7 @@ func TestClientCerts(t *testing.T) {
 		if tlsServer.EnableHTTP2 {
 			require.ErrorContains(t, err, "net::ERR_CONNECTION_CLOSED")
 		} else {
-			require.ErrorContains(t, err, "net::ERR_BAD_SSL_CLIENT_AUTH_CERT")
+			requireClientCertHandshakeError(t, err)
 		}
 
 		gotoSettled(t, page2, tlsServer.URL)

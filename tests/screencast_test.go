@@ -15,7 +15,7 @@ func TestScreencastOnFrameReceivesViewportSizeAndTimestamp(t *testing.T) {
 		Viewport: &playwright.Size{Width: 1000, Height: 400},
 	})
 	require.NoError(t, err)
-	defer ctx.Close()
+	defer ctx.Close() //nolint:errcheck
 	p, err := ctx.NewPage()
 	require.NoError(t, err)
 
@@ -64,7 +64,7 @@ func TestScreencastShowActionsAcceptsCursorParam(t *testing.T) {
 	require.NoError(t, sc.Start(playwright.ScreencastStartOptions{
 		OnFrame: func(playwright.OnFrame) {},
 	}))
-	defer sc.Stop()
+	defer sc.Stop() //nolint:errcheck
 
 	require.NoError(t, sc.ShowActions(playwright.ScreencastShowActionsOptions{
 		Duration: playwright.Float(100),
