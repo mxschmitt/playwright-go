@@ -56,21 +56,32 @@ for f in playwright/docs/src/api/class-*.md playwright/docs/src/api/params.md; d
 done
 echo "(blocks with NO '* langs:' line default to all-languages incl. go — not listed)"
 
-hr "2. Sibling roll PRs + the test files they added"
+hr "2. Sibling roll PRs + the tests they added (must all have Go counterparts)"
+echo "EVERY test function below must have a Go counterpart in ./tests/ (Step 6b)."
+echo "Port the UNION across the three clients; they overlap but each adds unique cases."
 for repo in microsoft/playwright-python microsoft/playwright-java microsoft/playwright-dotnet; do
   pr="$(find_roll_pr "$repo")"
   num="$(echo "$pr" | cut -f1)"
   title="$(echo "$pr" | cut -f2-)"
   printf '\n# %s  ->  PR #%s  %s\n' "$repo" "${num:-?}" "$title"
-  if [ -n "$num" ]; then
-    gh pr view "$num" --repo "$repo" --json files \
-      --jq '.files[].path | select(test("(?i)test|spec"))' 2>/dev/null | sed 's/^/    /' || true
-  else
+  if [ -z "$num" ]; then
     echo "    (no roll PR found — search manually, see references/finding-changes.md)"
+    continue
   fi
+  echo "  test files changed:"
+  gh pr view "$num" --repo "$repo" --json files \
+    --jq '.files[].path | select(test("(?i)test|spec"))' 2>/dev/null | sed 's/^/    /' || true
+  echo "  test functions added:"
+  case "$repo" in
+    *python) gh pr diff "$num" --repo "$repo" 2>/dev/null | grep -E '^\+\s*(async )?def test_' | sed 's/^+/    /' ;;
+    *java)   gh pr diff "$num" --repo "$repo" 2>/dev/null | grep -E '^\+\s*(public )?void [a-z]' | sed 's/^+/    /' ;;
+    *dotnet) gh pr diff "$num" --repo "$repo" 2>/dev/null | grep -iE '^\+\s*public async Task|^\+\s*\[(Playwright)?Test' | sed 's/^+/    /' ;;
+  esac | sort -u | head -40
 done
 echo ""
-echo ">> Confirm every NEW test file above has a counterpart under ./tests/ in this repo."
+echo ">> Tick off each test function above against ./tests/. A sibling test with no Go"
+echo "   counterpart is either an unported case OR a Go feature gap it would expose —"
+echo "   port it (and fix the impl if it fails). Only skip with a logged reason."
 
 hr "3. New Go API symbols this roll (for eyeball diff vs siblings above)"
 echo "Interface methods / structs added to generated files vs committed HEAD:"

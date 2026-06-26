@@ -107,20 +107,32 @@ New thin wrapper classes (not channel owners) follow `clock.go`: a struct holdin
 
 Watch for **protocol behavior changes** (not just new APIs) — these don't show as build errors but break at runtime. Check the sibling roll PR bodies and the upstream `validator.ts` diff (`gh api .../compare/vOLD...vNEW`) for renamed channel methods, split methods, or changed result shapes. Example from v1.61: assertion `expect` stopped returning `{matches}` and now throws a protocol error carrying `errorDetails` — every assertion path had to be updated. **Grep for duplicated logic** (e.g. there were TWO expect call-sites: `locatorImpl.expect` and `pageAssertionsImpl.expectOnFrame`) so you fix all of them.
 
-### Step 6b — Port the sibling tests
+### Step 6b — Port EVERY sibling test (required)
 
-This is required, not optional. For every new API, port the tests the siblings added (from your Step 1 test checklist) into `tests/`, following Go conventions (`BeforeEach(t)`, `require`, `server.EMPTY_PAGE`). Mirror python's test cases 1:1 where possible:
+**Mandatory and exhaustive: every test python, java, AND dotnet added in their roll PR must have a Go counterpart in `tests/`.** Do not cherry-pick — enumerate all of them and port each, following Go conventions (`BeforeEach(t)`, `require`, `server.EMPTY_PAGE`, per-browser branches via `isChromium`/`isFirefox`/`isWebKit`). This is both for coverage parity and because **a sibling test frequently exposes a feature that is broken or missing in Go** — porting it is how you find that.
+
+> Real example (v1.61): java's `getByTestIdWithCommaSeparatedTestIdAttributesShouldMatchAny` had no Go equivalent. Porting it revealed that comma-separated `SetTestIdAttribute` produced an invalid selector in Go (the `encodeTestIdAttributeName` quoting was missing). The test caught a real bug — the impl had to be fixed, not just the test added.
+
+Build a complete checklist. List every test function each sibling added, then tick off the Go equivalent:
 
 ```bash
-# See exactly which test files each sibling roll added/changed:
-gh pr view <num> --repo microsoft/playwright-python --json files --jq '.files[].path' | grep -i test
-gh pr view <num> --repo microsoft/playwright-java   --json files --jq '.files[].path' | grep -i [Tt]est
-gh pr view <num> --repo microsoft/playwright-dotnet --json files --jq '.files[].path' | grep -i [Tt]est
-# Then read the diff of a specific test file to port its cases:
-gh pr diff <num> --repo microsoft/playwright-python  # find the new test_*.py blocks
+# 1. List the test FILES each sibling roll added/changed:
+for repo in microsoft/playwright-python microsoft/playwright-java microsoft/playwright-dotnet; do
+  echo "## $repo"; gh pr view <num> --repo $repo --json files --jq '.files[].path' | grep -iE 'test|spec'
+done
+
+# 2. Extract the test FUNCTION NAMES added (so nothing is missed):
+gh pr diff <pyNum>  --repo microsoft/playwright-python  | grep -E '^\+\s*(async )?def test_'
+gh pr diff <javaNum> --repo microsoft/playwright-java   | grep -E '^\+\s*(public )?void '
+gh pr diff <netNum>  --repo microsoft/playwright-dotnet | grep -iE '^\+\s*public async Task|\[(Playwright)?Test\]'
+
+# 3. For each, read the body and port the cases:
+gh pr diff <num> --repo <repo>
 ```
 
-These tests are also your verification that the impl works — run them in Step 7.
+For each new API, dedupe across the three (they overlap heavily) and port the **union** of their cases — e.g. python tests session-storage clear separately, java tests local/session independence; port both. If a sibling test can't be ported (feature intentionally not in Go, or needs an unavailable fixture like an HTTPS server), `log` it explicitly with the reason rather than silently dropping it.
+
+These tests are also your verification that the impl works — run them across all three browsers in Step 7 (a test green on chromium may fail on firefox/webkit due to engine-specific error strings or behavior).
 
 ## Step 7 — Build, lint, test
 
@@ -128,8 +140,17 @@ These tests are also your verification that the impl works — run them in Step 
 gofumpt -l -w .
 go build ./...
 go vet ./...
-go test -race ./...                 # or target a package; CI runs full -race on 3 OSes x 3 browsers
+golangci-lint run ./...             # CI's Lint job; fails on errcheck/staticcheck/gofumpt
+# Run the NEW tests on every browser — CI is a 3 OS x 3 browser matrix and
+# engine-specific behavior (error strings, etc.) differs. A pass on chromium
+# alone is NOT enough.
+for b in chromium firefox webkit; do BROWSER=$b HEADLESS=1 go test -race ./tests/ -run '<NewTests>'; done
+go test -race ./...                 # full suite at least once
 ```
+
+Lint commonly fails on test helpers: unchecked `defer x.Close()`/`Stop()` (errcheck → add `//nolint:errcheck`), deprecated `WaitForTimeout` (staticcheck → use `time.Sleep`), and gofumpt alignment. Run `golangci-lint run` locally; the CI Lint job is fast but blocking.
+
+Cross-browser is not optional: a v1.61 client-cert assertion passed on chromium but failed on firefox (`SSL_ERROR_UNKNOWN`), webkit-linux/macos (`Certificate is required`), and webkit-windows (`Failure when receiving data`) — each emits a different error string. Match any known variant rather than one browser's wording.
 
 The `verify_type_generation` CI job runs `go generate` and fails if it produces a diff — so committed `generated-*.go` must exactly match a fresh generation. Run `go generate ./...` once more and confirm `git diff --ignore-submodules` is clean for the generated files.
 
