@@ -67,8 +67,13 @@ func (r *requestImpl) PostDataJSON(v any) error {
 			return err
 		}
 		entries := make(map[string]string, len(parsed))
-		for k := range parsed {
-			entries[k] = parsed.Get(k)
+		for k, vs := range parsed {
+			// Keep the last value for a repeated key, matching upstream which
+			// iterates URLSearchParams.entries() (last write wins). url.Values.Get
+			// would return the first value instead.
+			if len(vs) > 0 {
+				entries[k] = vs[len(vs)-1]
+			}
 		}
 		data, err := json.Marshal(entries)
 		if err != nil {

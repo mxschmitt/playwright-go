@@ -308,6 +308,33 @@ func TestRequestPostDataJSONFormURLEncoded(t *testing.T) {
 	}, postData)
 }
 
+// TestRequestPostDataJSONFormURLEncodedDuplicateKey verifies that a repeated
+// form key keeps the LAST value, matching upstream's URLSearchParams.entries()
+// (last write wins) rather than url.Values.Get (first value).
+func TestRequestPostDataJSONFormURLEncodedDuplicateKey(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/post", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(200)
+	})
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	requestChan := make(chan playwright.Request, 1)
+	page.OnRequest(func(r playwright.Request) {
+		requestChan <- r
+	})
+	_, err = page.Evaluate(`url => fetch(url, {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+		body: 'foo=bar&foo=baz',
+	})`, server.PREFIX+"/post")
+	require.NoError(t, err)
+	request := <-requestChan
+	var postData map[string]interface{}
+	require.NoError(t, request.PostDataJSON(&postData))
+	require.Equal(t, map[string]interface{}{"foo": "baz"}, postData)
+}
+
 func TestFulfillWithURLOverride(t *testing.T) {
 	BeforeEach(t)
 
