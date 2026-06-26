@@ -1,8 +1,10 @@
 package playwright
 
 import (
+	"archive/tar"
 	"archive/zip"
 	"bytes"
+	"compress/gzip"
 	"errors"
 	"fmt"
 	"io"
@@ -16,16 +18,22 @@ import (
 	"strings"
 )
 
-const playwrightCliVersion = "1.60.0"
+const (
+	playwrightCliVersion = "1.60.0"
+	// nodeVersion is the Node.js runtime downloaded alongside the driver when no
+	// PLAYWRIGHT_NODEJS_PATH is provided. It is kept in line with the Node.js
+	// version upstream Playwright bundles in its own driver.
+	nodeVersion = "24.18.0"
 
-var (
-	logger               = slog.Default()
-	playwrightCDNMirrors = []string{
-		"https://playwright.azureedge.net",
-		"https://playwright-akamai.azureedge.net",
-		"https://playwright-verizon.azureedge.net",
-	}
+	// defaultNpmRegistry serves the platform-independent playwright-core package.
+	// Override with the PLAYWRIGHT_GO_NPM_REGISTRY environment variable.
+	defaultNpmRegistry = "https://registry.npmjs.org"
+	// defaultNodejsDistHost serves the per-platform Node.js binaries.
+	// Override with the NODE_MIRROR environment variable (nvm/n convention).
+	defaultNodejsDistHost = "https://nodejs.org/dist"
 )
+
+var logger = slog.Default()
 
 // PlaywrightDriver wraps the Playwright CLI of upstream Playwright.
 //
@@ -126,7 +134,18 @@ func (d *PlaywrightDriver) Uninstall() error {
 	return nil
 }
 
-// DownloadDriver downloads the driver only
+// DownloadDriver downloads the driver only.
+//
+// The driver is assembled from two upstream sources instead of the (now
+// deprecated) Playwright CDN:
+//   - the platform-independent playwright-core package from the npm registry,
+//     extracted into <DriverDirectory>/package (this contains cli.js); and
+//   - the matching per-platform Node.js binary from nodejs.org, placed at
+//     <DriverDirectory>/node[.exe].
+//
+// When PLAYWRIGHT_NODEJS_PATH is set the Node.js download is skipped and the
+// preinstalled Node.js is used instead, which also covers platforms for which
+// nodejs.org has no prebuilt binary (e.g. linux/arm).
 func (d *PlaywrightDriver) DownloadDriver() error {
 	up2Date, err := d.isUpToDateDriver()
 	if err != nil {
@@ -138,51 +157,98 @@ func (d *PlaywrightDriver) DownloadDriver() error {
 
 	d.log("Downloading driver", "path", d.options.DriverDirectory)
 
-	body, err := downloadDriver(d.getDriverURLs())
-	if err != nil {
+	if err := d.downloadPlaywrightPackage(); err != nil {
 		return err
 	}
-	zipReader, err := zip.NewReader(bytes.NewReader(body), int64(len(body)))
-	if err != nil {
-		return fmt.Errorf("could not read zip content: %w", err)
-	}
-
-	for _, zipFile := range zipReader.File {
-		zipFileDiskPath := filepath.Join(d.options.DriverDirectory, zipFile.Name)
-		if zipFile.FileInfo().IsDir() {
-			if err := os.MkdirAll(zipFileDiskPath, os.ModePerm); err != nil {
-				return fmt.Errorf("could not create directory: %w", err)
-			}
-			continue
-		}
-
-		outFile, err := os.Create(zipFileDiskPath)
-		if err != nil {
-			return fmt.Errorf("could not create driver: %w", err)
-		}
-		file, err := zipFile.Open()
-		if err != nil {
-			return fmt.Errorf("could not open zip file: %w", err)
-		}
-		if _, err = io.Copy(outFile, file); err != nil {
-			return fmt.Errorf("could not copy response body to file: %w", err)
-		}
-		if err := outFile.Close(); err != nil {
-			return fmt.Errorf("could not close file (driver): %w", err)
-		}
-		if err := file.Close(); err != nil {
-			return fmt.Errorf("could not close file (zip file): %w", err)
-		}
-		if zipFile.Mode().Perm()&0o100 != 0 && runtime.GOOS != "windows" {
-			if err := makeFileExecutable(zipFileDiskPath); err != nil {
-				return fmt.Errorf("could not make executable: %w", err)
-			}
-		}
+	if err := d.downloadNode(); err != nil {
+		return err
 	}
 
 	d.log("Downloaded driver successfully")
 
 	return d.patchDriverBundle()
+}
+
+// downloadPlaywrightPackage downloads the platform-independent playwright-core
+// package from the npm registry and extracts its "package/" contents into the
+// driver directory, so that <DriverDirectory>/package/cli.js exists.
+func (d *PlaywrightDriver) downloadPlaywrightPackage() error {
+	url := fmt.Sprintf("%s/playwright-core/-/playwright-core-%s.tgz", npmRegistry(), d.Version)
+	body, err := downloadWithRetry(url)
+	if err != nil {
+		return fmt.Errorf("could not download playwright-core: %w", err)
+	}
+
+	gzReader, err := gzip.NewReader(bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("could not read playwright-core archive: %w", err)
+	}
+	defer gzReader.Close() //nolint:errcheck
+
+	tarReader := tar.NewReader(gzReader)
+	extracted := false
+	for {
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("could not read playwright-core archive: %w", err)
+		}
+		// npm tarballs nest everything under a top-level "package/" directory,
+		// which is exactly the layout the driver expects on disk.
+		if header.Typeflag != tar.TypeReg || !strings.HasPrefix(header.Name, "package/") {
+			continue
+		}
+		diskPath, err := safeJoin(d.options.DriverDirectory, header.Name)
+		if err != nil {
+			return err
+		}
+		if err := writeFileFromReader(diskPath, tarReader, header.FileInfo().Mode()); err != nil {
+			return err
+		}
+		extracted = true
+	}
+	if !extracted {
+		return fmt.Errorf("no files extracted from playwright-core %s", d.Version)
+	}
+	return nil
+}
+
+// downloadNode downloads the per-platform Node.js binary from nodejs.org and
+// places it at <DriverDirectory>/node[.exe]. It is a no-op when
+// PLAYWRIGHT_NODEJS_PATH is set, since a preinstalled Node.js is used then.
+func (d *PlaywrightDriver) downloadNode() error {
+	if os.Getenv("PLAYWRIGHT_NODEJS_PATH") != "" {
+		d.log("Skipping Node.js download, using PLAYWRIGHT_NODEJS_PATH")
+		return nil
+	}
+
+	suffix, err := nodePlatformSuffix()
+	if err != nil {
+		return err
+	}
+
+	archiveDir := fmt.Sprintf("node-v%s-%s", nodeVersion, suffix)
+	isWindows := runtime.GOOS == "windows"
+	ext := "tar.gz"
+	if isWindows {
+		ext = "zip"
+	}
+	url := fmt.Sprintf("%s/v%s/%s.%s", nodejsDistHost(), nodeVersion, archiveDir, ext)
+
+	body, err := downloadWithRetry(url)
+	if err != nil {
+		return fmt.Errorf("could not download Node.js: %w", err)
+	}
+
+	nodeDiskPath := getNodeExecutable(d.options.DriverDirectory)
+	if isWindows {
+		// The Windows archive is a zip with node.exe at "<archiveDir>/node.exe".
+		return extractZipEntry(body, archiveDir+"/node.exe", nodeDiskPath)
+	}
+	// Unix archives are gzipped tars with the binary at "<archiveDir>/bin/node".
+	return extractTarGzEntry(body, archiveDir+"/bin/node", nodeDiskPath)
 }
 
 func (d *PlaywrightDriver) patchDriverBundle() error {
@@ -283,6 +349,15 @@ type RunOptions struct {
 	// DriverDirectory points to the playwright driver directory.
 	// It should have two subdirectories: node and package.
 	// You can also specify it using the environment variable PLAYWRIGHT_DRIVER_PATH.
+	//
+	// The driver is assembled from the playwright-core npm package and the
+	// matching Node.js release. The following environment variables tune this:
+	//  - PLAYWRIGHT_NODEJS_PATH: use a preinstalled Node.js and skip downloading
+	//    one. Required on platforms without a prebuilt Node.js binary (e.g.
+	//    linux/arm).
+	//  - PLAYWRIGHT_GO_NPM_REGISTRY: npm registry mirror for playwright-core
+	//    (default https://registry.npmjs.org).
+	//  - NODE_MIRROR: Node.js distribution mirror (default https://nodejs.org/dist).
 	//
 	// Default is user cache directory + "/ms-playwright-go/x.xx.xx":
 	//  - Windows: %USERPROFILE%\AppData\Local
@@ -396,45 +471,142 @@ func getDriverCliJs(driverDirectory string) string {
 	return filepath.Join(driverDirectory, "package", "cli.js")
 }
 
-func (d *PlaywrightDriver) getDriverURLs() []string {
-	platform := ""
-	switch runtime.GOOS {
-	case "windows":
-		platform = "win32_x64"
-	case "darwin":
-		if runtime.GOARCH == "arm64" {
-			platform = "mac-arm64"
-		} else {
-			platform = "mac"
-		}
-	case "linux":
-		if runtime.GOARCH == "arm64" {
-			platform = "linux-arm64"
-		} else {
-			platform = "linux"
-		}
+func npmRegistry() string {
+	if host := os.Getenv("PLAYWRIGHT_GO_NPM_REGISTRY"); host != "" {
+		return strings.TrimRight(host, "/")
 	}
-
-	baseURLs := []string{}
-	pattern := "%s/builds/driver/playwright-%s-%s.zip"
-	if !d.isReleaseVersion() {
-		pattern = "%s/builds/driver/next/playwright-%s-%s.zip"
-	}
-
-	if hostEnv := os.Getenv("PLAYWRIGHT_DOWNLOAD_HOST"); hostEnv != "" {
-		baseURLs = append(baseURLs, fmt.Sprintf(pattern, hostEnv, d.Version, platform))
-	} else {
-		for _, mirror := range playwrightCDNMirrors {
-			baseURLs = append(baseURLs, fmt.Sprintf(pattern, mirror, d.Version, platform))
-		}
-	}
-	return baseURLs
+	return defaultNpmRegistry
 }
 
-// isReleaseVersion checks if the version is not a beta or alpha release
-// this helps to determine the url from where to download the driver
-func (d *PlaywrightDriver) isReleaseVersion() bool {
-	return !strings.Contains(d.Version, "beta") && !strings.Contains(d.Version, "alpha") && !strings.Contains(d.Version, "next")
+func nodejsDistHost() string {
+	if host := os.Getenv("NODE_MIRROR"); host != "" {
+		return strings.TrimRight(host, "/")
+	}
+	return defaultNodejsDistHost
+}
+
+// nodePlatformSuffix maps the current GOOS/GOARCH to the suffix nodejs.org uses
+// in its release archive names (e.g. "linux-x64", "darwin-arm64", "win-x64").
+// Platforms without a prebuilt Node.js binary (such as linux/arm, 32-bit ARM)
+// return an actionable error pointing at PLAYWRIGHT_NODEJS_PATH.
+func nodePlatformSuffix() (string, error) {
+	var os_ string
+	switch runtime.GOOS {
+	case "windows":
+		os_ = "win"
+	case "darwin":
+		os_ = "darwin"
+	case "linux":
+		os_ = "linux"
+	default:
+		return "", unsupportedNodePlatformError()
+	}
+
+	var arch string
+	switch runtime.GOARCH {
+	case "amd64":
+		arch = "x64"
+	case "arm64":
+		arch = "arm64"
+	default:
+		// Notably linux/arm (32-bit, e.g. Raspberry Pi armv7l): nodejs.org no
+		// longer ships a prebuilt binary, so we cannot download one.
+		return "", unsupportedNodePlatformError()
+	}
+
+	return fmt.Sprintf("%s-%s", os_, arch), nil
+}
+
+func unsupportedNodePlatformError() error {
+	return fmt.Errorf("no prebuilt Node.js %s is available for %s/%s; "+
+		"install Node.js yourself and set PLAYWRIGHT_NODEJS_PATH to its path",
+		nodeVersion, runtime.GOOS, runtime.GOARCH)
+}
+
+// safeJoin joins an archive entry name onto root, guarding against path
+// traversal ("zip slip"/"tar slip"): the resulting path must stay within root.
+// This matters because PLAYWRIGHT_GO_NPM_REGISTRY / NODE_MIRROR allow arbitrary
+// mirrors, so archive contents are not fully trusted.
+func safeJoin(root, name string) (string, error) {
+	diskPath := filepath.Join(root, filepath.FromSlash(name))
+	prefix := filepath.Clean(root) + string(os.PathSeparator)
+	if diskPath != filepath.Clean(root) && !strings.HasPrefix(diskPath, prefix) {
+		return "", fmt.Errorf("invalid path in archive: %s", name)
+	}
+	return diskPath, nil
+}
+
+// writeFileFromReader writes the contents of r to diskPath, creating parent
+// directories as needed and preserving the executable bit on non-Windows hosts.
+func writeFileFromReader(diskPath string, r io.Reader, mode os.FileMode) error {
+	if err := os.MkdirAll(filepath.Dir(diskPath), 0o777); err != nil {
+		return fmt.Errorf("could not create directory: %w", err)
+	}
+	outFile, err := os.Create(diskPath)
+	if err != nil {
+		return fmt.Errorf("could not create file: %w", err)
+	}
+	if _, err := io.Copy(outFile, r); err != nil {
+		outFile.Close() //nolint:errcheck
+		return fmt.Errorf("could not write file: %w", err)
+	}
+	if err := outFile.Close(); err != nil {
+		return fmt.Errorf("could not close file: %w", err)
+	}
+	if mode.Perm()&0o100 != 0 && runtime.GOOS != "windows" {
+		if err := makeFileExecutable(diskPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// extractTarGzEntry extracts a single named entry from a gzipped tar archive to
+// diskPath and marks it executable.
+func extractTarGzEntry(archive []byte, entryName, diskPath string) error {
+	gzReader, err := gzip.NewReader(bytes.NewReader(archive))
+	if err != nil {
+		return fmt.Errorf("could not read archive: %w", err)
+	}
+	defer gzReader.Close() //nolint:errcheck
+
+	tarReader := tar.NewReader(gzReader)
+	for {
+		header, err := tarReader.Next()
+		if errors.Is(err, io.EOF) {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("could not read archive: %w", err)
+		}
+		if header.Name != entryName {
+			continue
+		}
+		// Force the executable bit: the node binary must be runnable.
+		return writeFileFromReader(diskPath, tarReader, header.FileInfo().Mode()|0o100)
+	}
+	return fmt.Errorf("could not find %s in archive", entryName)
+}
+
+// extractZipEntry extracts a single named entry from a zip archive to diskPath.
+func extractZipEntry(archive []byte, entryName, diskPath string) error {
+	zipReader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	if err != nil {
+		return fmt.Errorf("could not read archive: %w", err)
+	}
+	for _, file := range zipReader.File {
+		if file.Name != entryName {
+			continue
+		}
+		rc, err := file.Open()
+		if err != nil {
+			return fmt.Errorf("could not open zip entry: %w", err)
+		}
+		err = writeFileFromReader(diskPath, rc, file.Mode())
+		rc.Close() //nolint:errcheck
+		return err
+	}
+	return fmt.Errorf("could not find %s in archive", entryName)
 }
 
 func makeFileExecutable(path string) error {
@@ -448,24 +620,38 @@ func makeFileExecutable(path string) error {
 	return nil
 }
 
-func downloadDriver(driverURLs []string) (body []byte, e error) {
-	for _, driverURL := range driverURLs {
-		resp, err := http.Get(driverURL)
-		if err != nil {
-			e = errors.Join(e, fmt.Errorf("could not download driver from %s: %w", driverURL, err))
-			continue
+// downloadWithRetry downloads url, retrying a few times on transient failures.
+// It does not retry client errors (4xx), which are not transient.
+func downloadWithRetry(url string) ([]byte, error) {
+	var lastErr error
+	for attempt := 1; attempt <= 3; attempt++ {
+		body, retryable, err := download(url)
+		if err == nil {
+			return body, nil
 		}
-		defer resp.Body.Close() //nolint:errcheck
-		if resp.StatusCode != http.StatusOK {
-			e = errors.Join(e, fmt.Errorf("error: got non 200 status code: %d (%s) from %s", resp.StatusCode, resp.Status, driverURL))
-			continue
+		lastErr = err
+		if !retryable {
+			break
 		}
-		body, err = io.ReadAll(resp.Body)
-		if err != nil {
-			e = errors.Join(e, fmt.Errorf("could not read response body: %w", err))
-			continue
-		}
-		return body, nil
 	}
-	return nil, e
+	return nil, lastErr
+}
+
+// download fetches url. The returned bool reports whether a failure is worth
+// retrying (network errors and 5xx are; 4xx are not).
+func download(url string) ([]byte, bool, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, true, fmt.Errorf("could not download from %s: %w", url, err)
+	}
+	defer resp.Body.Close() //nolint:errcheck
+	if resp.StatusCode != http.StatusOK {
+		retryable := resp.StatusCode >= 500
+		return nil, retryable, fmt.Errorf("got non 200 status code: %d (%s) from %s", resp.StatusCode, resp.Status, url)
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, true, fmt.Errorf("could not read response body: %w", err)
+	}
+	return body, false, nil
 }
