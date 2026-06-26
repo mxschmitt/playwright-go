@@ -38,10 +38,15 @@ type browserContextImpl struct {
 	closeReason     *string
 	harRouters      []*harRouter
 	clock           Clock
+	credentials     Credentials
 }
 
 func (b *browserContextImpl) Clock() Clock {
 	return b.clock
+}
+
+func (b *browserContextImpl) Credentials() Credentials {
+	return b.credentials
 }
 
 func (b *browserContextImpl) SetDefaultNavigationTimeout(timeout float64) {
@@ -923,6 +928,7 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 	// upstream (this.request._timeoutSettings = this._timeoutSettings).
 	bt.request.timeoutSettings = bt.timeoutSettings
 	bt.clock = newClock(bt)
+	bt.credentials = newCredentials(bt)
 
 	// Register this context with the selectors manager for custom selector engines
 	if bt.browser != nil && bt.browser.browserType != nil {

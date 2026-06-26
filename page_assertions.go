@@ -1,6 +1,7 @@
 package playwright
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -43,25 +44,26 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 	overrides := map[string]any{
 		"expression": expression,
 	}
-	result, err := frame.channel.SendReturnAsDict("expect", options, overrides)
-	if err != nil {
-		return err
-	}
 
 	var (
 		received any
 		matches  bool
 		log      []string
 	)
-
-	received = parseExpectReceived(result["received"])
-	if v, ok := result["matches"]; ok {
-		matches = v.(bool)
-	}
-	if v, ok := result["log"]; ok {
-		for _, l := range v.([]any) {
-			log = append(log, l.(string))
+	_, err := frame.channel.SendReturnAsDict("expect", options, overrides)
+	if err != nil {
+		// Since v1.61 a failed assertion is reported as a server error carrying
+		// structured errorDetails rather than a `{ matches: false }` result.
+		var detailed *errorWithDetails
+		if !errors.As(err, &detailed) {
+			return err
 		}
+		matches = options.IsNot
+		received = parseExpectReceived(detailed.details["received"])
+		log = detailed.log
+	} else {
+		// No error means the assertion matched.
+		matches = !options.IsNot
 	}
 
 	if matches == pa.isNot {

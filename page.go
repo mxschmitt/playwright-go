@@ -35,6 +35,16 @@ type pageImpl struct {
 	closeWasCalled  atomic.Bool
 	harRouters      []*harRouter
 	locatorHandlers map[float64]*locatorHandlerEntry
+	localStorage    *webStorageImpl
+	sessionStorage  *webStorageImpl
+}
+
+func (p *pageImpl) LocalStorage() WebStorage {
+	return p.localStorage
+}
+
+func (p *pageImpl) SessionStorage() WebStorage {
+	return p.sessionStorage
 }
 
 type locatorHandlerEntry struct {
@@ -139,8 +149,16 @@ func (p *pageImpl) Close(options ...PageCloseOptions) error {
 	var err error
 	if p.ownedContext != nil {
 		err = p.ownedContext.Close()
+	} else if runBeforeUnload {
+		// Upstream split Page.close into close and runBeforeUnload; the latter
+		// takes no params and the close params no longer carry runBeforeUnload.
+		_, err = p.channel.Send("runBeforeUnload")
 	} else {
-		_, err = p.channel.Send("close", options)
+		params := map[string]any{}
+		if p.closeReason != nil {
+			params["reason"] = *p.closeReason
+		}
+		_, err = p.channel.Send("close", params)
 	}
 	if errors.Is(err, ErrTargetClosed) && !runBeforeUnload {
 		return nil
@@ -910,6 +928,8 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 	bt.mouse = newMouse(bt.channel)
 	bt.keyboard = newKeyboard(bt.channel)
 	bt.touchscreen = newTouchscreen(bt.channel)
+	bt.localStorage = newWebStorage(bt, "local")
+	bt.sessionStorage = newWebStorage(bt, "session")
 	bt.channel.On("bindingCall", func(params map[string]any) {
 		bt.onBinding(fromChannel(params["binding"]).(*bindingCallImpl))
 	})

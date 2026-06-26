@@ -1008,26 +1008,27 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		overrides["expectedValue"] = serializeArgument(options.ExpectedValue)
 		options.ExpectedValue = nil
 	}
-	result, err := l.frame.channel.SendReturnAsDict("expect", options, overrides)
+	_, err := l.frame.channel.SendReturnAsDict("expect", options, overrides)
 	if err != nil {
+		// Since v1.61 a failed assertion is reported as a server error carrying
+		// structured errorDetails rather than a `{ matches: false }` result.
+		// Unwrap it into the negative result; any other error propagates.
+		var detailed *errorWithDetails
+		if errors.As(err, &detailed) {
+			result := &frameExpectResult{
+				Matches:  options.IsNot,
+				Received: parseExpectReceived(detailed.details["received"]),
+				Log:      detailed.log,
+			}
+			if v, ok := detailed.details["timedOut"].(bool); ok {
+				result.TimedOut = &v
+			}
+			return result, nil
+		}
 		return nil, err
 	}
-	var (
-		received any
-		matches  bool
-		log      []string
-	)
-
-	received = parseExpectReceived(result["received"])
-	if v, ok := result["matches"]; ok {
-		matches = v.(bool)
-	}
-	if v, ok := result["log"]; ok {
-		for _, l := range v.([]any) {
-			log = append(log, l.(string))
-		}
-	}
-	return &frameExpectResult{Received: received, Matches: matches, Log: log}, nil
+	// No error means the assertion matched.
+	return &frameExpectResult{Matches: !options.IsNot}, nil
 }
 
 func (l *locatorImpl) Normalize() Locator {

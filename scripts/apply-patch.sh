@@ -15,9 +15,13 @@ pushd playwright
 
 git checkout HEAD --detach
 
+# Always advance the submodule to the pinned version. Previously this only ran when
+# a leftover playwright-build branch existed, so the very first roll on a fresh
+# submodule patched the OLD version instead of the new tag.
+git fetch --tags
+git checkout "$PW_VERSION"
+
 if git show-ref -q --heads "$BRANCH_NAME_BUILD"; then
-  git fetch --tags
-  git checkout "$PW_VERSION"
   git branch -D "$BRANCH_NAME_BUILD"
 fi
 

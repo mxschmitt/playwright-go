@@ -33,4 +33,4 @@ _site/
 flakiness-report/
 
 .vscode/settings.json
-.claude/
+.claude/worktrees/

@@ -61,6 +61,9 @@ type message struct {
 		Error Error `json:"error"`
 	} `json:"error,omitempty"`
 	Log []string `json:"log,omitempty"`
+	// ErrorDetails carries structured failure data (e.g. assertion `expect`
+	// failures in v1.61+: received value, timedOut, customErrorMessage).
+	ErrorDetails map[string]any `json:"errorDetails,omitempty"`
 }
 
 func (t *pipeTransport) Send(msg map[string]any) error {

@@ -427,6 +427,18 @@ var (
 	ConsoleMessagesFilterSinceNavigation                        = getConsoleMessagesFilter("since-navigation")
 )
 
+func getScreencastCursor(in string) *ScreencastCursor {
+	v := ScreencastCursor(in)
+	return &v
+}
+
+type ScreencastCursor string
+
+var (
+	ScreencastCursorNone    *ScreencastCursor = getScreencastCursor("none")
+	ScreencastCursorPointer                   = getScreencastCursor("pointer")
+)
+
 func getAnnotatePosition(in string) *AnnotatePosition {
 	v := AnnotatePosition(in)
 	return &v

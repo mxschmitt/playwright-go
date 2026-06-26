@@ -3,6 +3,7 @@ package playwright
 import (
 	"encoding/base64"
 	"errors"
+	"sync"
 )
 
 type screencastImpl struct {
@@ -10,6 +11,7 @@ type screencastImpl struct {
 	started   bool
 	savePath  *string
 	artifact  *artifactImpl
+	mu        sync.Mutex // guards onFrame, read on the dispatcher goroutine
 	onFrame   func(OnFrame)
 	listening bool
 }
@@ -22,25 +24,33 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 	overrides := map[string]any{}
 	if len(options) == 1 {
 		if options[0].OnFrame != nil {
+			s.mu.Lock()
 			s.onFrame = options[0].OnFrame
+			s.mu.Unlock()
 			// Register the channel listener once and dispatch through the
 			// mutable onFrame field, mirroring upstream. This avoids leaking a
 			// listener (and duplicate dispatch) on every Start/Stop cycle.
 			if !s.listening {
 				s.listening = true
 				s.page.channel.On("screencastFrame", func(params map[string]any) {
-					if s.onFrame == nil {
+					s.mu.Lock()
+					onFrame := s.onFrame
+					s.mu.Unlock()
+					if onFrame == nil {
 						return
 					}
 					data, _ := base64.StdEncoding.DecodeString(params["data"].(string))
 					frame := OnFrame{Data: data}
+					if ts, ok := params["timestamp"].(float64); ok {
+						frame.Timestamp = ts
+					}
 					if vw, ok := params["viewportWidth"].(float64); ok {
 						frame.ViewportWidth = int(vw)
 					}
 					if vh, ok := params["viewportHeight"].(float64); ok {
 						frame.ViewportHeight = int(vh)
 					}
-					s.onFrame(frame)
+					onFrame(frame)
 				})
 			}
 			overrides["sendFrames"] = true
@@ -65,7 +75,9 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 
 func (s *screencastImpl) Stop() error {
 	s.started = false
+	s.mu.Lock()
 	s.onFrame = nil
+	s.mu.Unlock()
 	if _, err := s.page.channel.Send("screencastStop"); err != nil {
 		return err
 	}

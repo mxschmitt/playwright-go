@@ -114,6 +114,14 @@ type APIResponse interface {
 	// Contains a boolean stating whether the response was successful (status in the range 200-299) or not.
 	Ok() bool
 
+	// Returns SSL and other security information. Resolves to `null` for non-HTTPS responses. For redirected requests,
+	// returns the information for the last request in the redirect chain.
+	SecurityDetails() (*ResponseSecurityDetailsResult, error)
+
+	// Returns the IP address and port of the server. Resolves to `null` if the server address is not available. For
+	// redirected requests, returns the information for the last request in the redirect chain.
+	ServerAddr() (*ResponseServerAddrResult, error)
+
 	// Contains the status code of the response (e.g., 200 for a success).
 	Status() int
 
@@ -234,6 +242,10 @@ type BrowserContext interface {
 
 	// Playwright has ability to mock clock and passage of time.
 	Clock() Clock
+
+	// Virtual WebAuthn authenticator for this context. Lets tests seed credentials and intercept
+	// `navigator.credentials.create()` / `navigator.credentials.get()` ceremonies.
+	Credentials() Credentials
 
 	// Debugger allows to pause and resume the execution.
 	Debugger() (Debugger, error)
@@ -721,6 +733,48 @@ type ConsoleMessage interface {
 	// The web worker or service worker that produced this console message, if any. Note that console messages from web
 	// workers also have non-null [ConsoleMessage.Page].
 	Worker() (Worker, error)
+}
+
+// `Credentials` is a virtual WebAuthn authenticator scoped to a [BrowserContext]. It lets tests register passkeys and
+// answer `navigator.credentials.create()` / `navigator.credentials.get()` ceremonies in the page, without a real
+// authenticator or hardware security key.
+// There are two common ways to use it:
+// **Usage: seed a known credential**
+// **Usage: capture a passkey, then reuse it**
+// **Defaults**
+type Credentials interface {
+	// Installs the virtual WebAuthn authenticator into the context, overriding `navigator.credentials.create()` and
+	// `navigator.credentials.get()` in all current and future pages. Call this before the page first touches
+	// `navigator.credentials`.
+	// Required: until [Credentials.Install] is called, no interception is in place and the page sees the platform's
+	// native (or absent) WebAuthn behaviour. Seeding credentials with [Credentials.Create] without installing populates
+	// the authenticator, but the page will never see those credentials.
+	Install() error
+
+	// Seeds a virtual WebAuthn credential and returns it.
+	// With only “[object Object]”, generates a fresh **ECDSA P-256** keypair, credential id and user handle. The seeded
+	// credential is discoverable (resident), so the page can resolve it from both username-then-passkey and usernameless
+	// passkey flows. The returned object carries the private and public keys, so it can be persisted to disk and
+	// re-seeded in a later test.
+	// To **import a known credential**, supply all four of “[object Object]”, “[object Object]”, “[object Object]” and
+	// “[object Object]” together.
+	// Call [Credentials.Install] before navigating to a page that uses WebAuthn.
+	//
+	//  rpId: Relying party id (typically the site's effective domain).
+	Create(rpId string, options ...CredentialsCreateOptions) (*VirtualCredential, error)
+
+	// Removes a credential from the authenticator by its id. Works for any credential currently held — both those seeded
+	// with [Credentials.Create] and those the page registered itself by calling `navigator.credentials.create()`.
+	//
+	//  id: Base64url-encoded credential id.
+	Delete(id string) error
+
+	// Returns every credential currently held by the authenticator, optionally filtered by “[object Object]” or
+	// “[object Object]”. This includes both credentials seeded with [Credentials.Create] and credentials the page
+	// registered itself by calling `navigator.credentials.create()`.
+	// Each returned credential includes its private and public keys, so a passkey the app just registered can be saved
+	// and re-seeded into a later test with [Credentials.Create] — see the second example in the class overview.
+	Get(options ...CredentialsGetOptions) ([]VirtualCredential, error)
 }
 
 // API for controlling the Playwright debugger. The debugger allows pausing script execution and inspecting the page.
@@ -3819,6 +3873,12 @@ type Page interface {
 	// after the clear.
 	ClearPageErrors() error
 
+	// Provides access to the page's `localStorage` for the current origin. See [WebStorage].
+	LocalStorage() WebStorage
+
+	// Provides access to the page's `sessionStorage` for the current origin. See [WebStorage].
+	SessionStorage() WebStorage
+
 	// Returns up to (currently) 200 last console messages from this page. See [Page.OnConsole] for more details.
 	ConsoleMessages(options ...PageConsoleMessagesOptions) ([]ConsoleMessage, error)
 
@@ -4128,7 +4188,7 @@ type Page interface {
 	//  4. Use [Page.Touchscreen] to tap the center of the element, or the specified “[object Object]”.
 	// When all steps combined have not finished during the specified “[object Object]”, this method throws a
 	// [TimeoutError]. Passing zero timeout disables this.
-	// **NOTE** [Page.Tap] the method will throw if “[object Object]” option of the browser context is false.
+	// **NOTE** [Page.Tap] will throw if the “[object Object]” option of the browser context is false.
 	//
 	// Deprecated: Use locator-based [Locator.Tap] instead. Read more about [locators].
 	//
@@ -4654,7 +4714,8 @@ type Selectors interface {
 
 	// Defines custom attribute name to be used in [Page.GetByTestId]. `data-testid` is used by default.
 	//
-	//  attributeName: Test id attribute name.
+	//  attributeName: Test id attribute name. To match elements with any of several attributes, pass them as a comma-separated list, e.g.
+	//    `"data-pw,data-ti"`.
 	SetTestIdAttribute(attributeName string)
 }
 
@@ -4667,7 +4728,7 @@ type Selectors interface {
 type Touchscreen interface {
 	// Dispatches a `touchstart` and `touchend` event with a single touch at the position
 	// (“[object Object]”,“[object Object]”).
-	// **NOTE** [Page.Tap] the method will throw if “[object Object]” option of the browser context is false.
+	// **NOTE** [Touchscreen.Tap] will throw if the “[object Object]” option of the browser context is false.
 	//
 	// 1. x: X coordinate relative to the main frame's viewport in CSS pixels.
 	// 2. y: Y coordinate relative to the main frame's viewport in CSS pixels.
@@ -4881,6 +4942,35 @@ type WebSocketRoute interface {
 
 	// URL of the WebSocket created in the page.
 	URL() string
+}
+
+// WebStorage exposes the page's `localStorage` or `sessionStorage` for the current origin via an async,
+// [browser-consistent] API.
+// Instances are accessed through [Page.LocalStorage] and [Page.SessionStorage].
+//
+// [browser-consistent]: https://developer.mozilla.org/en-US/docs/Web/API/Storage
+type WebStorage interface {
+	// Returns all items in the storage as name/value pairs.
+	Items() ([]WebStorageItem, error)
+
+	// Returns the value for the given “[object Object]” if present.
+	//
+	//  name: Name of the item to retrieve.
+	GetItem(name string) (string, error)
+
+	// Sets the value for the given “[object Object]”. Overwrites any existing value for that name.
+	//
+	// 1. name: Name of the item to set.
+	// 2. value: New value for the item.
+	SetItem(name string, value string) error
+
+	// Removes the item with the given “[object Object]”. No-op if the item is absent.
+	//
+	//  name: Name of the item to remove.
+	RemoveItem(name string) error
+
+	// Removes all items from the storage.
+	Clear() error
 }
 
 // The Worker class represents a [WebWorker].

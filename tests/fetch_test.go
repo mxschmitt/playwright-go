@@ -64,6 +64,26 @@ func TestFetchShouldWork(t *testing.T) {
 	check("DELETE", response)
 }
 
+func TestAPIResponseServerAddrAndSecurityDetails(t *testing.T) {
+	BeforeEach(t)
+
+	request, err := pw.Request.NewContext()
+	require.NoError(t, err)
+	response, err := request.Get(server.PREFIX + "/simple.json")
+	require.NoError(t, err)
+
+	// Over plain HTTP the server address is reported and security details are absent.
+	addr, err := response.ServerAddr()
+	require.NoError(t, err)
+	if addr != nil {
+		require.Greater(t, addr.Port, 0)
+	}
+
+	details, err := response.SecurityDetails()
+	require.NoError(t, err)
+	require.Nil(t, details)
+}
+
 func TestShouldDisposeGlobalRequest(t *testing.T) {
 	BeforeEach(t)
 
