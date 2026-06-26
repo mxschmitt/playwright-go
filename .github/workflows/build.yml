@@ -69,14 +69,14 @@ jobs:
         FLAKINESS_PROJECT: playwright-community/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os == 'ubuntu-latest'
-      run: xvfb-run flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/playwright-community/playwright-go" --race ./...
+      run: xvfb-run flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race ./...
     - name: Test
       env:
         BROWSER: ${{ matrix.browser }}
         FLAKINESS_PROJECT: playwright-community/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os != 'ubuntu-latest'
-      run: flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/playwright-community/playwright-go" --race ./...
+      run: flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race ./...
     - name: Send coverage
       uses: shogo82148/actions-goveralls@v1
       if: matrix.go == 'stable'

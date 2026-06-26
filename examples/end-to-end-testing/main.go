@@ -8,7 +8,7 @@ import (
 	"log"
 	"reflect"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 )
 
 func assertErrorToNilf(message string, err error) {

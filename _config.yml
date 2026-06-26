@@ -4,9 +4,9 @@ description: >- # this means to ignore newlines until "baseurl:"
   Playwright is a Node.js library to automate Chromium, Firefox and WebKit with a single API.
   Playwright is built to enable cross-browser web automation that is ever-green, capable, reliable and fast.
 baseurl: "/playwright-go"
-url: "https://playwright-community.github.io/"
+url: "https://mxschmitt.github.io/"
 twitter_username: maxibanki
-github_username: playwright-community
+github_username: mxschmitt
 remote_theme: pages-themes/cayman@v0.2.0
 plugins:
   - jekyll-remote-theme

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/playwright-community/playwright-go"
+	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
 
@@ -13,7 +13,7 @@ import (
 // This reproduces a race condition where Close() writes to closeWasCalled while
 // route handler goroutines read it during page navigation.
 //
-// See: https://github.com/playwright-community/playwright-go/issues/566
+// See: https://github.com/mxschmitt/playwright-go/issues/566
 func TestBrowserContextCloseRace(t *testing.T) {
 	// Create a minimal HAR file
 	harContent := `{
@@ -111,7 +111,7 @@ func TestBrowserContextCloseRace(t *testing.T) {
 // writes pageImpl.closeWasCalled while the page's own route-handler goroutine reads
 // it during navigation. Without an atomic field this is detected by the -race flag.
 //
-// See: https://github.com/playwright-community/playwright-go/issues/566
+// See: https://github.com/mxschmitt/playwright-go/issues/566
 func TestPageCloseRace(t *testing.T) {
 	BeforeEach(t)
 

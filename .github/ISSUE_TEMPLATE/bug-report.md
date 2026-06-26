@@ -11,7 +11,7 @@ assignees: ''
 Before posting a bug report, please make sure it is a software defect related to "playwright-go"(or playwright).
 
 The issue tracker is not a help forum. Consider asking for help on for example:
-- [Github Discussions](/playwright-community/playwright-go/discussions)
+- [Github Discussions](/mxschmitt/playwright-go/discussions)
 - upstream [Playwright Discord channel](https://aka.ms/playwright/discord)
 -->
 **Environments**
@@ -30,7 +30,7 @@ Please provide a mini reproduction rather than just a description. For example:
 ```go
 package main
 
-import "github.com/playwright-community/playwright-go"
+import "github.com/mxschmitt/playwright-go"
 
 func main() {
 	// ignore unnecessary error handling code

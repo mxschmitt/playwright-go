@@ -186,7 +186,7 @@ git diff --submodule=log -- playwright   # confirm the pointer moves OLD -> NEW
 git checkout -b roll/v<NEW_VERSION>
 git add -A && git commit -m "chore: roll to Playwright v<NEW_VERSION>"
 git push -u origin roll/v<NEW_VERSION>
-gh pr create --repo playwright-community/playwright-go --base main \
+gh pr create --repo mxschmitt/playwright-go --base main \
   --title "chore: roll to Playwright v<NEW_VERSION>" --body "<summary of new APIs + behavior changes>"
 ```
 
@@ -199,15 +199,15 @@ The roll is **not done when the PR opens — it's done when CI is green.** A rol
 1. **Wait for the run to finish** (don't poll in a tight loop — block on it):
    ```bash
    # Find the run for the branch's head commit, then watch it to completion:
-   RUN=$(gh run list --repo playwright-community/playwright-go --branch roll/v<NEW_VERSION> \
+   RUN=$(gh run list --repo mxschmitt/playwright-go --branch roll/v<NEW_VERSION> \
      --limit 1 --json databaseId --jq '.[0].databaseId')
-   gh run watch "$RUN" --repo playwright-community/playwright-go --exit-status
+   gh run watch "$RUN" --repo mxschmitt/playwright-go --exit-status
    # (exits non-zero if the run failed; `gh pr checks <num> --watch` is an alternative.)
    ```
 2. **List results and read every failure's log** (the failed step, not the whole log):
    ```bash
-   gh pr checks <num> --repo playwright-community/playwright-go
-   gh run view --repo playwright-community/playwright-go --job <jobId> --log-failed \
+   gh pr checks <num> --repo mxschmitt/playwright-go
+   gh run view --repo mxschmitt/playwright-go --job <jobId> --log-failed \
      | grep -iE 'FAIL|Error:|\.go:[0-9]+|panic'
    ```
 3. **Triage each failure** the same way as Step 6 / "behavior changes": is it my code, an engine/OS-specific string (match any known variant), a lint issue, or an intended upstream change? Note the OS+browser — a failure on only webkit-windows is still a failure.
