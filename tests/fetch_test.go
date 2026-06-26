@@ -102,6 +102,21 @@ func TestShouldWorkAfterContextDisposed(t *testing.T) {
 	require.ErrorContains(t, err, "Test ended.")
 }
 
+// TestContextRequestRespectsContextDefaultTimeout verifies that
+// BrowserContext.SetDefaultTimeout applies to the context-owned
+// request context's fetches (they share the context timeout settings).
+func TestContextRequestRespectsContextDefaultTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(2 * time.Second)
+	})
+	context.SetDefaultTimeout(1)
+	_, err := context.Request().Get(server.PREFIX + "/slow")
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.ErrorContains(t, err, "Timeout 1ms exceeded")
+}
+
 func TestShouldSupportGlobalUserAgentOption(t *testing.T) {
 	BeforeEach(t)
 

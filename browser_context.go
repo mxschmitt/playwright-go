@@ -918,6 +918,10 @@ func newBrowserContext(parent *channelOwner, objectType string, guid string, ini
 		}
 	}
 	bt.request = fromChannel(initializer["requestContext"]).(*apiRequestContextImpl)
+	// Share the context's timeout settings with its owned request context so
+	// context.SetDefaultTimeout reaches context.Request() fetches, mirroring
+	// upstream (this.request._timeoutSettings = this._timeoutSettings).
+	bt.request.timeoutSettings = bt.timeoutSettings
 	bt.clock = newClock(bt)
 
 	// Register this context with the selectors manager for custom selector engines

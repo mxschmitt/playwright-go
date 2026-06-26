@@ -64,9 +64,10 @@ func newApiRequestImpl(pw *Playwright) *apiRequestImpl {
 
 type apiRequestContextImpl struct {
 	channelOwner
-	tracing        *tracingImpl
-	closeReason    *string
-	defaultTimeout *float64
+	tracing         *tracingImpl
+	closeReason     *string
+	defaultTimeout  *float64
+	timeoutSettings *timeoutSettings
 }
 
 func (r *apiRequestContextImpl) Dispose(options ...APIRequestContextDisposeOptions) error {
@@ -239,9 +240,19 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 			overrides["params"] = serializeMapToNameValue(options[0].Params)
 			options[0].Params = nil
 		}
-		// Use context-level timeout as default if no per-request timeout specified
-		if options[0].Timeout == nil && r.defaultTimeout != nil {
-			overrides["timeout"] = *r.defaultTimeout
+		// Use the context-level default timeout when no per-request timeout is
+		// given. A standalone request context seeds r.defaultTimeout directly; a
+		// browser-context-owned request shares the context's timeoutSettings
+		// (mirroring upstream, where context.request._timeoutSettings is the
+		// context's instance), so SetDefaultTimeout reaches these fetches too.
+		if options[0].Timeout == nil {
+			if r.defaultTimeout != nil {
+				overrides["timeout"] = *r.defaultTimeout
+			} else if r.timeoutSettings != nil {
+				if dt := r.timeoutSettings.DefaultTimeout(); dt != nil {
+					overrides["timeout"] = *dt
+				}
+			}
 		}
 	}
 
