@@ -185,22 +185,38 @@ git diff --submodule=log -- playwright   # confirm the pointer moves OLD -> NEW
 
 git checkout -b roll/v<NEW_VERSION>
 git add -A && git commit -m "chore: roll to Playwright v<NEW_VERSION>"
+git push -u origin roll/v<NEW_VERSION>
+gh pr create --repo playwright-community/playwright-go --base main \
+  --title "chore: roll to Playwright v<NEW_VERSION>" --body "<summary of new APIs + behavior changes>"
 ```
 
-Open a PR only if the user asks. Summarize new APIs added in the PR body.
+Create the PR when the local checks (Step 7/9) pass — don't wait to be asked. Summarize the new APIs and any behavior changes in the body. Then drive it to green (Step 11).
 
-## Step 11 — Watch CI and keep the branch current
+## Step 11 — Drive CI to green (loop until all checks pass)
 
-A roll PR runs a large matrix (3 OS × 3 browsers × 2 Go versions) plus Lint, verify (type generation), and test-examples. Local chromium-green is **not** sufficient — most roll failures show up only on firefox/webkit or on Windows.
+The roll is **not done when the PR opens — it's done when CI is green.** A roll PR runs a large matrix (3 OS × 3 browsers × 2 Go versions) plus Lint, verify (type generation), and test-examples. Local chromium-green is **not** sufficient — most roll failures surface only on firefox/webkit or on Windows. Loop autonomously until every check passes:
 
-```bash
-gh pr checks <num> --repo playwright-community/playwright-go     # all statuses
-# For a failing job, read the failed step (not the whole log):
-gh run view --repo playwright-community/playwright-go --job <jobId> --log-failed | grep -iE 'FAIL|Error:|\.go:[0-9]+'
-```
+1. **Wait for the run to finish** (don't poll in a tight loop — block on it):
+   ```bash
+   # Find the run for the branch's head commit, then watch it to completion:
+   RUN=$(gh run list --repo playwright-community/playwright-go --branch roll/v<NEW_VERSION> \
+     --limit 1 --json databaseId --jq '.[0].databaseId')
+   gh run watch "$RUN" --repo playwright-community/playwright-go --exit-status
+   # (exits non-zero if the run failed; `gh pr checks <num> --watch` is an alternative.)
+   ```
+2. **List results and read every failure's log** (the failed step, not the whole log):
+   ```bash
+   gh pr checks <num> --repo playwright-community/playwright-go
+   gh run view --repo playwright-community/playwright-go --job <jobId> --log-failed \
+     | grep -iE 'FAIL|Error:|\.go:[0-9]+|panic'
+   ```
+3. **Triage each failure** the same way as Step 6 / "behavior changes": is it my code, an engine/OS-specific string (match any known variant), a lint issue, or an intended upstream change? Note the OS+browser — a failure on only webkit-windows is still a failure.
+4. **Fix, re-verify locally on the affected browser(s), and re-push** (amend the relevant commit to keep history clean; `--force-with-lease`). Re-run from step 1.
+5. Repeat until `gh pr checks` shows **0 fail** and no relevant pending.
 
 - **Flakiness.io is a reporter, not a merge gate** — it shows "fail" only because a test job it reports on failed; it goes green when the tests do. Don't chase it directly.
-- Triage a failing test the same way as Step 6/“behavior changes”: is it my code, an engine-specific string, or an intended upstream change? Fix and re-push (amend the relevant commit to keep history clean; `--force-with-lease`).
+- A genuinely flaky (not roll-caused) test that fails once may pass on re-run; confirm it's unrelated to your changes before re-running rather than fixing. The repo uses `flakiness-go` (no auto-retry).
+- Each push triggers a fresh run; `gh run list --branch` returns the newest first. Watch the run for the *current* head commit, not a stale one.
 
 ### Rebasing when `main` moves
 
@@ -230,7 +246,8 @@ A roll can change the behavior of an *existing* API, breaking a test that assert
 - Target version is ambiguous or unreleased upstream.
 - A new upstream API is non-trivial (new class, breaking signature change) and you're unsure whether Go should expose it or how to name it.
 - A pre-existing test fails and after investigation you're genuinely unsure whether it's an intended upstream behavior change (update the test) or a port bug (fix the code). If the evidence is conclusive (e.g. an upstream source rewrite + the Go client doesn't implement that logic), proceed and flag it; otherwise ask.
-- Before pushing or opening a PR.
+
+Otherwise work the whole flow autonomously, **including creating the PR (Step 10) and iterating on pushes until CI is green (Step 11)** — those don't need approval. Do NOT merge the PR; leave that to a maintainer. (If the user explicitly said not to open a PR, stop after Step 9 and report instead.)
 
 ## Files & references
 
