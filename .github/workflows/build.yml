@@ -62,21 +62,63 @@ jobs:
     - run: |
         go install ./...
         go install github.com/mxschmitt/flakiness-go/cmd/flakiness-go@latest
+        go install gotest.tools/gotestsum@latest
         playwright install --with-deps ${{ matrix.browser }}
+    # We run the suite through gotestsum so that flaky tests (browser-side
+    # timing races that upstream microsoft/playwright absorbs with `retries: 3`)
+    # are re-run instead of failing the whole job. gotestsum re-runs ONLY the
+    # failed tests, exits 0 if each passes within the attempt budget, and
+    # writes every attempt to --jsonfile. We then pipe that json into
+    # `flakiness-go --stdin`, which records each attempt as a distinct
+    # RunAttempt — so a fail-then-pass is uploaded to flakiness.io as *flaky*
+    # (visible), not hidden. A test that fails every attempt still fails the
+    # job (gotestsum exits non-zero), and --rerun-fails-max-failures aborts the
+    # rerun if a broad breakage produces too many failures to be "flaky".
+    #
+    # Exit handling: `flakiness-go --stdin` always exits 0 (it is a reporter),
+    # so the pass/fail gate is gotestsum's exit code, captured below. We always
+    # run the reporter — even on a hard failure — so the failure is uploaded.
+    #
+    # Coverage caveat: when a rerun happens, `go test` overwrites covprofile
+    # with only the re-run test's coverage. Reruns are rare (only on a flake)
+    # and coverage upload is best-effort (continue-on-error, stable only), so we
+    # accept the occasional degraded number rather than running the suite twice.
     - name: Test
+      shell: bash
       env:
         BROWSER: ${{ matrix.browser }}
         FLAKINESS_PROJECT: playwright-community/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os == 'ubuntu-latest'
-      run: xvfb-run flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race ./...
+      run: |
+        ec=0
+        xvfb-run gotestsum \
+          --format standard-verbose \
+          --rerun-fails=2 \
+          --rerun-fails-max-failures=15 \
+          --packages=./... \
+          --jsonfile=gotest-report.json \
+          -- -timeout=15m -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race || ec=$?
+        flakiness-go --stdin < gotest-report.json || true
+        exit $ec
     - name: Test
+      shell: bash
       env:
         BROWSER: ${{ matrix.browser }}
         FLAKINESS_PROJECT: playwright-community/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os != 'ubuntu-latest'
-      run: flakiness-go -timeout 15m -v -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race ./...
+      run: |
+        ec=0
+        gotestsum \
+          --format standard-verbose \
+          --rerun-fails=2 \
+          --rerun-fails-max-failures=15 \
+          --packages=./... \
+          --jsonfile=gotest-report.json \
+          -- -timeout=15m -coverprofile=covprofile -coverpkg="github.com/mxschmitt/playwright-go" --race || ec=$?
+        flakiness-go --stdin < gotest-report.json || true
+        exit $ec
     - name: Send coverage
       uses: shogo82148/actions-goveralls@v1
       if: matrix.go == 'stable'
