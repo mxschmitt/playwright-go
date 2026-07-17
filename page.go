@@ -23,6 +23,7 @@ type pageImpl struct {
 	touchscreen     *touchscreenImpl
 	timeoutSettings *timeoutSettings
 	browserContext  *browserContextImpl
+	framesMu        sync.RWMutex
 	frames          []Frame
 	workers         []Worker
 	mainFrame       Frame
@@ -209,7 +210,7 @@ func (p *pageImpl) Frame(options ...PageFrameOptions) Frame {
 		matcher = newURLMatcher(option.URL, p.browserContext.options.BaseURL)
 	}
 
-	for _, f := range p.frames {
+	for _, f := range p.Frames() {
 		// When a name is specified, match strictly by name and never consult the
 		// URL, matching upstream.
 		if option.Name != nil {
@@ -227,7 +228,9 @@ func (p *pageImpl) Frame(options ...PageFrameOptions) Frame {
 }
 
 func (p *pageImpl) Frames() []Frame {
-	return p.frames
+	p.framesMu.RLock()
+	defer p.framesMu.RUnlock()
+	return slices.Clone(p.frames)
 }
 
 func (p *pageImpl) SetDefaultNavigationTimeout(timeout float64) {
@@ -1044,13 +1047,16 @@ func (p *pageImpl) onBinding(binding *bindingCallImpl) {
 
 func (p *pageImpl) onFrameAttached(frame *frameImpl) {
 	frame.page = p
+	p.framesMu.Lock()
 	p.frames = append(p.frames, frame)
+	p.framesMu.Unlock()
 	p.Emit("frameattached", frame)
 	p.browserContext.Emit("frameattached", frame)
 }
 
 func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 	frame.detached = true
+	p.framesMu.Lock()
 	frames := make([]Frame, 0)
 	for i := 0; i < len(p.frames); i++ {
 		if p.frames[i] != frame {
@@ -1060,6 +1066,7 @@ func (p *pageImpl) onFrameDetached(frame *frameImpl) {
 	if len(frames) != len(p.frames) {
 		p.frames = frames
 	}
+	p.framesMu.Unlock()
 	// Remove the frame from its parent's childFrames so ChildFrames() doesn't
 	// keep returning a detached ghost frame (matches upstream).
 	if frame.parentFrame != nil {
