@@ -21,6 +21,24 @@ type captureTransport struct {
 	closed  chan struct{}
 }
 
+// failingSendTransport deterministically exercises the error path after a
+// protocol callback has been registered but before a request reaches a driver.
+type failingSendTransport struct {
+	err error
+}
+
+func (t *failingSendTransport) Send(map[string]any) error {
+	return t.err
+}
+
+func (*failingSendTransport) Poll() (*message, error) {
+	return nil, ErrTargetClosed
+}
+
+func (*failingSendTransport) Close() error {
+	return nil
+}
+
 func newCaptureTransport() *captureTransport {
 	return &captureTransport{
 		replies: make(chan map[string]any, 16),
@@ -94,6 +112,21 @@ func newTestConnection(t *testing.T) (*connection, *captureTransport, *channelOw
 	}()
 	t.Cleanup(func() { _ = tr.Close() })
 	return conn, tr, owner
+}
+
+func TestFailedSendDoesNotOrphanProtocolCallback(t *testing.T) {
+	sendErr := errors.New("cannot serialize protocol message")
+	conn := newConnection(&failingSendTransport{err: sendErr})
+	owner := &channelOwner{
+		guid:       "failing-send-guid",
+		connection: conn,
+		objects:    map[string]*channelOwner{},
+	}
+	owner.channel = newChannel(owner, owner)
+
+	_, err := owner.channel.Send("failingSend")
+	require.ErrorIs(t, err, sendErr)
+	require.Zero(t, conn.callbacks.Len(), "a failed transport send must not retain its callback")
 }
 
 func TestSendWithTimeoutPlacesTimeoutInMetadata(t *testing.T) {

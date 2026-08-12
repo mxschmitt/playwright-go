@@ -322,6 +322,13 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 	}
 
 	if err := c.transport.Send(message); err != nil {
+		// Keep the callback registered until Send returns so an immediately
+		// dispatched response cannot be lost. If the send itself fails, however,
+		// no caller can consume a future response for this id, so remove it to
+		// avoid retaining one callback per failed send.
+		if !noReply {
+			c.callbacks.Delete(id)
+		}
 		cb.SetError(fmt.Errorf("could not send message: %w", err))
 		return
 	}
