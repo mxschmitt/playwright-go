@@ -190,7 +190,16 @@ gh pr create --repo mxschmitt/playwright-go --base main \
   --title "chore: roll to Playwright v<NEW_VERSION>" --body "<summary of new APIs + behavior changes>"
 ```
 
-Create the PR when the local checks (Step 7/9) pass — don't wait to be asked. Summarize the new APIs and any behavior changes in the body. Then drive it to green (Step 11).
+Create the PR when the local checks (Step 7/9) pass — don't wait to be asked. Summarize the new APIs and any behavior changes in the body, and **always end the body with this footer** so it's obvious at a glance the PR was skill-generated rather than hand-rolled (write the body to a temp file and pass `--body-file` if it's easier than escaping a multi-paragraph `--body` string):
+
+```
+---
+🤖 Rolled with the [`roll-playwright`](.claude/skills/roll-playwright/SKILL.md) skill.
+Sibling references used: python <PR_URL>, java <PR_URL>, dotnet <PR_URL>
+verify-parity.sh (Step 9): <clean | N items flagged and how each was resolved>
+```
+
+Fill in the three sibling PR URLs found in Step 1 — if any was unavailable or skipped, say so explicitly on that line rather than omitting it (this is also a forcing function: don't skip the Step 1 requirement to check all three). Then drive it to green (Step 11).
 
 ## Step 11 — Drive CI to green (loop until all checks pass)
 
