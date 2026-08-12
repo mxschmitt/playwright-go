@@ -12,6 +12,19 @@ type elementHandleImpl struct {
 	jsHandleImpl
 }
 
+func (e *elementHandleImpl) timeoutSettings() *timeoutSettings {
+	// Walk the channel parent chain (Frame → Page) without a network round-trip.
+	for parent := e.parent; parent != nil; parent = parent.parent {
+		if frame, ok := parent.channel.object.(*frameImpl); ok && frame.page != nil {
+			return frame.page.timeoutSettings
+		}
+		if page, ok := parent.channel.object.(*pageImpl); ok {
+			return page.timeoutSettings
+		}
+	}
+	return newTimeoutSettings(nil)
+}
+
 func (e *elementHandleImpl) AsElement() ElementHandle {
 	return e
 }
@@ -89,17 +102,29 @@ func (e *elementHandleImpl) DispatchEvent(typ string, initObjects ...any) error 
 }
 
 func (e *elementHandleImpl) Hover(options ...ElementHandleHoverOptions) error {
-	_, err := e.channel.Send("hover", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("hover", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
 func (e *elementHandleImpl) Click(options ...ElementHandleClickOptions) error {
-	_, err := e.channel.Send("click", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("click", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
 func (e *elementHandleImpl) Dblclick(options ...ElementHandleDblclickOptions) error {
-	_, err := e.channel.Send("dblclick", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("dblclick", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
@@ -163,7 +188,11 @@ func (e *elementHandleImpl) EvalOnSelectorAll(selector string, expression string
 }
 
 func (e *elementHandleImpl) ScrollIntoViewIfNeeded(options ...ElementHandleScrollIntoViewIfNeededOptions) error {
-	_, err := e.channel.Send("scrollIntoViewIfNeeded", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("scrollIntoViewIfNeeded", resolveTimeout(e.timeoutSettings(), explicit), options)
 	if err != nil {
 		return err
 	}
@@ -187,13 +216,7 @@ func (e *elementHandleImpl) SetInputFiles(files any, options ...ElementHandleSet
 	if len(options) == 1 {
 		option = options[0]
 	}
-	// timeout is required in Playwright v1.57+ protocol. Resolve the configured
-	// default (Page/BrowserContext.SetDefaultTimeout) instead of letting the
-	// serializer fall back to a hardcoded 30s, which would ignore that setting.
-	if option.Timeout == nil {
-		option.Timeout = Float(frame.(*frameImpl).page.timeoutSettings.Timeout())
-	}
-	_, err = e.channel.Send("setInputFiles", params, option)
+	_, err = e.channel.SendWithTimeout("setInputFiles", resolveTimeout(e.timeoutSettings(), option.Timeout), params, option)
 	return err
 }
 
@@ -213,31 +236,51 @@ func (e *elementHandleImpl) BoundingBox() (*Rect, error) {
 }
 
 func (e *elementHandleImpl) Check(options ...ElementHandleCheckOptions) error {
-	_, err := e.channel.Send("check", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("check", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
 func (e *elementHandleImpl) Uncheck(options ...ElementHandleUncheckOptions) error {
-	_, err := e.channel.Send("uncheck", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("uncheck", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
 func (e *elementHandleImpl) Press(key string, options ...ElementHandlePressOptions) error {
-	_, err := e.channel.Send("press", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("press", resolveTimeout(e.timeoutSettings(), explicit), map[string]any{
 		"key": key,
 	}, options)
 	return err
 }
 
 func (e *elementHandleImpl) Fill(value string, options ...ElementHandleFillOptions) error {
-	_, err := e.channel.Send("fill", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("fill", resolveTimeout(e.timeoutSettings(), explicit), map[string]any{
 		"value": value,
 	}, options)
 	return err
 }
 
 func (e *elementHandleImpl) Type(value string, options ...ElementHandleTypeOptions) error {
-	_, err := e.channel.Send("type", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("type", resolveTimeout(e.timeoutSettings(), explicit), map[string]any{
 		"text": value,
 	}, options)
 	return err
@@ -249,7 +292,11 @@ func (e *elementHandleImpl) Focus() error {
 }
 
 func (e *elementHandleImpl) SelectText(options ...ElementHandleSelectTextOptions) error {
-	_, err := e.channel.Send("selectText", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("selectText", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
@@ -283,7 +330,11 @@ func (e *elementHandleImpl) Screenshot(options ...ElementHandleScreenshotOptions
 			options[0].Mask = nil
 		}
 	}
-	data, err := e.channel.Send("screenshot", options, overrides)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	data, err := e.channel.SendWithTimeout("screenshot", resolveTimeout(e.timeoutSettings(), explicit), options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -303,13 +354,21 @@ func (e *elementHandleImpl) Screenshot(options ...ElementHandleScreenshotOptions
 }
 
 func (e *elementHandleImpl) Tap(options ...ElementHandleTapOptions) error {
-	_, err := e.channel.Send("tap", options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("tap", resolveTimeout(e.timeoutSettings(), explicit), options)
 	return err
 }
 
 func (e *elementHandleImpl) SelectOption(values SelectOptionValues, options ...ElementHandleSelectOptionOptions) ([]string, error) {
 	opts := convertSelectOptionSet(values)
-	selected, err := e.channel.Send("selectOption", opts, options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	selected, err := e.channel.SendWithTimeout("selectOption", resolveTimeout(e.timeoutSettings(), explicit), opts, options)
 	if err != nil {
 		return nil, err
 	}
@@ -366,7 +425,11 @@ func (e *elementHandleImpl) IsVisible() (bool, error) {
 }
 
 func (e *elementHandleImpl) WaitForElementState(state ElementState, options ...ElementHandleWaitForElementStateOptions) error {
-	_, err := e.channel.Send("waitForElementState", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := e.channel.SendWithTimeout("waitForElementState", resolveTimeout(e.timeoutSettings(), explicit), map[string]any{
 		"state": state,
 	}, options)
 	if err != nil {
@@ -376,7 +439,11 @@ func (e *elementHandleImpl) WaitForElementState(state ElementState, options ...E
 }
 
 func (e *elementHandleImpl) WaitForSelector(selector string, options ...ElementHandleWaitForSelectorOptions) (ElementHandle, error) {
-	ch, err := e.channel.Send("waitForSelector", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	ch, err := e.channel.SendWithTimeout("waitForSelector", resolveTimeout(e.timeoutSettings(), explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -391,7 +458,11 @@ func (e *elementHandleImpl) WaitForSelector(selector string, options ...ElementH
 }
 
 func (e *elementHandleImpl) InputValue(options ...ElementHandleInputValueOptions) (string, error) {
-	result, err := e.channel.Send("inputValue", options)
+	// Timeout is deprecated and intentionally ignored for this immediate query.
+	if len(options) == 1 {
+		options[0].Timeout = nil
+	}
+	result, err := e.channel.SendWithTimeout("inputValue", Float(0), options)
 	if result == nil {
 		return "", err
 	}
@@ -399,13 +470,17 @@ func (e *elementHandleImpl) InputValue(options ...ElementHandleInputValueOptions
 }
 
 func (e *elementHandleImpl) SetChecked(checked bool, options ...ElementHandleSetCheckedOptions) error {
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	timeout := resolveTimeout(e.timeoutSettings(), explicit)
 	if checked {
-		_, err := e.channel.Send("check", options)
-		return err
-	} else {
-		_, err := e.channel.Send("uncheck", options)
+		_, err := e.channel.SendWithTimeout("check", timeout, options)
 		return err
 	}
+	_, err := e.channel.SendWithTimeout("uncheck", timeout, options)
+	return err
 }
 
 func newElementHandle(parent *channelOwner, objectType string, guid string, initializer map[string]any) *elementHandleImpl {

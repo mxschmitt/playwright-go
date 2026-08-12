@@ -557,6 +557,7 @@ func (b *browserContextImpl) StorageState(options ...BrowserContextStorageStateO
 	var path *string
 	if len(options) == 1 {
 		params["indexedDB"] = options[0].IndexedDB
+		params["credentials"] = options[0].Credentials
 		path = options[0].Path
 	}
 	result, err := b.channel.SendReturnAsDict("storageState", params)

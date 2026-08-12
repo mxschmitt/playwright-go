@@ -50,7 +50,7 @@ func (pa *pageAssertionsImpl) expectOnFrame(
 		matches  bool
 		log      []string
 	)
-	_, err := frame.channel.SendReturnAsDict("expect", options, overrides)
+	_, err := frame.channel.SendReturnAsDictWithTimeout("expect", options.Timeout, options, overrides)
 	if err != nil {
 		// Since v1.61 a failed assertion is reported as a server error carrying
 		// structured errorDetails rather than a `{ matches: false }` result.

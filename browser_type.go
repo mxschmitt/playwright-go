@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"time"
 )
 
 // defaultLaunchTimeout matches DEFAULT_PLAYWRIGHT_LAUNCH_TIMEOUT upstream (3 minutes).
@@ -24,15 +25,17 @@ func (b *browserTypeImpl) ExecutablePath() string {
 
 func (b *browserTypeImpl) Launch(options ...BrowserTypeLaunchOptions) (Browser, error) {
 	overrides := map[string]any{}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(defaultLaunchTimeout) // default 3 min
+	var launchTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		launchTimeout = options[0].Timeout
+	} else {
+		launchTimeout = Float(float64(defaultLaunchTimeout))
 	}
 	if len(options) == 1 && options[0].Env != nil {
 		overrides["env"] = serializeMapToNameAndValue(options[0].Env)
 		options[0].Env = nil
 	}
-	channel, err := b.channel.Send("launch", options, overrides)
+	channel, err := b.channel.SendWithTimeout("launch", launchTimeout, options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -52,9 +55,11 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 	overrides := map[string]any{
 		"userDataDir": userDataDir,
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(defaultLaunchTimeout) // default 3 min
+	var launchTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		launchTimeout = options[0].Timeout
+	} else {
+		launchTimeout = Float(float64(defaultLaunchTimeout))
 	}
 	option := &BrowserNewContextOptions{}
 	var tracesDir *string = nil
@@ -112,7 +117,7 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 			options[0].RecordHarOmitContent = nil
 		}
 	}
-	response, err := b.channel.SendReturnAsDict("launchPersistentContext", options, overrides)
+	response, err := b.channel.SendReturnAsDictWithTimeout("launchPersistentContext", launchTimeout, options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -140,9 +145,15 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 			"x-playwright-browser": b.Name(),
 		},
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(0) // default no timeout
+	var connectTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		connectTimeout = options[0].Timeout
+	} else {
+		connectTimeout = Float(0) // default no timeout
+	}
+	var deadline time.Time
+	if *connectTimeout != 0 {
+		deadline = time.Now().Add(time.Duration(*connectTimeout * float64(time.Millisecond)))
 	}
 	if len(options) == 1 {
 		if options[0].Headers != nil {
@@ -153,21 +164,21 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 		}
 	}
 	localUtils := b.connection.LocalUtils()
-	pipe, err := localUtils.channel.SendReturnAsDict("connect", options, overrides)
+	pipe, err := localUtils.channel.SendReturnAsDictWithTimeout("connect", connectTimeout, options, overrides)
 	if err != nil {
 		return nil, err
 	}
 	jsonPipe := fromChannel(pipe["pipe"]).(*jsonPipe)
 	connection := newConnection(jsonPipe, localUtils)
 
-	playwright, err := connection.Start()
+	playwright, err := startRemoteConnection(connection, jsonPipe, deadline, *connectTimeout)
 	if err != nil {
 		return nil, err
 	}
 	playwright.setSelectors(b.playwright.Selectors)
 	preLaunchedBrowser := fromNullableChannel(playwright.initializer["preLaunchedBrowser"])
 	if preLaunchedBrowser == nil {
-		connection.cleanup()
+		closeRemoteConnection(connection, jsonPipe, nil)
 		return nil, errors.New("malformed endpoint. Did you use BrowserType.LaunchServer method?")
 	}
 	browser := preLaunchedBrowser.(*browserImpl)
@@ -198,6 +209,75 @@ func (b *browserTypeImpl) Connect(wsEndpoint string, options ...BrowserTypeConne
 	return browser, nil
 }
 
+type remoteConnectionStartResult struct {
+	playwright *Playwright
+	err        error
+}
+
+// startRemoteConnection applies BrowserType.Connect's timeout to the complete
+// operation, including the remote Root.initialize call. LocalUtils.connect
+// already receives the same timeout in protocol metadata; deadline is computed
+// before that call so only the remaining budget is available here.
+func startRemoteConnection(connection *connection, jsonPipe *jsonPipe, deadline time.Time, timeout float64) (*Playwright, error) {
+	if deadline.IsZero() {
+		playwright, err := connection.Start()
+		if err != nil {
+			closeRemoteConnection(connection, jsonPipe, err)
+		}
+		return playwright, err
+	}
+
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		err := fmt.Errorf("%w: Timeout %gms exceeded.", ErrTimeout, timeout)
+		closeRemoteConnection(connection, jsonPipe, err)
+		return nil, err
+	}
+
+	result := make(chan remoteConnectionStartResult, 1)
+	go func() {
+		playwright, err := connection.Start()
+		result <- remoteConnectionStartResult{playwright: playwright, err: err}
+	}()
+
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case value := <-result:
+		if value.err != nil {
+			closeRemoteConnection(connection, jsonPipe, value.err)
+		}
+		return value.playwright, value.err
+	case <-timer.C:
+		// Prefer an initialization result that became ready at the deadline over
+		// spuriously timing out because select chose between two ready cases.
+		select {
+		case value := <-result:
+			if value.err != nil {
+				closeRemoteConnection(connection, jsonPipe, value.err)
+			}
+			return value.playwright, value.err
+		default:
+		}
+		err := fmt.Errorf("%w: Timeout %gms exceeded.", ErrTimeout, timeout)
+		closeRemoteConnection(connection, jsonPipe, err)
+		return nil, err
+	}
+}
+
+// closeRemoteConnection closes both sides of a JsonPipe and aborts pending
+// callbacks. JsonPipe.Close waits for a protocol reply and is therefore not
+// suitable for an error path whose remote endpoint may be unresponsive.
+func closeRemoteConnection(connection *connection, jsonPipe *jsonPipe, cause error) {
+	jsonPipe.channel.SendNoReply("close")
+	jsonPipe.markClosed()
+	if cause != nil {
+		connection.cleanup(cause)
+	} else {
+		connection.cleanup()
+	}
+}
+
 func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserTypeConnectOverCDPOptions) (Browser, error) {
 	if b.Name() != "chromium" {
 		return nil, errors.New("connecting over CDP is only supported in Chromium")
@@ -205,9 +285,11 @@ func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserT
 	overrides := map[string]any{
 		"endpointURL": endpointURL,
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = float64(30000) // default 30s
+	var cdpTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		cdpTimeout = options[0].Timeout
+	} else {
+		cdpTimeout = Float(30000) // default 30s
 	}
 	if len(options) == 1 {
 		if options[0].Headers != nil {
@@ -215,7 +297,7 @@ func (b *browserTypeImpl) ConnectOverCDP(endpointURL string, options ...BrowserT
 			options[0].Headers = nil
 		}
 	}
-	response, err := b.channel.SendReturnAsDict("connectOverCDP", options, overrides)
+	response, err := b.channel.SendReturnAsDictWithTimeout("connectOverCDP", cdpTimeout, options, overrides)
 	if err != nil {
 		return nil, err
 	}

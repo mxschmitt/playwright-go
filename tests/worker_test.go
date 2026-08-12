@@ -38,6 +38,23 @@ func TestWorkerShouldWork(t *testing.T) {
 	require.Equal(t, 0, len(page.Workers()))
 }
 
+func TestWorkerShouldUseContextLocale(t *testing.T) {
+	BeforeEach(t, playwright.BrowserNewContextOptions{Locale: playwright.String("ru-RU")})
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	worker, err := page.ExpectWorker(func() error {
+		_, err := page.Evaluate(`() => new Worker(URL.createObjectURL(new Blob(["console.log(1)"], { type: "application/javascript" })))`)
+		return err
+	})
+	require.NoError(t, err)
+	formatted, err := worker.Evaluate(`() => (10000.20).toLocaleString()`)
+	require.NoError(t, err)
+	// Firefox 153 fixed the worker locale regression. All engines must now
+	// render the same Russian thousands separator and decimal mark.
+	require.Equal(t, "10\u00a0000,2", formatted)
+}
+
 func TestWorkerShouldEmitCreatedAndDestroyedEvents(t *testing.T) {
 	BeforeEach(t)
 

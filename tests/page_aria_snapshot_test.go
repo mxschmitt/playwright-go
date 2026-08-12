@@ -161,6 +161,42 @@ func TestShouldSnapshotWithUnexpectedChildrenDeepEqual(t *testing.T) {
 	`, playwright.LocatorAssertionsToMatchAriaSnapshotOptions{Timeout: playwright.Float(1000)}))
 }
 
+func TestPageAssertionsToMatchAriaSnapshotInvalidAttribute(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`
+		<input type="text" aria-label="Email" aria-invalid="true" value="not-an-email">
+		<input type="text" aria-label="Name" value="Alice">
+	`))
+	require.NoError(t, expect.Page(page).ToMatchAriaSnapshot(Unshift(`
+		- textbox "Email" [invalid]: not-an-email
+		- textbox "Name": Alice
+	`)))
+	require.NoError(t, expect.Page(page).ToMatchAriaSnapshot(Unshift(`
+		- textbox "Email" [invalid=true]: not-an-email
+		- textbox "Name" [invalid=false]: Alice
+	`)))
+
+	// `grammar` and `spelling` retain their semantic value instead of being
+	// collapsed into the generic invalid state.
+	require.NoError(t, page.SetContent(`
+		<input type="text" aria-label="Bio" aria-invalid="grammar">
+		<input type="text" aria-label="Note" aria-invalid="spelling">
+	`))
+	require.NoError(t, expect.Page(page).ToMatchAriaSnapshot(Unshift(`
+		- textbox "Bio" [invalid=grammar]
+		- textbox "Note" [invalid=spelling]
+	`)))
+	err := expect.Page(page).ToMatchAriaSnapshot(Unshift(`
+		- textbox "Bio" [invalid]
+	`), playwright.PageAssertionsToMatchAriaSnapshotOptions{Timeout: playwright.Float(1000)})
+	require.ErrorContains(t, err, "[invalid=grammar]")
+
+	// Any non-false value other than grammar/spelling is the generic true state.
+	require.NoError(t, page.SetContent(`<input type="text" aria-label="Zip" aria-invalid="garbage">`))
+	require.NoError(t, expect.Page(page).ToMatchAriaSnapshot(`- textbox "Zip" [invalid]`))
+}
+
 // Covers PageAssertions.ToMatchAriaSnapshot, which must use the
 // "to.match.aria" expect expression (mirrors the Locator variant).
 func TestPageAssertionsToMatchAriaSnapshot(t *testing.T) {

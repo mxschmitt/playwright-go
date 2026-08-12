@@ -1,12 +1,16 @@
 package playwright_test
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -69,19 +73,70 @@ func TestAPIResponseServerAddrAndSecurityDetails(t *testing.T) {
 
 	request, err := pw.Request.NewContext()
 	require.NoError(t, err)
-	response, err := request.Get(server.PREFIX + "/simple.json")
-	require.NoError(t, err)
+	defer request.Dispose() //nolint:errcheck
+	// The second request reuses the keep-alive socket. Both responses must
+	// retain the address instead of only the first response exposing it.
+	for range 2 {
+		// Use localhost as upstream's TestServer does. Node's Happy Eyeballs
+		// agent may expose the connected address later for an explicit IPv4 URL.
+		response, err := request.Get(server.CROSS_PROCESS_PREFIX + "/empty.html")
+		require.NoError(t, err)
+		addr, err := response.ServerAddr()
+		require.NoError(t, err)
+		require.NotNil(t, addr)
+		require.Contains(t, []string{"127.0.0.1", "::1"}, addr.IpAddress)
+		require.Equal(t, server.PORT, strconv.Itoa(addr.Port))
 
-	// Over plain HTTP the server address is reported and security details are absent.
-	addr, err := response.ServerAddr()
-	require.NoError(t, err)
-	if addr != nil {
-		require.Greater(t, addr.Port, 0)
+		details, err := response.SecurityDetails()
+		require.NoError(t, err)
+		require.Nil(t, details)
 	}
 
-	details, err := response.SecurityDetails()
+	tlsServer, certificate := newAPIResponseTLSServer(t)
+	defer tlsServer.Close()
+	secureRequest, err := pw.Request.NewContext(playwright.APIRequestNewContextOptions{
+		IgnoreHttpsErrors: playwright.Bool(true),
+	})
 	require.NoError(t, err)
-	require.Nil(t, details)
+	defer secureRequest.Dispose() //nolint:errcheck
+	// APIRequestContext is implemented by the driver, so its HTTPS metadata
+	// must be present regardless of the browser currently under test.
+	url := strings.Replace(tlsServer.URL, "127.0.0.1", "localhost", 1)
+	for range 2 {
+		response, err := secureRequest.Get(url)
+		require.NoError(t, err)
+		details, err := response.SecurityDetails()
+		require.NoError(t, err)
+		require.NotNil(t, details)
+		require.NotNil(t, details.Issuer)
+		require.NotNil(t, details.SubjectName)
+		require.NotNil(t, details.Protocol)
+		require.NotNil(t, details.ValidFrom)
+		require.NotNil(t, details.ValidTo)
+		require.Equal(t, certificate.Issuer.CommonName, *details.Issuer)
+		require.Equal(t, certificate.Subject.CommonName, *details.SubjectName)
+		require.Equal(t, "TLSv1.3", *details.Protocol)
+		require.Equal(t, float64(certificate.NotBefore.Unix()), *details.ValidFrom)
+		require.Equal(t, float64(certificate.NotAfter.Unix()), *details.ValidTo)
+	}
+}
+
+func newAPIResponseTLSServer(t *testing.T) (*httptest.Server, *x509.Certificate) {
+	t.Helper()
+	cert, err := tls.LoadX509KeyPair(
+		Asset("client-certificates/server/server_cert.pem"),
+		Asset("client-certificates/server/server_key.pem"),
+	)
+	require.NoError(t, err)
+	certificate, err := x509.ParseCertificate(cert.Certificate[0])
+	require.NoError(t, err)
+
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	server.TLS = &tls.Config{Certificates: []tls.Certificate{cert}}
+	server.StartTLS()
+	return server, certificate
 }
 
 func TestShouldDisposeGlobalRequest(t *testing.T) {
@@ -694,4 +749,35 @@ func TestShouldFollowMaxRedirects(t *testing.T) {
 	require.ErrorContains(t, err, "Max redirect count exceeded")
 	require.Equal(t, int32(2), redirectCount.Load())
 	require.NoError(t, request.Dispose())
+}
+
+func TestAPIResponseShouldReturnTiming(t *testing.T) {
+	BeforeEach(t)
+
+	response, err := context.Request().Get(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	timing := response.Timing()
+	require.NotNil(t, timing)
+	// Live HTTP responses should populate timing fields (not all -1).
+	require.Greater(t, timing.StartTime, float64(-1))
+	require.GreaterOrEqual(t, timing.ResponseEnd, float64(-1))
+}
+
+func TestAPIRequestExplicitZeroOverridesContextTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/roll-v162-slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+	})
+	request, err := pw.Request.NewContext(playwright.APIRequestNewContextOptions{
+		Timeout: playwright.Float(50),
+	})
+	require.NoError(t, err)
+	defer request.Dispose() //nolint:errcheck
+	response, err := request.Get(
+		server.PREFIX+"/roll-v162-slow",
+		playwright.APIRequestContextGetOptions{Timeout: playwright.Float(0)},
+	)
+	require.NoError(t, err, "an explicit zero must override the request context default")
+	require.Equal(t, 200, response.Status())
 }

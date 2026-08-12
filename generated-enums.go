@@ -261,6 +261,18 @@ var (
 	UnrouteBehaviorDefault                       = getUnrouteBehavior("default")
 )
 
+func getScrollMode(in string) *ScrollMode {
+	v := ScrollMode(in)
+	return &v
+}
+
+type ScrollMode string
+
+var (
+	ScrollModeAuto *ScrollMode = getScrollMode("auto")
+	ScrollModeNone             = getScrollMode("none")
+)
+
 func getMouseButton(in string) *MouseButton {
 	v := MouseButton(in)
 	return &v
@@ -335,6 +347,7 @@ type ScreenshotType string
 var (
 	ScreenshotTypePng  *ScreenshotType = getScreenshotType("png")
 	ScreenshotTypeJpeg                 = getScreenshotType("jpeg")
+	ScreenshotTypeWebp                 = getScreenshotType("webp")
 )
 
 func getWaitForSelectorState(in string) *WaitForSelectorState {

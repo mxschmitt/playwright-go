@@ -1,9 +1,11 @@
 package playwright_test
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -11,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
 )
@@ -190,6 +193,214 @@ func TestBrowserTypeConnectShouldEmitDisconnectedEvent(t *testing.T) {
 	require.Len(t, disconnected2.Get(), 1)
 }
 
+func TestBrowserTypeConnectTimeoutIncludesInitializationAndClosesTransport(t *testing.T) {
+	BeforeEach(t)
+
+	connected := server.WaitForWebSocketConnection()
+	closed := make(chan struct{}, 1)
+	server.OnceWebSocketClose(func(_ *websocket.CloseError) {
+		closed <- struct{}{}
+	})
+
+	result := make(chan error, 1)
+	started := time.Now()
+	go func() {
+		_, err := browserType.Connect(
+			strings.Replace(server.PREFIX, "http://", "ws://", 1)+"/ws",
+			playwright.BrowserTypeConnectOptions{Timeout: playwright.Float(500)},
+		)
+		result <- err
+	}()
+
+	select {
+	case <-connected:
+	case <-time.After(5 * time.Second):
+		server.CloseClientConnections()
+		t.Fatal("WebSocket endpoint was not reached")
+	}
+
+	select {
+	case err := <-result:
+		require.ErrorIs(t, err, playwright.ErrTimeout)
+		require.ErrorContains(t, err, "Timeout 500ms exceeded.")
+		require.Less(t, time.Since(started), 2*time.Second)
+	case <-time.After(5 * time.Second):
+		server.CloseClientConnections()
+		t.Fatal("BrowserType.Connect did not time out while Root.initialize was pending")
+	}
+
+	select {
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("BrowserType.Connect did not close the WebSocket after timing out")
+	}
+}
+
+func TestBrowserTypeConnectInitializationErrorClosesTransport(t *testing.T) {
+	BeforeEach(t)
+
+	protocolErrors := make(chan error, 1)
+	server.OnceWebSocketMessage(func(connection *websocket.Conn, request *http.Request, _ websocket.MessageType, payload []byte) {
+		var initialize struct {
+			ID int `json:"id"`
+		}
+		if err := json.Unmarshal(payload, &initialize); err != nil {
+			protocolErrors <- err
+			_ = connection.CloseNow()
+			return
+		}
+		response, err := json.Marshal(map[string]any{
+			"id": initialize.ID,
+			"error": map[string]any{
+				"error": map[string]any{
+					"name":    "Error",
+					"message": "initialize failed",
+					"stack":   "",
+				},
+			},
+		})
+		if err == nil {
+			err = connection.Write(request.Context(), websocket.MessageText, response)
+		}
+		if err != nil {
+			protocolErrors <- err
+			_ = connection.CloseNow()
+		}
+	})
+
+	closed := make(chan struct{}, 1)
+	server.OnceWebSocketClose(func(_ *websocket.CloseError) {
+		closed <- struct{}{}
+	})
+	result := make(chan error, 1)
+	go func() {
+		_, err := browserType.Connect(strings.Replace(server.PREFIX, "http://", "ws://", 1) + "/ws")
+		result <- err
+	}()
+
+	select {
+	case err := <-result:
+		require.ErrorContains(t, err, "initialize failed")
+	case err := <-protocolErrors:
+		t.Fatalf("could not serve the initialization error: %v", err)
+	case <-time.After(5 * time.Second):
+		server.CloseClientConnections()
+		t.Fatal("BrowserType.Connect did not return the initialization error")
+	}
+
+	select {
+	case err := <-protocolErrors:
+		t.Fatalf("could not serve the initialization error: %v", err)
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("BrowserType.Connect did not close the endpoint after initialization failed")
+	}
+}
+
+func TestBrowserTypeConnectMalformedEndpointClosesTransport(t *testing.T) {
+	BeforeEach(t)
+
+	protocolErrors := make(chan error, 1)
+	server.OnceWebSocketMessage(func(connection *websocket.Conn, request *http.Request, _ websocket.MessageType, payload []byte) {
+		var initialize struct {
+			ID int `json:"id"`
+		}
+		if err := json.Unmarshal(payload, &initialize); err != nil {
+			protocolErrors <- err
+			_ = connection.CloseNow()
+			return
+		}
+
+		messages := []map[string]any{
+			{
+				"guid":   "",
+				"method": "__create__",
+				"params": map[string]any{
+					"type":        "BrowserType",
+					"guid":        "chromium",
+					"initializer": map[string]any{"name": "chromium", "executablePath": ""},
+				},
+			},
+			{
+				"guid":   "",
+				"method": "__create__",
+				"params": map[string]any{
+					"type":        "BrowserType",
+					"guid":        "firefox",
+					"initializer": map[string]any{"name": "firefox", "executablePath": ""},
+				},
+			},
+			{
+				"guid":   "",
+				"method": "__create__",
+				"params": map[string]any{
+					"type":        "BrowserType",
+					"guid":        "webkit",
+					"initializer": map[string]any{"name": "webkit", "executablePath": ""},
+				},
+			},
+			{
+				"guid":   "",
+				"method": "__create__",
+				"params": map[string]any{
+					"type": "Playwright",
+					"guid": "playwright",
+					"initializer": map[string]any{
+						"chromium": map[string]any{"guid": "chromium"},
+						"firefox":  map[string]any{"guid": "firefox"},
+						"webkit":   map[string]any{"guid": "webkit"},
+					},
+				},
+			},
+			{
+				"id": initialize.ID,
+				"result": map[string]any{
+					"playwright": map[string]any{"guid": "playwright"},
+				},
+			},
+		}
+		for _, message := range messages {
+			data, err := json.Marshal(message)
+			if err == nil {
+				err = connection.Write(request.Context(), websocket.MessageText, data)
+			}
+			if err != nil {
+				protocolErrors <- err
+				_ = connection.CloseNow()
+				return
+			}
+		}
+	})
+
+	closed := make(chan struct{}, 1)
+	server.OnceWebSocketClose(func(_ *websocket.CloseError) {
+		closed <- struct{}{}
+	})
+	result := make(chan error, 1)
+	go func() {
+		_, err := browserType.Connect(strings.Replace(server.PREFIX, "http://", "ws://", 1) + "/ws")
+		result <- err
+	}()
+
+	select {
+	case err := <-result:
+		require.ErrorContains(t, err, "malformed endpoint")
+	case err := <-protocolErrors:
+		t.Fatalf("could not serve the minimal Playwright protocol: %v", err)
+	case <-time.After(5 * time.Second):
+		server.CloseClientConnections()
+		t.Fatal("BrowserType.Connect did not reject the malformed endpoint")
+	}
+
+	select {
+	case err := <-protocolErrors:
+		t.Fatalf("could not serve the minimal Playwright protocol: %v", err)
+	case <-closed:
+	case <-time.After(5 * time.Second):
+		t.Fatal("BrowserType.Connect did not close the malformed endpoint")
+	}
+}
+
 func TestBrowserTypeConnectSlowMo(t *testing.T) {
 	BeforeEach(t)
 
@@ -198,7 +409,8 @@ func TestBrowserTypeConnectSlowMo(t *testing.T) {
 	defer remoteServer.Close()
 
 	browser1, err := browserType.Connect(remoteServer.url, playwright.BrowserTypeConnectOptions{
-		SlowMo: playwright.Float(100),
+		SlowMo:  playwright.Float(100),
+		Timeout: playwright.Float(0),
 	})
 	require.NoError(t, err)
 	require.NotNil(t, browser1)
@@ -462,4 +674,15 @@ func TestBrowserBind(t *testing.T) {
 
 	require.NoError(t, browser2.Close())
 	require.NoError(t, browser.Unbind())
+}
+
+func TestBrowserTypeLaunchExplicitZeroTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	launched, err := browserType.Launch(playwright.BrowserTypeLaunchOptions{
+		Headless: playwright.Bool(true),
+		Timeout:  playwright.Float(0),
+	})
+	require.NoError(t, err)
+	require.NoError(t, launched.Close())
 }

@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	playwrightCliVersion = "1.61.1"
+	playwrightCliVersion = "1.62.1"
 	// nodeVersion is the Node.js runtime downloaded alongside the driver when no
-	// PLAYWRIGHT_NODEJS_PATH is provided. It is kept in line with the Node.js
-	// version upstream Playwright bundles in its own driver.
-	nodeVersion = "24.18.0"
+	// PLAYWRIGHT_NODEJS_PATH is provided. It is kept aligned with the Node.js
+	// version used by the official Playwright bindings.
+	nodeVersion = "24.19.0"
 
 	// defaultNpmRegistry serves the platform-independent playwright-core package.
 	// Override with the PLAYWRIGHT_GO_NPM_REGISTRY environment variable.
@@ -71,9 +71,11 @@ func getDefaultCacheDirectory() (string, error) {
 }
 
 func (d *PlaywrightDriver) isUpToDateDriver() (bool, error) {
-	if _, err := os.Stat(d.options.DriverDirectory); os.IsNotExist(err) {
-		if err := os.MkdirAll(d.options.DriverDirectory, 0o777); err != nil {
-			return false, fmt.Errorf("could not create driver directory: %w", err)
+	if os.Getenv("PLAYWRIGHT_CLI_PATH") == "" {
+		if _, err := os.Stat(d.options.DriverDirectory); os.IsNotExist(err) {
+			if err := os.MkdirAll(d.options.DriverDirectory, 0o777); err != nil {
+				return false, fmt.Errorf("could not create driver directory: %w", err)
+			}
 		}
 	}
 	if _, err := os.Stat(getDriverCliJs(d.options.DriverDirectory)); os.IsNotExist(err) {
@@ -146,10 +148,19 @@ func (d *PlaywrightDriver) Uninstall() error {
 // When PLAYWRIGHT_NODEJS_PATH is set the Node.js download is skipped and the
 // preinstalled Node.js is used instead, which also covers platforms for which
 // nodejs.org has no prebuilt binary (e.g. linux/arm).
+// When PLAYWRIGHT_CLI_PATH is set, that externally managed CLI is validated but
+// is not downloaded, patched, or required to use the DriverDirectory layout.
 func (d *PlaywrightDriver) DownloadDriver() error {
+	externalCLIPath := os.Getenv("PLAYWRIGHT_CLI_PATH")
 	up2Date, err := d.isUpToDateDriver()
 	if err != nil {
 		return err
+	}
+	if externalCLIPath != "" {
+		if !up2Date {
+			return fmt.Errorf("PLAYWRIGHT_CLI_PATH %q does not exist", externalCLIPath)
+		}
+		return nil
 	}
 	if up2Date {
 		return d.patchDriverBundle()
@@ -255,38 +266,31 @@ func (d *PlaywrightDriver) patchDriverBundle() error {
 	coreBundlePath := filepath.Join(d.options.DriverDirectory, "package", "lib", "coreBundle.js")
 	data, err := os.ReadFile(coreBundlePath)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
 		return fmt.Errorf("could not read driver bundle: %w", err)
 	}
 
-	replacements := map[string]string{
-		"pageError.location.url":          `pageError.location?.url || ""`,
-		"pageError.location.lineNumber":   "pageError.location?.lineNumber || 0",
-		"pageError.location.columnNumber": "pageError.location?.columnNumber || 0",
+	replacements := []struct {
+		original string
+		patched  string
+	}{
+		{"pageError.location.url", `pageError.location?.url || ""`},
+		{"pageError.location.lineNumber", "pageError.location?.lineNumber || 0"},
+		{"pageError.location.columnNumber", "pageError.location?.columnNumber || 0"},
 	}
 	changed := false
-	for original, patched := range replacements {
-		originalBytes := []byte(original)
-		patchedBytes := []byte(patched)
+	for _, replacement := range replacements {
+		originalBytes := []byte(replacement.original)
+		patchedBytes := []byte(replacement.patched)
+		if !bytes.Contains(data, originalBytes) && !bytes.Contains(data, patchedBytes) {
+			return fmt.Errorf("could not patch driver bundle: expected pageError location pattern %q or %q", replacement.original, replacement.patched)
+		}
 		if bytes.Contains(data, originalBytes) {
 			data = bytes.ReplaceAll(data, originalBytes, patchedBytes)
 			changed = true
 		}
 	}
 	if !changed {
-		alreadyPatched := true
-		for _, patched := range replacements {
-			if !bytes.Contains(data, []byte(patched)) {
-				alreadyPatched = false
-				break
-			}
-		}
-		if alreadyPatched {
-			return nil
-		}
-		return fmt.Errorf("could not patch driver bundle: pageError location pattern not found")
+		return nil
 	}
 	if err := os.WriteFile(coreBundlePath, data, 0o644); err != nil {
 		return fmt.Errorf("could not write patched driver bundle: %w", err)

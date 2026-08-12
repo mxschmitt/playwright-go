@@ -31,3 +31,17 @@ func Test_assignFloatIfPresent(t *testing.T) {
 		require.Equal(t, -1.0, target)
 	})
 }
+
+func TestToOptionalStorageStatePreservesCredentials(t *testing.T) {
+	state := StorageState{
+		Cookies: []Cookie{{Name: "a", Value: "b", Domain: "ex.com", Path: "/"}},
+		Origins: []Origin{{Origin: "https://ex.com", LocalStorage: []NameValue{{Name: "k", Value: "v"}}}},
+		Credentials: []VirtualCredential{{
+			Id: "id1", RpId: "ex.com", UserHandle: "u", PrivateKey: "pk", PublicKey: "pub",
+		}},
+	}
+	opt := state.ToOptionalStorageState()
+	require.Len(t, opt.Credentials, 1)
+	require.Equal(t, "id1", opt.Credentials[0].Id)
+	require.Equal(t, "a", opt.Cookies[0].Name)
+}

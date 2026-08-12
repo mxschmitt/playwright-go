@@ -81,6 +81,8 @@ func determineScreenshotType(path *string, typ *ScreenshotType) (*ScreenshotType
 		return ScreenshotTypePng, nil
 	case "image/jpeg":
 		return ScreenshotTypeJpeg, nil
+	case "image/webp":
+		return ScreenshotTypeWebp, nil
 	default:
 		return nil, fmt.Errorf("path: unsupported mime type %q", mimeType)
 	}

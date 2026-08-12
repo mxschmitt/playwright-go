@@ -154,12 +154,11 @@ func (l *locatorImpl) Blur(options ...LocatorBlurOptions) error {
 		"selector": l.selector,
 		"strict":   true,
 	}
-	if len(options) == 1 && options[0].Timeout != nil {
-		params["timeout"] = options[0].Timeout
-	} else {
-		params["timeout"] = float64(30000) // default 30s, required in Playwright v1.57+
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
 	}
-	_, err := l.frame.channel.Send("blur", params)
+	_, err := l.frame.channel.SendWithTimeout("blur", resolveTimeout(l.frame.page.timeoutSettings, explicit), params)
 	return err
 }
 
@@ -171,7 +170,12 @@ func (l *locatorImpl) AriaSnapshot(options ...LocatorAriaSnapshotOptions) (strin
 	if len(options) == 1 {
 		option = options[0]
 	}
-	ret, err := l.frame.channel.Send("ariaSnapshot", option,
+	var explicit *float64
+	if option.Timeout != nil {
+		explicit = option.Timeout
+	}
+	// ariaSnapshot may use LocatorAriaSnapshotOptions
+	ret, err := l.frame.channel.SendWithTimeout("ariaSnapshot", resolveTimeout(l.frame.page.timeoutSettings, explicit), option,
 		map[string]any{"selector": l.selector})
 	if err != nil {
 		return "", err
@@ -335,14 +339,12 @@ func (l *locatorImpl) Drop(payload Payload, options ...LocatorDropOptions) error
 		if options[0].Position != nil {
 			params["position"] = options[0].Position
 		}
-		if options[0].Timeout != nil {
-			params["timeout"] = options[0].Timeout
-		}
 	}
-	if _, ok := params["timeout"]; !ok {
-		params["timeout"] = float64(30000) // default 30s, required in Playwright v1.57+
+	var dropTimeout *float64
+	if len(options) == 1 {
+		dropTimeout = options[0].Timeout
 	}
-	_, err := l.frame.channel.Send("drop", params)
+	_, err := l.frame.channel.SendWithTimeout("drop", resolveTimeout(l.frame.page.timeoutSettings, dropTimeout), params)
 	return err
 }
 
@@ -961,12 +963,12 @@ func (l *locatorImpl) withElement(
 	if len(options) == 1 {
 		option.Timeout = options[0].Timeout
 	}
-	// Mirror upstream `_withElement`: when an explicit timeout is provided, the
-	// total budget for waitForSelector plus the inner action is bounded by that
-	// single timeout. Compute a deadline up front and hand the inner action the
-	// remaining budget instead of repeating the full timeout.
+	// Mirror upstream `_withElement`: resolve the effective timeout once and use
+	// one budget for waitForSelector plus the inner action. A zero timeout means
+	// unlimited and must remain zero for both stages.
+	option.Timeout = resolveTimeout(l.frame.page.timeoutSettings, option.Timeout)
 	var deadline *time.Time
-	if option.Timeout != nil {
+	if *option.Timeout > 0 {
 		d := time.Now().Add(time.Duration(*option.Timeout) * time.Millisecond)
 		deadline = &d
 	}
@@ -975,7 +977,7 @@ func (l *locatorImpl) withElement(
 		return nil, err
 	}
 
-	var remaining *float64
+	remaining := option.Timeout
 	if deadline != nil {
 		ms := float64(time.Until(*deadline).Milliseconds())
 		// Floor at 1ms, not 0: the protocol treats timeout 0 as "disable timeout"
@@ -996,6 +998,28 @@ func (l *locatorImpl) withElement(
 	return result, nil
 }
 
+func (l *locatorImpl) WaitForFunction(expression string, arg any, options ...LocatorWaitForFunctionOptions) error {
+	if l.err != nil {
+		return l.err
+	}
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	params := map[string]any{
+		"selector":   l.selector,
+		"strict":     true,
+		"expression": expression,
+		"arg":        serializeArgument(arg),
+	}
+	_, err := l.frame.channel.SendWithTimeout(
+		"waitForFunction",
+		resolveTimeout(l.frame.page.timeoutSettings, explicit),
+		params,
+	)
+	return err
+}
+
 func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*frameExpectResult, error) {
 	if l.err != nil {
 		return nil, l.err
@@ -1008,7 +1032,7 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 		overrides["expectedValue"] = serializeArgument(options.ExpectedValue)
 		options.ExpectedValue = nil
 	}
-	_, err := l.frame.channel.SendReturnAsDict("expect", options, overrides)
+	_, err := l.frame.channel.SendReturnAsDictWithTimeout("expect", options.Timeout, options, overrides)
 	if err != nil {
 		// Since v1.61 a failed assertion is reported as a server error carrying
 		// structured errorDetails rather than a `{ matches: false }` result.

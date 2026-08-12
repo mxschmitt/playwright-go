@@ -300,3 +300,40 @@ func TestScreencastStartStop(t *testing.T) {
 	require.Greater(t, len(frames), 0, "should have received at least one frame")
 	require.Greater(t, len(frames[0]), 0, "frame data should not be empty")
 }
+
+func TestVideoShowActionsCursorAccepted(t *testing.T) {
+	BeforeEach(t)
+	dir := t.TempDir()
+	ctx, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{
+			Dir: playwright.String(dir),
+			ShowActions: &playwright.ShowAction{
+				Cursor: playwright.ScreencastCursorPointer,
+			},
+		},
+	})
+	require.NoError(t, err)
+	defer ctx.Close() //nolint:errcheck
+	p, err := ctx.NewPage()
+	require.NoError(t, err)
+	_, err = p.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	// Options are accepted if context creation and a simple navigation succeed.
+	require.NoError(t, ctx.Close())
+
+	ctx2, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{
+			Dir: playwright.String(dir),
+			ShowActions: &playwright.ShowAction{
+				Cursor: playwright.ScreencastCursorNone,
+			},
+		},
+	})
+	require.NoError(t, err)
+	defer ctx2.Close() //nolint:errcheck
+	p2, err := ctx2.NewPage()
+	require.NoError(t, err)
+	_, err = p2.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	require.NoError(t, ctx2.Close())
+}

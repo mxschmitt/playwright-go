@@ -494,6 +494,41 @@ func TestShouldRoundTripHarZip(t *testing.T) {
 	require.Contains(t, content, "hello, world!")
 }
 
+func TestShouldNotInterceptAPIRequestContextRequestsFromHARByDefault(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/api/data", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{"hello":"live"}`))
+	})
+	harPath := filepath.Join(t.TempDir(), "api.har")
+	require.NoError(t, context.RouteFromHAR(harPath, playwright.BrowserContextRouteFromHAROptions{
+		Update: playwright.Bool(true),
+	}))
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	recorded, err := page.Request().Get(server.PREFIX + "/api/data")
+	require.NoError(t, err)
+	require.True(t, recorded.Ok())
+	require.NoError(t, recorded.Dispose())
+	require.NoError(t, context.Close())
+
+	server.SetRoute("/api/data", func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("content-type", "application/json")
+		_, _ = w.Write([]byte(`{"hello":"fresh"}`))
+	})
+	context2, page2 := newBrowserContextAndPage(t, playwright.BrowserNewContextOptions{})
+	require.NoError(t, context2.RouteFromHAR(harPath, playwright.BrowserContextRouteFromHAROptions{
+		NotFound: playwright.HarNotFoundFallback,
+	}))
+	replayed, err := page2.Request().Get(server.PREFIX + "/api/data")
+	require.NoError(t, err)
+	defer replayed.Dispose() //nolint:errcheck
+	var body map[string]string
+	require.NoError(t, replayed.JSON(&body))
+	require.Equal(t, map[string]string{"hello": "fresh"}, body)
+}
+
 func TestShouldRoundTripHarWithPostData(t *testing.T) {
 	harPath := filepath.Join(t.TempDir(), "har.zip")
 	BeforeEach(t, playwright.BrowserNewContextOptions{

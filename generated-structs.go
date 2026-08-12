@@ -332,6 +332,9 @@ type APIRequestContextPutOptions struct {
 type StorageState struct {
 	Cookies []Cookie `json:"cookies"`
 	Origins []Origin `json:"origins"`
+	// Virtual WebAuthn credentials. BrowserContext captures and restores them; APIRequestContext ignores this field and
+	// never populates it.
+	Credentials []VirtualCredential `json:"credentials"`
 }
 
 type APIRequestContextStorageStateOptions struct {
@@ -369,6 +372,36 @@ type ResponseServerAddrResult struct {
 	// IPv4 or IPV6 address of the server.
 	IpAddress string `json:"ipAddress"`
 	Port      int    `json:"port"`
+}
+
+type RequestTiming struct {
+	// Request start time in milliseconds elapsed since January 1, 1970 00:00:00 UTC
+	StartTime float64 `json:"startTime"`
+	// Time immediately before the client starts the domain name lookup for the resource. The value is given in
+	// milliseconds relative to `startTime`, -1 if not available.
+	DomainLookupStart float64 `json:"domainLookupStart"`
+	// Time immediately after the client ends the domain name lookup for the resource. The value is given in milliseconds
+	// relative to `startTime`, -1 if not available.
+	DomainLookupEnd float64 `json:"domainLookupEnd"`
+	// Time immediately before the client starts establishing the connection to the server to retrieve the resource. The
+	// value is given in milliseconds relative to `startTime`, -1 if not available.
+	ConnectStart float64 `json:"connectStart"`
+	// Time immediately before the client starts the handshake process to secure the current connection. The value is
+	// given in milliseconds relative to `startTime`, -1 if not available.
+	SecureConnectionStart float64 `json:"secureConnectionStart"`
+	// Time immediately after the client establishes the connection to the server to retrieve the resource. The value is
+	// given in milliseconds relative to `startTime`, -1 if not available.
+	ConnectEnd float64 `json:"connectEnd"`
+	// Time immediately before the client starts requesting the resource from the server, cache, or local resource. The
+	// value is given in milliseconds relative to `startTime`, -1 if not available.
+	RequestStart float64 `json:"requestStart"`
+	// Time immediately after the client receives the first byte of the response from the server, cache, or local
+	// resource. The value is given in milliseconds relative to `startTime`, -1 if not available.
+	ResponseStart float64 `json:"responseStart"`
+	// Time immediately after the client receives the last byte of the resource or immediately before the transport
+	// connection is closed, whichever comes first. The value is given in milliseconds relative to `startTime`, -1 if not
+	// available.
+	ResponseEnd float64 `json:"responseEnd"`
 }
 
 type BrowserCloseOptions struct {
@@ -805,6 +838,12 @@ type Geolocation struct {
 }
 
 type BrowserContextStorageStateOptions struct {
+	// Set to `true` to include the context's virtual WebAuthn [BrowserContext.Credentials] (passkeys) in the storage
+	// state snapshot. The captured credentials carry their private keys, so they can be re-seeded into a later context
+	// via the “[object Object]” option or [BrowserContext.SetStorageState]. Note that restoring the storage state that
+	// contains credentials will automatically install the virtual WebAuthn authenticator (see [Credentials.Install]), and
+	// prevent all real authenticators from working in this context.
+	Credentials *bool `json:"credentials"`
 	// Set to `true` to include [IndexedDB] in the storage
 	// state snapshot. If your application uses IndexedDB to store authentication tokens, like Firebase Authentication,
 	// enable this.
@@ -1184,7 +1223,7 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 }
 
 type ClockInstallOptions struct {
-	// Time to initialize with, current system time by default.
+	// Time to initialize with, current system time by default. Numeric values are Unix time in milliseconds.
 	Time any `json:"time"`
 }
 
@@ -1266,6 +1305,11 @@ type ElementHandleCheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -1300,6 +1344,11 @@ type ElementHandleClickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -1333,6 +1382,11 @@ type ElementHandleDblclickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -1376,6 +1430,11 @@ type ElementHandleHoverOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -1387,8 +1446,8 @@ type ElementHandleHoverOptions struct {
 }
 
 type ElementHandleInputValueOptions struct {
-	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
-	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	//
+	// Deprecated: This option is ignored. The value is returned immediately.
 	Timeout *float64 `json:"timeout"`
 }
 
@@ -1435,7 +1494,8 @@ type ElementHandleScreenshotOptions struct {
 	// is a relative path, then it is resolved relative to the current working directory. If no path is provided, the
 	// image won't be saved to the disk.
 	Path *string `json:"path"`
-	// The quality of the image, between 0-100. Not applicable to `png` images.
+	// The quality of the image, between 0-100. Not applicable to `png` images. For `jpeg` the default is `80`. For
+	// `webp`, a quality of `100` (the default) produces a lossless image, while lower values use lossy compression.
 	Quality *int `json:"quality"`
 	// When set to `"css"`, screenshot will have a single pixel per each css pixel on the page. For high-dpi devices, this
 	// will keep screenshots small. Using `"device"` option will produce a single pixel per each device pixel, so
@@ -1495,6 +1555,11 @@ type ElementHandleSetCheckedOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -1531,6 +1596,11 @@ type ElementHandleTapOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -1565,6 +1635,11 @@ type ElementHandleUncheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -1645,6 +1720,11 @@ type FrameCheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -1682,6 +1762,11 @@ type FrameClickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -1720,6 +1805,11 @@ type FrameDblclickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -1753,6 +1843,11 @@ type FrameDragAndDropOptions struct {
 	//
 	// Deprecated: This option has no effect.
 	NoWaitAfter *bool `json:"noWaitAfter"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Clicks on the source element at this point relative to the top-left corner of the element's padding box. If not
 	// specified, some visible point of the element is used.
 	SourcePosition *Position `json:"sourcePosition"`
@@ -1939,6 +2034,11 @@ type FrameHoverOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -2109,6 +2209,11 @@ type FrameSetCheckedOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -2166,6 +2271,11 @@ type FrameTapOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -2217,6 +2327,11 @@ type FrameUncheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -2468,6 +2583,11 @@ type LocatorCheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -2516,6 +2636,11 @@ type LocatorClickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -2551,6 +2676,11 @@ type LocatorDblclickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -2581,6 +2711,11 @@ type LocatorDragToOptions struct {
 	//
 	// Deprecated: This option has no effect.
 	NoWaitAfter *bool `json:"noWaitAfter"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Clicks on the source element at this point relative to the top-left corner of the element's padding box. If not
 	// specified, some visible point of the element is used.
 	SourcePosition *Position `json:"sourcePosition"`
@@ -2787,6 +2922,11 @@ type LocatorHoverOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -2930,7 +3070,8 @@ type LocatorScreenshotOptions struct {
 	// is a relative path, then it is resolved relative to the current working directory. If no path is provided, the
 	// image won't be saved to the disk.
 	Path *string `json:"path"`
-	// The quality of the image, between 0-100. Not applicable to `png` images.
+	// The quality of the image, between 0-100. Not applicable to `png` images. For `jpeg` the default is `80`. For
+	// `webp`, a quality of `100` (the default) produces a lossless image, while lower values use lossy compression.
 	Quality *int `json:"quality"`
 	// When set to `"css"`, screenshot will have a single pixel per each css pixel on the page. For high-dpi devices, this
 	// will keep screenshots small. Using `"device"` option will produce a single pixel per each device pixel, so
@@ -2990,6 +3131,11 @@ type LocatorSetCheckedOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -3026,6 +3172,11 @@ type LocatorTapOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -3068,6 +3219,11 @@ type LocatorUncheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
@@ -3089,6 +3245,12 @@ type LocatorWaitForOptions struct {
 	State *WaitForSelectorState `json:"state"`
 	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
 	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	Timeout *float64 `json:"timeout"`
+}
+
+type LocatorWaitForFunctionOptions struct {
+	// Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The
+	// default value can be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
 	Timeout *float64 `json:"timeout"`
 }
 
@@ -3332,6 +3494,11 @@ type PageCheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -3369,6 +3536,11 @@ type PageClickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Defaults to 1. Sends `n` interpolated `mousemove` events to represent travel between Playwright's current cursor
 	// position and the provided destination. When set to 1, emits a single `mousemove` event at the destination location.
 	Steps *int `json:"steps"`
@@ -3417,6 +3589,11 @@ type PageDblclickOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -3450,6 +3627,11 @@ type PageDragAndDropOptions struct {
 	//
 	// Deprecated: This option has no effect.
 	NoWaitAfter *bool `json:"noWaitAfter"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// Clicks on the source element at this point relative to the top-left corner of the element's padding box. If not
 	// specified, some visible point of the element is used.
 	SourcePosition *Position `json:"sourcePosition"`
@@ -3694,6 +3876,11 @@ type PageHoverOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -3960,7 +4147,8 @@ type PageScreenshotOptions struct {
 	// is a relative path, then it is resolved relative to the current working directory. If no path is provided, the
 	// image won't be saved to the disk.
 	Path *string `json:"path"`
-	// The quality of the image, between 0-100. Not applicable to `png` images.
+	// The quality of the image, between 0-100. Not applicable to `png` images. For `jpeg` the default is `80`. For
+	// `webp`, a quality of `100` (the default) produces a lossless image, while lower values use lossy compression.
 	Quality *int `json:"quality"`
 	// When set to `"css"`, screenshot will have a single pixel per each css pixel on the page. For high-dpi devices, this
 	// will keep screenshots small. Using `"device"` option will produce a single pixel per each device pixel, so
@@ -4007,6 +4195,11 @@ type PageSetCheckedOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -4082,6 +4275,11 @@ type PageTapOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -4133,6 +4331,11 @@ type PageUncheckOptions struct {
 	// A point to use relative to the top-left corner of element padding box. If not specified, uses some visible point of
 	// the element.
 	Position *Position `json:"position"`
+	// Controls whether Playwright scrolls the element into view before performing the action. Defaults to `"auto"`, which
+	// scrolls the element into view when necessary, including scrolling nested scrollable containers. When set to
+	// `"none"`, Playwright does not scroll the element and the action fails if the element is not already in the
+	// viewport. This is useful to assert that an element is reachable by the user without additional scrolling.
+	Scroll *ScrollMode `json:"scroll"`
 	// When true, the call requires selector to resolve to a single element. If given selector resolves to more than one
 	// element, the call throws an exception.
 	Strict *bool `json:"strict"`
@@ -4351,36 +4554,6 @@ type RequestSizesResult struct {
 	// Total number of bytes from the start of the HTTP response message until (and including) the double CRLF before the
 	// body.
 	ResponseHeadersSize int `json:"responseHeadersSize"`
-}
-
-type RequestTiming struct {
-	// Request start time in milliseconds elapsed since January 1, 1970 00:00:00 UTC
-	StartTime float64 `json:"startTime"`
-	// Time immediately before the browser starts the domain name lookup for the resource. The value is given in
-	// milliseconds relative to `startTime`, -1 if not available.
-	DomainLookupStart float64 `json:"domainLookupStart"`
-	// Time immediately after the browser starts the domain name lookup for the resource. The value is given in
-	// milliseconds relative to `startTime`, -1 if not available.
-	DomainLookupEnd float64 `json:"domainLookupEnd"`
-	// Time immediately before the user agent starts establishing the connection to the server to retrieve the resource.
-	// The value is given in milliseconds relative to `startTime`, -1 if not available.
-	ConnectStart float64 `json:"connectStart"`
-	// Time immediately before the browser starts the handshake process to secure the current connection. The value is
-	// given in milliseconds relative to `startTime`, -1 if not available.
-	SecureConnectionStart float64 `json:"secureConnectionStart"`
-	// Time immediately before the user agent starts establishing the connection to the server to retrieve the resource.
-	// The value is given in milliseconds relative to `startTime`, -1 if not available.
-	ConnectEnd float64 `json:"connectEnd"`
-	// Time immediately before the browser starts requesting the resource from the server, cache, or local resource. The
-	// value is given in milliseconds relative to `startTime`, -1 if not available.
-	RequestStart float64 `json:"requestStart"`
-	// Time immediately after the browser receives the first byte of the response from the server, cache, or local
-	// resource. The value is given in milliseconds relative to `startTime`, -1 if not available.
-	ResponseStart float64 `json:"responseStart"`
-	// Time immediately after the browser receives the last byte of the resource or immediately before the transport
-	// connection is closed, whichever comes first. The value is given in milliseconds relative to `startTime`, -1 if not
-	// available.
-	ResponseEnd float64 `json:"responseEnd"`
 }
 
 type RouteContinueOptions struct {
@@ -4646,6 +4819,8 @@ type OptionalStorageState struct {
 	Cookies []OptionalCookie `json:"cookies"`
 	// localStorage to set for context
 	Origins []Origin `json:"origins"`
+	// Virtual WebAuthn credentials to seed into the context.
+	Credentials []VirtualCredential `json:"credentials"`
 }
 
 type PausedDetailLocation struct {
@@ -4694,4 +4869,7 @@ type ShowAction struct {
 	Position *AnnotatePosition `json:"position"`
 	// Font size of the action title in pixels. Defaults to `24`.
 	FontSize *int `json:"fontSize"`
+	// Cursor decoration shown for pointer actions. `"pointer"` (the default) renders a mouse pointer that animates from
+	// the previous action point to the next one. `"none"` disables the cursor decoration.
+	Cursor *ScreencastCursor `json:"cursor"`
 }

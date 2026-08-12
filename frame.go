@@ -66,11 +66,11 @@ func (f *frameImpl) SetContent(content string, options ...FrameSetContentOptions
 	overrides := map[string]any{
 		"html": content,
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = f.page.timeoutSettings.NavigationTimeout()
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
 	}
-	_, err := f.channel.Send("setContent", overrides, options)
+	_, err := f.channel.SendWithTimeout("setContent", resolveNavigationTimeout(f.page.timeoutSettings, explicit), overrides, options)
 	return err
 }
 
@@ -86,11 +86,11 @@ func (f *frameImpl) Goto(url string, options ...FrameGotoOptions) (Response, err
 	overrides := map[string]any{
 		"url": url,
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if len(options) == 0 || options[0].Timeout == nil {
-		overrides["timeout"] = f.page.timeoutSettings.NavigationTimeout()
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
 	}
-	channel, err := f.channel.Send("goto", overrides, options)
+	channel, err := f.channel.SendWithTimeout("goto", resolveNavigationTimeout(f.page.timeoutSettings, explicit), overrides, options)
 	if err != nil {
 		return nil, fmt.Errorf("Frame.Goto %s: %w", url, err)
 	}
@@ -215,7 +215,13 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 	if option.Timeout == nil {
 		option.Timeout = Float(f.page.timeoutSettings.NavigationTimeout())
 	}
-	deadline := time.Now().Add(time.Duration(*option.Timeout) * time.Millisecond)
+	// A zero timeout disables the timeout. For positive values, use one deadline
+	// across both the navigation event and the requested load state.
+	var deadline *time.Time
+	if *option.Timeout > 0 {
+		d := time.Now().Add(time.Duration(*option.Timeout) * time.Millisecond)
+		deadline = &d
+	}
 	var matcher *urlMatcher
 	if option.URL != nil {
 		matcher = newURLMatcher(option.URL, f.page.browserContext.options.BaseURL)
@@ -246,12 +252,18 @@ func (f *frameImpl) ExpectNavigation(cb func() error, options ...FrameExpectNavi
 		return nil, errors.New(errVal.(string))
 	}
 
-	t := time.Until(deadline).Milliseconds()
-	if t > 0 {
-		err = f.waitForLoadStateImpl(string(*option.WaitUntil), Float(float64(t)), nil)
-		if err != nil {
-			return nil, err
+	remaining := option.Timeout
+	if deadline != nil {
+		ms := float64(time.Until(*deadline).Milliseconds())
+		// The waiter interprets zero as unlimited, so use the smallest positive
+		// timeout when the shared budget has just been exhausted.
+		if ms <= 0 {
+			ms = 1
 		}
+		remaining = Float(ms)
+	}
+	if err = f.waitForLoadStateImpl(string(*option.WaitUntil), remaining, nil); err != nil {
+		return nil, err
 	}
 	if event["newDocument"] != nil && event["newDocument"].(map[string]any)["request"] != nil {
 		request := fromChannel(event["newDocument"].(map[string]any)["request"]).(*requestImpl)
@@ -422,14 +434,22 @@ func (f *frameImpl) EvaluateHandle(expression string, options ...any) (JSHandle,
 }
 
 func (f *frameImpl) Click(selector string, options ...FrameClickOptions) error {
-	_, err := f.channel.Send("click", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("click", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
 }
 
 func (f *frameImpl) WaitForSelector(selector string, options ...FrameWaitForSelectorOptions) (ElementHandle, error) {
-	channel, err := f.channel.Send("waitForSelector", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	channel, err := f.channel.SendWithTimeout("waitForSelector", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -443,7 +463,11 @@ func (f *frameImpl) WaitForSelector(selector string, options ...FrameWaitForSele
 }
 
 func (f *frameImpl) DispatchEvent(selector, typ string, eventInit any, options ...FrameDispatchEventOptions) error {
-	_, err := f.channel.Send("dispatchEvent", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("dispatchEvent", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector":  selector,
 		"type":      typ,
 		"eventInit": serializeArgument(eventInit),
@@ -452,7 +476,11 @@ func (f *frameImpl) DispatchEvent(selector, typ string, eventInit any, options .
 }
 
 func (f *frameImpl) InnerText(selector string, options ...FrameInnerTextOptions) (string, error) {
-	innerText, err := f.channel.Send("innerText", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	innerText, err := f.channel.SendWithTimeout("innerText", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if innerText == nil {
@@ -462,7 +490,11 @@ func (f *frameImpl) InnerText(selector string, options ...FrameInnerTextOptions)
 }
 
 func (f *frameImpl) InnerHTML(selector string, options ...FrameInnerHTMLOptions) (string, error) {
-	innerHTML, err := f.channel.Send("innerHTML", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	innerHTML, err := f.channel.SendWithTimeout("innerHTML", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if innerHTML == nil {
@@ -472,7 +504,11 @@ func (f *frameImpl) InnerHTML(selector string, options ...FrameInnerHTMLOptions)
 }
 
 func (f *frameImpl) GetAttribute(selector string, name string, options ...FrameGetAttributeOptions) (string, error) {
-	attribute, err := f.channel.Send("getAttribute", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	attribute, err := f.channel.SendWithTimeout("getAttribute", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 		"name":     name,
 	}, options)
@@ -483,7 +519,11 @@ func (f *frameImpl) GetAttribute(selector string, name string, options ...FrameG
 }
 
 func (f *frameImpl) Hover(selector string, options ...FrameHoverOptions) error {
-	_, err := f.channel.Send("hover", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("hover", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
@@ -499,18 +539,16 @@ func (f *frameImpl) SetInputFiles(selector string, files any, options ...FrameSe
 	if len(options) == 1 {
 		option = options[0]
 	}
-	// timeout is required in Playwright v1.57+ protocol. Resolve the configured
-	// default (Page/BrowserContext.SetDefaultTimeout) instead of letting the
-	// serializer fall back to a hardcoded 30s, which would ignore that setting.
-	if option.Timeout == nil {
-		option.Timeout = Float(f.page.timeoutSettings.Timeout())
-	}
-	_, err = f.channel.Send("setInputFiles", params, option)
+	_, err = f.channel.SendWithTimeout("setInputFiles", resolveTimeout(f.page.timeoutSettings, option.Timeout), params, option)
 	return err
 }
 
 func (f *frameImpl) Type(selector, text string, options ...FrameTypeOptions) error {
-	_, err := f.channel.Send("type", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("type", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 		"text":     text,
 	}, options)
@@ -518,7 +556,11 @@ func (f *frameImpl) Type(selector, text string, options ...FrameTypeOptions) err
 }
 
 func (f *frameImpl) Press(selector, key string, options ...FramePressOptions) error {
-	_, err := f.channel.Send("press", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("press", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 		"key":      key,
 	}, options)
@@ -526,21 +568,31 @@ func (f *frameImpl) Press(selector, key string, options ...FramePressOptions) er
 }
 
 func (f *frameImpl) Check(selector string, options ...FrameCheckOptions) error {
-	_, err := f.channel.Send("check", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("check", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
 }
 
 func (f *frameImpl) Uncheck(selector string, options ...FrameUncheckOptions) error {
-	_, err := f.channel.Send("uncheck", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("uncheck", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
 }
 
 func (f *frameImpl) WaitForTimeout(timeout float64) {
-	time.Sleep(time.Duration(timeout) * time.Millisecond)
+	_, _ = f.channel.SendWithTimeout("waitForTimeout", Float(0), map[string]any{
+		"waitTimeout": timeout,
+	})
 }
 
 func (f *frameImpl) WaitForFunction(expression string, arg any, options ...FrameWaitForFunctionOptions) (JSHandle, error) {
@@ -563,13 +615,7 @@ func (f *frameImpl) WaitForFunction(expression string, arg any, options ...Frame
 	default:
 		overrides["pollingInterval"] = option.Polling
 	}
-	// timeout is required in Playwright v1.57+ protocol
-	if option.Timeout == nil {
-		overrides["timeout"] = f.page.timeoutSettings.Timeout()
-	} else {
-		overrides["timeout"] = option.Timeout
-	}
-	result, err := f.channel.Send("waitForFunction", overrides)
+	result, err := f.channel.SendWithTimeout("waitForFunction", resolveTimeout(f.page.timeoutSettings, option.Timeout), overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -593,14 +639,22 @@ func (f *frameImpl) ChildFrames() []Frame {
 }
 
 func (f *frameImpl) Dblclick(selector string, options ...FrameDblclickOptions) error {
-	_, err := f.channel.Send("dblclick", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("dblclick", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
 }
 
 func (f *frameImpl) Fill(selector string, value string, options ...FrameFillOptions) error {
-	_, err := f.channel.Send("fill", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("fill", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 		"value":    value,
 	}, options)
@@ -608,7 +662,11 @@ func (f *frameImpl) Fill(selector string, value string, options ...FrameFillOpti
 }
 
 func (f *frameImpl) Focus(selector string, options ...FrameFocusOptions) error {
-	_, err := f.channel.Send("focus", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("focus", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
@@ -631,7 +689,11 @@ func (f *frameImpl) ParentFrame() Frame {
 }
 
 func (f *frameImpl) TextContent(selector string, options ...FrameTextContentOptions) (string, error) {
-	textContent, err := f.channel.Send("textContent", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	textContent, err := f.channel.SendWithTimeout("textContent", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if textContent == nil {
@@ -641,7 +703,11 @@ func (f *frameImpl) TextContent(selector string, options ...FrameTextContentOpti
 }
 
 func (f *frameImpl) Tap(selector string, options ...FrameTapOptions) error {
-	_, err := f.channel.Send("tap", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("tap", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	return err
@@ -655,7 +721,11 @@ func (f *frameImpl) SelectOption(selector string, values SelectOptionValues, opt
 	for k, v := range opts {
 		m[k] = v
 	}
-	selected, err := f.channel.Send("selectOption", m, options)
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	selected, err := f.channel.SendWithTimeout("selectOption", resolveTimeout(f.page.timeoutSettings, explicit), m, options)
 	if err != nil {
 		return nil, err
 	}
@@ -664,7 +734,11 @@ func (f *frameImpl) SelectOption(selector string, values SelectOptionValues, opt
 }
 
 func (f *frameImpl) IsChecked(selector string, options ...FrameIsCheckedOptions) (bool, error) {
-	checked, err := f.channel.Send("isChecked", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	checked, err := f.channel.SendWithTimeout("isChecked", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -674,7 +748,11 @@ func (f *frameImpl) IsChecked(selector string, options ...FrameIsCheckedOptions)
 }
 
 func (f *frameImpl) IsDisabled(selector string, options ...FrameIsDisabledOptions) (bool, error) {
-	disabled, err := f.channel.Send("isDisabled", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	disabled, err := f.channel.SendWithTimeout("isDisabled", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -684,7 +762,11 @@ func (f *frameImpl) IsDisabled(selector string, options ...FrameIsDisabledOption
 }
 
 func (f *frameImpl) IsEditable(selector string, options ...FrameIsEditableOptions) (bool, error) {
-	editable, err := f.channel.Send("isEditable", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	editable, err := f.channel.SendWithTimeout("isEditable", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -694,7 +776,11 @@ func (f *frameImpl) IsEditable(selector string, options ...FrameIsEditableOption
 }
 
 func (f *frameImpl) IsEnabled(selector string, options ...FrameIsEnabledOptions) (bool, error) {
-	enabled, err := f.channel.Send("isEnabled", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	enabled, err := f.channel.SendWithTimeout("isEnabled", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -704,7 +790,11 @@ func (f *frameImpl) IsEnabled(selector string, options ...FrameIsEnabledOptions)
 }
 
 func (f *frameImpl) IsHidden(selector string, options ...FrameIsHiddenOptions) (bool, error) {
-	hidden, err := f.channel.Send("isHidden", map[string]any{
+	// Timeout is deprecated and intentionally ignored for this immediate query.
+	if len(options) == 1 {
+		options[0].Timeout = nil
+	}
+	hidden, err := f.channel.SendWithTimeout("isHidden", Float(0), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -714,7 +804,11 @@ func (f *frameImpl) IsHidden(selector string, options ...FrameIsHiddenOptions) (
 }
 
 func (f *frameImpl) IsVisible(selector string, options ...FrameIsVisibleOptions) (bool, error) {
-	visible, err := f.channel.Send("isVisible", map[string]any{
+	// Timeout is deprecated and intentionally ignored for this immediate query.
+	if len(options) == 1 {
+		options[0].Timeout = nil
+	}
+	visible, err := f.channel.SendWithTimeout("isVisible", Float(0), map[string]any{
 		"selector": selector,
 	}, options)
 	if err != nil {
@@ -724,7 +818,11 @@ func (f *frameImpl) IsVisible(selector string, options ...FrameIsVisibleOptions)
 }
 
 func (f *frameImpl) InputValue(selector string, options ...FrameInputValueOptions) (string, error) {
-	value, err := f.channel.Send("inputValue", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	value, err := f.channel.SendWithTimeout("inputValue", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"selector": selector,
 	}, options)
 	if value == nil {
@@ -734,7 +832,11 @@ func (f *frameImpl) InputValue(selector string, options ...FrameInputValueOption
 }
 
 func (f *frameImpl) DragAndDrop(source, target string, options ...FrameDragAndDropOptions) error {
-	_, err := f.channel.Send("dragAndDrop", map[string]any{
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	_, err := f.channel.SendWithTimeout("dragAndDrop", resolveTimeout(f.page.timeoutSettings, explicit), map[string]any{
 		"source": source,
 		"target": target,
 	}, options)
@@ -742,17 +844,21 @@ func (f *frameImpl) DragAndDrop(source, target string, options ...FrameDragAndDr
 }
 
 func (f *frameImpl) SetChecked(selector string, checked bool, options ...FrameSetCheckedOptions) error {
+	var explicit *float64
+	if len(options) == 1 {
+		explicit = options[0].Timeout
+	}
+	timeout := resolveTimeout(f.page.timeoutSettings, explicit)
 	if checked {
-		_, err := f.channel.Send("check", map[string]any{
-			"selector": selector,
-		}, options)
-		return err
-	} else {
-		_, err := f.channel.Send("uncheck", map[string]any{
+		_, err := f.channel.SendWithTimeout("check", timeout, map[string]any{
 			"selector": selector,
 		}, options)
 		return err
 	}
+	_, err := f.channel.SendWithTimeout("uncheck", timeout, map[string]any{
+		"selector": selector,
+	}, options)
+	return err
 }
 
 func (f *frameImpl) Locator(selector string, options ...FrameLocatorOptions) Locator {

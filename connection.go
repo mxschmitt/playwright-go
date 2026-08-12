@@ -21,8 +21,12 @@ var (
 )
 
 type connection struct {
-	transport    transport
-	apiZone      sync.Map
+	transport transport
+	// apiZone is keyed by goroutine id so concurrent API calls cannot consume
+	// each other's stack/internal metadata. A zone is removed as soon as its
+	// first protocol message is built, matching upstream's exit from the API zone
+	// before waiting for the server or dispatching re-entrant events.
+	apiZone      sync.Map // map[uint64]parsedStackTrace
 	objects      *safe.SyncMap[string, *channelOwner]
 	lastID       atomic.Uint32
 	rootObject   *rootChannelOwner
@@ -215,10 +219,15 @@ func (c *connection) createRemoteObject(parent *channelOwner, objectType string,
 }
 
 func (c *connection) WrapAPICall(cb func() (any, error), isInternal bool) (any, error) {
-	if _, ok := c.apiZone.Load("apiZone"); ok {
+	zoneKey := currentGoroutineID()
+	if _, ok := c.apiZone.Load(zoneKey); ok {
 		return cb()
 	}
-	c.apiZone.Store("apiZone", serializeCallStack(isInternal))
+	c.apiZone.Store(zoneKey, serializeCallStack(isInternal))
+	// innerSend can return before sendMessageToServer (for example, when a route
+	// handler left a pending error). Do not let that stale zone classify the next
+	// call made by the same goroutine.
+	defer c.apiZone.Delete(zoneKey)
 	return cb()
 }
 
@@ -266,7 +275,7 @@ func (c *connection) replaceGuidsWithChannels(payload any) (any, error) {
 	return payload, nil
 }
 
-func (c *connection) sendMessageToServer(object *channelOwner, method string, params any, noReply bool) (cb *protocolCallback) {
+func (c *connection) sendMessageToServer(object *channelOwner, method string, params any, noReply bool, timeout *float64) (cb *protocolCallback) {
 	cb = newProtocolCallback(c, noReply, c.abort)
 
 	if err := c.closedError.Get(); err != nil {
@@ -288,7 +297,7 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 		metadata = make(map[string]any, 0)
 		stack    = make([]map[string]any, 0)
 	)
-	apiZone, ok := c.apiZone.LoadAndDelete("apiZone")
+	apiZone, ok := c.apiZone.LoadAndDelete(currentGoroutineID())
 	if ok {
 		for k, v := range apiZone.(parsedStackTrace).metadata {
 			metadata[k] = v
@@ -296,6 +305,11 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 		stack = append(stack, apiZone.(parsedStackTrace).frames...)
 	}
 	metadata["wallTime"] = time.Now().UnixMilli()
+	// Playwright 1.62+: call timeout is protocol metadata, not a method param.
+	// Preserve explicit zero; omit the field entirely when timeout is nil.
+	if timeout != nil {
+		metadata["timeout"] = *timeout
+	}
 	message := map[string]any{
 		"id":       id,
 		"guid":     object.guid,
@@ -308,6 +322,13 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 	}
 
 	if err := c.transport.Send(message); err != nil {
+		// Keep the callback registered until Send returns so an immediately
+		// dispatched response cannot be lost. If the send itself fails, however,
+		// no caller can consume a future response for this id, so remove it to
+		// avoid retaining one callback per failed send.
+		if !noReply {
+			c.callbacks.Delete(id)
+		}
 		cb.SetError(fmt.Errorf("could not send message: %w", err))
 		return
 	}
@@ -367,7 +388,8 @@ func serializeCallStack(isInternal bool) parsedStackTrace {
 		apiName = strings.ToUpper(apiName[:1]) + apiName[1:]
 	}
 	metadata["apiName"] = apiName
-	metadata["isInternal"] = isInternal
+	// The protocol carries the internal-call marker as metadata.internal.
+	metadata["internal"] = isInternal
 	return parsedStackTrace{
 		metadata: metadata,
 		frames:   callStack,
