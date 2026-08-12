@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -893,4 +894,88 @@ func TestLocatorDescribeMultipleCalls(t *testing.T) {
 	desc, err = locator3.Description()
 	require.NoError(t, err)
 	require.Empty(t, desc, "chained locator without describe should have empty description")
+}
+
+func TestLocatorWaitForFunction(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<div id="el"></div>`))
+	locator := page.Locator("#el")
+
+	// Already truthy: should return immediately.
+	require.NoError(t, locator.WaitForFunction(`element => !!element`, nil))
+
+	// Wait for an attribute to appear.
+	done := make(chan error, 1)
+	go func() {
+		done <- locator.WaitForFunction(`element => element.hasAttribute("data-ready")`, nil,
+			playwright.LocatorWaitForFunctionOptions{Timeout: playwright.Float(5000)})
+	}()
+	time.Sleep(50 * time.Millisecond)
+	_, err := page.Evaluate(`() => document.getElementById("el").setAttribute("data-ready", "1")`)
+	require.NoError(t, err)
+	require.NoError(t, <-done)
+
+	// Scalar argument.
+	require.NoError(t, locator.WaitForFunction(
+		`(element, expected) => element.getAttribute("data-ready") === expected`,
+		"1",
+	))
+}
+
+func TestLocatorWaitForFunctionTimeout(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<div id="el"></div>`))
+	err := page.Locator("#el").WaitForFunction(
+		`element => element.hasAttribute("missing")`,
+		nil,
+		playwright.LocatorWaitForFunctionOptions{Timeout: playwright.Float(200)},
+	)
+	require.Error(t, err)
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+}
+
+func TestLocatorWaitForFunctionStrictViolation(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<div class="x"></div><div class="x"></div>`))
+	err := page.Locator(".x").WaitForFunction(`element => true`, nil,
+		playwright.LocatorWaitForFunctionOptions{Timeout: playwright.Float(1000)})
+	require.Error(t, err)
+}
+
+func TestLocatorWaitForFunctionElementHandleThrowRerenderAndDefaultTimeout(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<div id="el">first</div>`))
+	locator := page.Locator("#el")
+	//nolint:staticcheck // The roll must preserve ElementHandle argument compatibility.
+	handle, err := page.QuerySelector("#el")
+	require.NoError(t, err)
+	require.NotNil(t, handle)
+	defer handle.Dispose() //nolint:errcheck
+
+	require.NoError(t, locator.WaitForFunction(
+		`(element, expected) => element === expected`,
+		handle,
+	))
+
+	err = locator.WaitForFunction(`() => { throw new Error("wait-function-boom") }`, nil)
+	require.Error(t, err)
+	require.ErrorContains(t, err, "wait-function-boom")
+
+	_, err = page.Evaluate(`() => {
+		setTimeout(() => {
+			document.querySelector('#el').outerHTML = '<div id="el" data-ready="yes">second</div>';
+		}, 50);
+	}`)
+	require.NoError(t, err)
+	require.NoError(t, locator.WaitForFunction(
+		`element => element.dataset.ready === "yes"`,
+		nil,
+		playwright.LocatorWaitForFunctionOptions{Timeout: playwright.Float(5000)},
+	))
+
+	page.SetDefaultTimeout(150)
+	started := time.Now()
+	err = locator.WaitForFunction(`element => element.dataset.never === "true"`, nil)
+	require.ErrorIs(t, err, playwright.ErrTimeout)
+	require.Less(t, time.Since(started), 2*time.Second)
 }

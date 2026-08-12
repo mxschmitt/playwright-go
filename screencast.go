@@ -33,24 +33,36 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 			if !s.listening {
 				s.listening = true
 				s.page.channel.On("screencastFrame", func(params map[string]any) {
+					frameID, hasFrameID := params["frameId"].(float64)
 					s.mu.Lock()
 					onFrame := s.onFrame
 					s.mu.Unlock()
-					if onFrame == nil {
-						return
-					}
-					data, _ := base64.StdEncoding.DecodeString(params["data"].(string))
-					frame := OnFrame{Data: data}
-					if ts, ok := params["timestamp"].(float64); ok {
-						frame.Timestamp = ts
-					}
-					if vw, ok := params["viewportWidth"].(float64); ok {
-						frame.ViewportWidth = int(vw)
-					}
-					if vh, ok := params["viewportHeight"].(float64); ok {
-						frame.ViewportHeight = int(vh)
-					}
-					onFrame(frame)
+					s.page.channel.CreateTask(func() {
+						// The server applies backpressure until every valid frame is
+						// acknowledged, including when no handler is active or the
+						// handler panics or exits its goroutine.
+						if hasFrameID {
+							defer s.page.channel.SendNoReplyInternalWithTimeout("screencastFrameAck", Float(0), map[string]any{
+								"frameId": frameID,
+							})
+						}
+						if onFrame == nil {
+							return
+						}
+						dataStr, _ := params["data"].(string)
+						data, _ := base64.StdEncoding.DecodeString(dataStr)
+						frame := OnFrame{Data: data}
+						if ts, ok := params["timestamp"].(float64); ok {
+							frame.Timestamp = ts
+						}
+						if vw, ok := params["viewportWidth"].(float64); ok {
+							frame.ViewportWidth = int(vw)
+						}
+						if vh, ok := params["viewportHeight"].(float64); ok {
+							frame.ViewportHeight = int(vh)
+						}
+						onFrame(frame)
+					})
 				})
 			}
 			overrides["sendFrames"] = true

@@ -68,13 +68,9 @@ func transformStructIntoMapIfNeeded(inStruct any) map[string]any {
 			if key == "" {
 				key = fi.Name
 			}
-			// Special handling for timeout field: provide default value when nil
-			// This is required in Playwright v1.57+ protocol where timeout is no longer optional
-			if key == "timeout" && skipFieldSerialization(v.Field(i)) {
-				out[key] = float64(30000) // default 30s
-				continue
-			}
 			// Skip the values when the field is a pointer (like *string) and nil.
+			// Call timeouts are no longer injected here: since Playwright 1.62
+			// they travel in metadata.timeout via channel.SendWithTimeout.
 			if fi.IsExported() && !skipFieldSerialization(v.Field(i)) {
 				// We use the JSON struct fields for getting the original names
 				// out of the field.
@@ -118,16 +114,6 @@ func transformOptions(options ...any) map[string]any {
 	v := reflect.ValueOf(option)
 	if v.Kind() == reflect.Slice {
 		if v.Len() == 0 {
-			// Check if the slice element type has a Timeout field and add default if so
-			// This is required in Playwright v1.57+ protocol where timeout is no longer optional
-			elemType := v.Type().Elem()
-			if elemType.Kind() == reflect.Struct {
-				if _, hasTimeout := elemType.FieldByName("Timeout"); hasTimeout {
-					if base["timeout"] == nil {
-						base["timeout"] = float64(30000) // default 30s
-					}
-				}
-			}
 			return base
 		}
 		option = v.Index(0).Interface()
@@ -438,6 +424,30 @@ func newTimeoutSettings(parent *timeoutSettings) *timeoutSettings {
 		defaultTimeout:           nil,
 		defaultNavigationTimeout: nil,
 	}
+}
+
+// resolveTimeout returns the explicit call timeout when set (including zero)
+// or a pointer to the configured default. Used to populate metadata.timeout.
+func resolveTimeout(settings *timeoutSettings, explicit *float64) *float64 {
+	if explicit != nil {
+		return explicit
+	}
+	if settings == nil {
+		return Float(defaultTimeout)
+	}
+	return Float(settings.Timeout())
+}
+
+// resolveNavigationTimeout returns the explicit navigation timeout when set
+// (including zero) or a pointer to the configured navigation default.
+func resolveNavigationTimeout(settings *timeoutSettings, explicit *float64) *float64 {
+	if explicit != nil {
+		return explicit
+	}
+	if settings == nil {
+		return Float(defaultTimeout)
+	}
+	return Float(settings.NavigationTimeout())
 }
 
 // SelectOptionValues is the option struct for ElementHandle.Select() etc.

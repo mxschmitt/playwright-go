@@ -578,6 +578,20 @@ func TestPageClockFixedTime(t *testing.T) {
 }
 
 func TestPageClockWhileRunning(t *testing.T) {
+	t.Run("should reject an invalid target time with an active animation frame loop", func(t *testing.T) {
+		BeforeEach(t)
+
+		require.NoError(t, page.Clock().Install())
+		require.NoError(t, page.SetContent(`<script>function tick() { requestAnimationFrame(tick); } requestAnimationFrame(tick);</script>`))
+		now, err := page.Evaluate(`Date.now()`)
+		require.NoError(t, err)
+		nowMillis, ok := now.(int)
+		require.True(t, ok, "integral JavaScript numbers should deserialize as int")
+		invalidTime := int64(nowMillis) * 1_000_000
+		err = page.Clock().PauseAt(invalidTime)
+		require.ErrorContains(t, err, fmt.Sprintf("Invalid date: %v", invalidTime))
+	})
+
 	t.Run("should progress time", func(t *testing.T) {
 		BeforeEach(t)
 

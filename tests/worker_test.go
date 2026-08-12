@@ -38,6 +38,23 @@ func TestWorkerShouldWork(t *testing.T) {
 	require.Equal(t, 0, len(page.Workers()))
 }
 
+func TestWorkerShouldUseContextLocale(t *testing.T) {
+	BeforeEach(t, playwright.BrowserNewContextOptions{Locale: playwright.String("ru-RU")})
+
+	worker, err := page.ExpectWorker(func() error {
+		_, err := page.Evaluate(`() => new Worker(URL.createObjectURL(new Blob(["console.log(1)"], { type: "application/javascript" })))`)
+		return err
+	})
+	require.NoError(t, err)
+	locale, err := worker.Evaluate(`() => Intl.NumberFormat().resolvedOptions().locale`)
+	require.NoError(t, err)
+	if isWebKit {
+		require.Contains(t, []any{"ru", "ru-RU"}, locale)
+	} else {
+		require.Equal(t, "ru-RU", locale)
+	}
+}
+
 func TestWorkerShouldEmitCreatedAndDestroyedEvents(t *testing.T) {
 	BeforeEach(t)
 

@@ -3,6 +3,7 @@ package playwright_test
 import (
 	"regexp"
 	"testing"
+	"time"
 
 	"github.com/mxschmitt/playwright-go"
 	"github.com/stretchr/testify/require"
@@ -90,4 +91,15 @@ func TestPageAssertionsToHaveAccessibleErrorMessage(t *testing.T) {
 		IgnoreCase: playwright.Bool(true),
 	}))
 	require.NoError(t, expect.Locator(locator).Not().ToHaveAccessibleErrorMessage("This should not be considered."))
+}
+
+func TestPageAssertionsUsesConfiguredTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<title>actual</title>`))
+	shortExpect := playwright.NewPlaywrightAssertions(150)
+	started := time.Now()
+	err := shortExpect.Page(page).ToHaveTitle("never")
+	require.Error(t, err)
+	require.Less(t, time.Since(started), 2*time.Second)
 }

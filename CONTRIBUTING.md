@@ -32,7 +32,7 @@ To adapt to the new version of Playwright's protocol and feature updates, you ma
 2. `cd playwright`
 3. Revert the patch `git reset HEAD~1`
 4. Modify the files under `docs/src/api`, etc. as needed. Available references:
-    - Protocol `packages/protocol/src/protocol.yml`
+    - Protocol `packages/protocol/spec/*.yml`
     - [Playwright python](https://github.com/microsoft/playwright-python)
 5. Commit the changes `git commit -am "apply patch"`
 6. Regenerate a new patch `bash scripts/update-patch.sh`

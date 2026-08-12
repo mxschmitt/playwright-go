@@ -53,8 +53,9 @@ func (s StorageState) ToOptionalStorageState() *OptionalStorageState {
 		cookies[i] = c.ToOptionalCookie()
 	}
 	return &OptionalStorageState{
-		Origins: s.Origins,
-		Cookies: cookies,
+		Origins:     s.Origins,
+		Cookies:     cookies,
+		Credentials: s.Credentials,
 	}
 }
 

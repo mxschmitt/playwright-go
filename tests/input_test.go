@@ -384,3 +384,85 @@ func TestSetInputFilesShouldRespectDefaultTimeout(t *testing.T) {
 	err := page.Locator("input#does-not-exist").SetInputFiles(file)
 	require.ErrorContains(t, err, "Timeout 500ms exceeded")
 }
+
+func TestScrollModeNoneDoesNotScroll(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`
+		<style>body { margin: 0; } .spacer { height: 2000px; } button { display:block; }</style>
+		<div class="spacer"></div>
+		<button id="btn">Click</button>
+	`))
+	// Element is below the fold.
+	err := page.Locator("#btn").Click(playwright.LocatorClickOptions{
+		Scroll:  playwright.ScrollModeNone,
+		Timeout: playwright.Float(1000),
+	})
+	require.Error(t, err)
+	scrollY, err := page.Evaluate(`() => window.scrollY`)
+	require.NoError(t, err)
+	require.EqualValues(t, 0, scrollY)
+}
+
+func TestScrollModeNoneClicksInViewport(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<button id="btn" style="position:fixed;top:10px;left:10px">Click</button>`))
+	require.NoError(t, page.Locator("#btn").Click(playwright.LocatorClickOptions{
+		Scroll: playwright.ScrollModeNone,
+	}))
+}
+
+func TestScrollModeAcrossPageFrameAndElementHandle(t *testing.T) {
+	BeforeEach(t)
+	setOffscreenButton := func() {
+		t.Helper()
+		require.NoError(t, page.SetContent(`
+			<style>body { margin: 0; } .spacer { height: 2000px; } button { display: block; }</style>
+			<div class="spacer"></div><button id="btn">Click</button>
+		`))
+	}
+	assertNotScrolled := func() {
+		t.Helper()
+		scrollY, err := page.Evaluate(`() => window.scrollY`)
+		require.NoError(t, err)
+		require.EqualValues(t, 0, scrollY)
+	}
+
+	setOffscreenButton()
+	//nolint:staticcheck // ScrollMode was added to this legacy Page action API.
+	err := page.Click("#btn", playwright.PageClickOptions{
+		Scroll:  playwright.ScrollModeNone,
+		Timeout: playwright.Float(300),
+	})
+	require.Error(t, err)
+	assertNotScrolled()
+
+	setOffscreenButton()
+	//nolint:staticcheck // ScrollMode was added to this legacy Frame action API.
+	err = page.MainFrame().Click("#btn", playwright.FrameClickOptions{
+		Scroll:  playwright.ScrollModeNone,
+		Timeout: playwright.Float(300),
+	})
+	require.Error(t, err)
+	assertNotScrolled()
+
+	setOffscreenButton()
+	//nolint:staticcheck // ScrollMode was added to this legacy ElementHandle API.
+	handle, err := page.QuerySelector("#btn")
+	require.NoError(t, err)
+	require.NotNil(t, handle)
+	//nolint:staticcheck // ScrollMode was added to this legacy ElementHandle action API.
+	err = handle.Click(playwright.ElementHandleClickOptions{
+		Scroll:  playwright.ScrollModeNone,
+		Timeout: playwright.Float(300),
+	})
+	require.Error(t, err)
+	require.NoError(t, handle.Dispose())
+	assertNotScrolled()
+
+	setOffscreenButton()
+	//nolint:staticcheck // The legacy Page API must retain the default auto-scroll behavior.
+	require.NoError(t, page.Click("#btn", playwright.PageClickOptions{Scroll: playwright.ScrollModeAuto}))
+	scrollY, err := page.Evaluate(`() => window.scrollY`)
+	require.NoError(t, err)
+	require.NotEqualValues(t, 0, scrollY)
+}

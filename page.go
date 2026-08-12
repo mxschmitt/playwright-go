@@ -379,24 +379,12 @@ func (p *pageImpl) Goto(url string, options ...PageGotoOptions) (Response, error
 	return p.mainFrame.Goto(url)
 }
 
-// navigationTimeoutOverride returns the channel overrides that resolve the
-// configured navigation timeout when the caller supplied no per-call timeout.
-// The protocol requires a timeout on the navigation methods, so without this the
-// serializer would inject a hardcoded 30s instead of honoring SetDefaultNavigationTimeout.
-func (p *pageImpl) navigationTimeoutOverride(timeout *float64) map[string]any {
-	overrides := map[string]any{}
-	if timeout == nil {
-		overrides["timeout"] = p.timeoutSettings.NavigationTimeout()
-	}
-	return overrides
-}
-
 func (p *pageImpl) Reload(options ...PageReloadOptions) (Response, error) {
 	var timeout *float64
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	channel, err := p.channel.Send("reload", options, p.navigationTimeoutOverride(timeout))
+	channel, err := p.channel.SendWithTimeout("reload", resolveNavigationTimeout(p.timeoutSettings, timeout), options)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +407,7 @@ func (p *pageImpl) GoBack(options ...PageGoBackOptions) (Response, error) {
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	channel, err := p.channel.Send("goBack", options, p.navigationTimeoutOverride(timeout))
+	channel, err := p.channel.SendWithTimeout("goBack", resolveNavigationTimeout(p.timeoutSettings, timeout), options)
 	if err != nil {
 		return nil, err
 	}
@@ -436,7 +424,7 @@ func (p *pageImpl) GoForward(options ...PageGoForwardOptions) (Response, error) 
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	channel, err := p.channel.Send("goForward", options, p.navigationTimeoutOverride(timeout))
+	channel, err := p.channel.SendWithTimeout("goForward", resolveNavigationTimeout(p.timeoutSettings, timeout), options)
 	if err != nil {
 		return nil, err
 	}
@@ -542,7 +530,11 @@ func (p *pageImpl) Screenshot(options ...PageScreenshotOptions) ([]byte, error) 
 			overrides["mask"] = masks
 		}
 	}
-	data, err := p.channel.Send("screenshot", options, overrides)
+	var screenshotTimeout *float64
+	if len(options) == 1 {
+		screenshotTimeout = options[0].Timeout
+	}
+	data, err := p.channel.SendWithTimeout("screenshot", resolveTimeout(p.timeoutSettings, screenshotTimeout), options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -1549,7 +1541,11 @@ func (p *pageImpl) updateWebSocketInterceptionPatterns() error {
 }
 
 func (p *pageImpl) AriaSnapshot(options ...PageAriaSnapshotOptions) (string, error) {
-	result, err := p.mainFrame.(*frameImpl).channel.Send("ariaSnapshot", options)
+	var ariaTimeout *float64
+	if len(options) == 1 {
+		ariaTimeout = options[0].Timeout
+	}
+	result, err := p.mainFrame.(*frameImpl).channel.SendWithTimeout("ariaSnapshot", resolveTimeout(p.timeoutSettings, ariaTimeout), options)
 	if err != nil {
 		return "", err
 	}

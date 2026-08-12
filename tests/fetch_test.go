@@ -695,3 +695,34 @@ func TestShouldFollowMaxRedirects(t *testing.T) {
 	require.Equal(t, int32(2), redirectCount.Load())
 	require.NoError(t, request.Dispose())
 }
+
+func TestAPIResponseShouldReturnTiming(t *testing.T) {
+	BeforeEach(t)
+
+	response, err := context.Request().Get(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	timing := response.Timing()
+	require.NotNil(t, timing)
+	// Live HTTP responses should populate timing fields (not all -1).
+	require.Greater(t, timing.StartTime, float64(-1))
+	require.GreaterOrEqual(t, timing.ResponseEnd, float64(-1))
+}
+
+func TestAPIRequestExplicitZeroOverridesContextTimeout(t *testing.T) {
+	BeforeEach(t)
+
+	server.SetRoute("/roll-v162-slow", func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(200 * time.Millisecond)
+	})
+	request, err := pw.Request.NewContext(playwright.APIRequestNewContextOptions{
+		Timeout: playwright.Float(50),
+	})
+	require.NoError(t, err)
+	defer request.Dispose() //nolint:errcheck
+	response, err := request.Get(
+		server.PREFIX+"/roll-v162-slow",
+		playwright.APIRequestContextGetOptions{Timeout: playwright.Float(0)},
+	)
+	require.NoError(t, err, "an explicit zero must override the request context default")
+	require.Equal(t, 200, response.Status())
+}

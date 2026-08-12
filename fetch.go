@@ -42,18 +42,25 @@ func (r *apiRequestImpl) NewContext(options ...APIRequestNewContextOptions) (API
 			options[0].StorageState = storageState
 			options[0].StorageStatePath = nil
 		}
-		if options[0].Timeout != nil {
-			overrides["timeout"] = options[0].Timeout
+		// APIRequestContext storageState accepts only cookies/origins (protocol).
+		if options[0].StorageState != nil {
+			options[0].StorageState = sanitizeStorageStateForAPIRequest(options[0].StorageState)
 		}
 	}
-
+	// Match JS/Python: newRequest itself is unbounded (kNoTimeout). The
+	// Timeout option is only the client default for subsequent fetches.
+	var defaultTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		defaultTimeout = options[0].Timeout
+		options[0].Timeout = nil // do not serialize as params or metadata
+	}
 	channel, err := r.channel.Send("newRequest", options, overrides)
 	if err != nil {
 		return nil, err
 	}
 	ctx := fromChannel(channel).(*apiRequestContextImpl)
-	if len(options) == 1 && options[0].Timeout != nil {
-		ctx.defaultTimeout = options[0].Timeout
+	if defaultTimeout != nil {
+		ctx.defaultTimeout = defaultTimeout
 	}
 	return ctx, nil
 }
@@ -240,23 +247,24 @@ func (r *apiRequestContextImpl) innerFetch(url string, request Request, options 
 			overrides["params"] = serializeMapToNameValue(options[0].Params)
 			options[0].Params = nil
 		}
-		// Use the context-level default timeout when no per-request timeout is
-		// given. A standalone request context seeds r.defaultTimeout directly; a
-		// browser-context-owned request shares the context's timeoutSettings
-		// (mirroring upstream, where context.request._timeoutSettings is the
-		// context's instance), so SetDefaultTimeout reaches these fetches too.
-		if options[0].Timeout == nil {
-			if r.defaultTimeout != nil {
-				overrides["timeout"] = *r.defaultTimeout
-			} else if r.timeoutSettings != nil {
-				if dt := r.timeoutSettings.DefaultTimeout(); dt != nil {
-					overrides["timeout"] = *dt
-				}
-			}
+		// Resolve call timeout for metadata.timeout (Playwright 1.62+).
+	}
+	var fetchTimeout *float64
+	if len(options) == 1 && options[0].Timeout != nil {
+		fetchTimeout = options[0].Timeout
+	} else if r.defaultTimeout != nil {
+		fetchTimeout = r.defaultTimeout
+	} else if r.timeoutSettings != nil {
+		if dt := r.timeoutSettings.DefaultTimeout(); dt != nil {
+			fetchTimeout = dt
+		} else {
+			fetchTimeout = Float(r.timeoutSettings.Timeout())
 		}
+	} else {
+		fetchTimeout = Float(defaultTimeout)
 	}
 
-	response, err := r.channel.Send("fetch", options, overrides)
+	response, err := r.channel.SendWithTimeout("fetch", fetchTimeout, options, overrides)
 	if err != nil {
 		return nil, err
 	}
@@ -492,6 +500,39 @@ func (r *apiResponseImpl) fetchLog() ([]string, error) {
 	return result, nil
 }
 
+func (r *apiResponseImpl) Timing() *RequestTiming {
+	// Seed all fields with -1 (unavailable), then overlay server values.
+	// responseEnd is taken from responseEndTiming independently of timing,
+	// matching packages/playwright-core/src/client/fetch.ts in v1.62.1.
+	result := &RequestTiming{
+		StartTime:             -1,
+		DomainLookupStart:     -1,
+		DomainLookupEnd:       -1,
+		ConnectStart:          -1,
+		SecureConnectionStart: -1,
+		ConnectEnd:            -1,
+		RequestStart:          -1,
+		ResponseStart:         -1,
+		ResponseEnd:           -1,
+	}
+	if timing, ok := r.initializer["timing"].(map[string]any); ok && timing != nil {
+		assignFloatIfPresent(timing, "startTime", &result.StartTime)
+		assignFloatIfPresent(timing, "domainLookupStart", &result.DomainLookupStart)
+		assignFloatIfPresent(timing, "domainLookupEnd", &result.DomainLookupEnd)
+		assignFloatIfPresent(timing, "connectStart", &result.ConnectStart)
+		assignFloatIfPresent(timing, "secureConnectionStart", &result.SecureConnectionStart)
+		assignFloatIfPresent(timing, "connectEnd", &result.ConnectEnd)
+		assignFloatIfPresent(timing, "requestStart", &result.RequestStart)
+		assignFloatIfPresent(timing, "responseStart", &result.ResponseStart)
+	}
+	if v, ok := r.initializer["responseEndTiming"]; ok && v != nil {
+		if f, isFloat := v.(float64); isFloat {
+			result.ResponseEnd = f
+		}
+	}
+	return result
+}
+
 func newAPIResponse(context *apiRequestContextImpl, initializer map[string]any) *apiResponseImpl {
 	return &apiResponseImpl{
 		request:     context,
@@ -547,4 +588,17 @@ func (r *responseImpl) HttpVersion() (string, error) {
 		return "", err
 	}
 	return result.(string), nil
+}
+
+// sanitizeStorageStateForAPIRequest returns a copy of state with only cookies
+// and origins. packages/protocol/spec/playwright.yml does not accept credentials
+// on APIRequestContext storageState.
+func sanitizeStorageStateForAPIRequest(state *StorageState) *StorageState {
+	if state == nil {
+		return nil
+	}
+	return &StorageState{
+		Cookies: state.Cookies,
+		Origins: state.Origins,
+	}
 }
