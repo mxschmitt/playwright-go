@@ -7,7 +7,7 @@ set -euo pipefail
 
 REPO="mxschmitt/playwright-go"
 
-driver_version=$(grep -oE 'playwrightCliVersion[[:space:]]*=[[:space:]]*"[0-9.]+"' run.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+')
+driver_version=$(grep -oE 'playwrightCliVersion[[:space:]]*=[[:space:]]*"[0-9.]+"' run.go | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' || true)
 if [[ -z "$driver_version" ]]; then
   echo "Could not find playwrightCliVersion in run.go" >&2
   exit 1
