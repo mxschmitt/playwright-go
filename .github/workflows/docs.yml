@@ -2,27 +2,52 @@ name: Docs
 on:
   push:
     branches: [ main ]
-# Intentionally serialized per ref, unlike build.yml: this pushes to gh-pages,
-# and concurrent deploys can race so that an older build is published last.
+  workflow_dispatch:
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Intentionally serialized, unlike build.yml: concurrent deploys can race so
+# that an older build is published last. Keyed on a literal group rather than
+# github.ref because a Pages deployment is global to the repository, and
+# in-progress runs are never cancelled so a production deploy can finish.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: "pages"
   cancel-in-progress: false
+
 jobs:
-  deploy:
-    name: Deploy docs
+  build:
+    name: Build docs
     runs-on: ubuntu-latest
+    env:
+      BUNDLE_GEMFILE: ${{ github.workspace }}/docs/Gemfile
     steps:
     - uses: actions/checkout@v7
+    - uses: actions/configure-pages@v6
     - uses: ruby/setup-ruby@v1
       with:
-        ruby-version: '3.3'
-    - name: Install Ruby dependencies
-      run: bundler install
-      working-directory: docs
+        ruby-version: '3.4'
+        bundler-cache: true
+        working-directory: docs
     - name: Build site
-      run: jekyll build
-    - name: Deploy
-      uses: peaceiris/actions-gh-pages@v4
+      run: bundle exec jekyll build
+      env:
+        JEKYLL_ENV: production
+    - uses: actions/upload-pages-artifact@v5
       with:
-        github_token: ${{ secrets.GITHUB_TOKEN }}
-        publish_dir: ./_site
+        path: ./_site
+
+  deploy:
+    name: Deploy docs
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+    - name: Deploy to GitHub Pages
+      id: deployment
+      uses: actions/deploy-pages@v5
