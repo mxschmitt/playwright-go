@@ -444,6 +444,36 @@ func TestPageExpectEvent(t *testing.T) {
 	t.Skip()
 }
 
+// The Predicate of the generic ExpectEvent/WaitForEvent APIs is untyped, so a
+// predicate that cannot be invoked has to surface as an error instead of
+// panicking inside the event dispatch goroutine.
+func TestPageExpectEventUnusablePredicate(t *testing.T) {
+	BeforeEach(t)
+
+	log := func() error {
+		_, err := page.Evaluate(`() => console.log("hello")`)
+		return err
+	}
+
+	_, err := page.ExpectEvent("console", log, playwright.PageExpectEventOptions{
+		Predicate: "not-a-function",
+	})
+	require.ErrorContains(t, err, "predicate must be a function")
+
+	// Right shape, wrong event type.
+	_, err = page.ExpectEvent("console", log, playwright.PageExpectEventOptions{
+		Predicate: func(playwright.Request) bool { return true },
+	})
+	require.ErrorContains(t, err, "cannot be called with an event of type")
+
+	// A usable predicate still works.
+	msg, err := page.ExpectEvent("console", log, playwright.PageExpectEventOptions{
+		Predicate: func(m playwright.ConsoleMessage) bool { return m.Text() == "hello" },
+	})
+	require.NoError(t, err)
+	require.Equal(t, "hello", msg.(playwright.ConsoleMessage).Text())
+}
+
 func TestPageOpener(t *testing.T) {
 	skipWebKitMacOSPopup(t)
 	BeforeEach(t)

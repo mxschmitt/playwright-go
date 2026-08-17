@@ -54,6 +54,60 @@ func TestWaiterWaitForEventWithPredicate(t *testing.T) {
 	require.Equal(t, result, testEventPayload)
 }
 
+// A predicate that cannot be invoked must reject the waiter rather than panic
+// inside the event dispatch goroutine.
+func TestWaiterRejectsUnusablePredicate(t *testing.T) {
+	for name, tc := range map[string]struct {
+		predicate any
+		errText   string
+	}{
+		"not a function":     {predicate: "not-a-function", errText: "predicate must be a function"},
+		"wrong argument":     {predicate: func(int) bool { return true }, errText: "cannot be called with an event of type"},
+		"wrong return type":  {predicate: func(any) string { return "" }, errText: "must be a func(event) bool"},
+		"too many arguments": {predicate: func(any, any) bool { return true }, errText: "must be a func(event) bool"},
+		"panicking body":     {predicate: func(any) bool { panic("boom") }, errText: "predicate panicked: boom"},
+	} {
+		t.Run(name, func(t *testing.T) {
+			emitter := &eventEmitter{}
+			waiter := newWaiter().WithTimeout(500)
+			waiter.WaitForEvent(emitter, testEventNameFoobar, tc.predicate)
+			go emitter.Emit(testEventNameFoobar, testEventPayload)
+			result, err := waiter.Wait()
+			require.ErrorContains(t, err, tc.errText)
+			require.Nil(t, result)
+		})
+	}
+}
+
+// Internal predicates are sometimes variadic (e.g. frame.ExpectNavigation uses
+// func(events ...any) bool), which must keep working.
+func TestWaiterVariadicPredicate(t *testing.T) {
+	emitter := &eventEmitter{}
+	waiter := newWaiter().WithTimeout(500)
+	waiter.WaitForEvent(emitter, testEventNameFoobar, func(events ...any) bool {
+		return events[0] == testEventPayload
+	})
+	go func() {
+		emitter.Emit(testEventNameFoobar, "1")
+		emitter.Emit(testEventNameFoobar, testEventPayload)
+	}()
+	result, err := waiter.Wait()
+	require.NoError(t, err)
+	require.Equal(t, testEventPayload, result)
+}
+
+// A typed nil predicate means "no predicate", same as an untyped nil.
+func TestWaiterTypedNilPredicate(t *testing.T) {
+	var predicate func(any) bool
+	emitter := &eventEmitter{}
+	waiter := newWaiter().WithTimeout(500)
+	waiter.WaitForEvent(emitter, testEventNameFoobar, predicate)
+	go emitter.Emit(testEventNameFoobar, testEventPayload)
+	result, err := waiter.Wait()
+	require.NoError(t, err)
+	require.Equal(t, testEventPayload, result)
+}
+
 func TestWaiterRejectOnTimeout(t *testing.T) {
 	timeout := 300.0
 	emitter := &eventEmitter{}
