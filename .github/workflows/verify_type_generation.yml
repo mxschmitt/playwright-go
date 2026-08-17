@@ -4,11 +4,11 @@ on:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-# See build.yml: per-PR on pull_request, per-commit on push, so commits to main
-# do not serialize into a single queue.
+# See build.yml: per-PR on pull_request, per-run on push, so commits to main do
+# not serialize into a single queue.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
 jobs:
   verify:
     runs-on: ubuntu-latest
