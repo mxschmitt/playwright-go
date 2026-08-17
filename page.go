@@ -608,7 +608,7 @@ func (p *pageImpl) waiterForEvent(event string, options ...PageWaitForEventOptio
 	return waiter.WaitForEvent(p, event, predicate)
 }
 
-func (p *pageImpl) waiterForRequest(url any, options ...PageExpectRequestOptions) *waiter {
+func (p *pageImpl) waiterForRequest(urlOrPredicate any, options ...PageExpectRequestOptions) *waiter {
 	option := PageExpectRequestOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -617,10 +617,18 @@ func (p *pageImpl) waiterForRequest(url any, options ...PageExpectRequestOptions
 		option.Timeout = Float(p.timeoutSettings.Timeout())
 	}
 	var matcher *urlMatcher
-	if url != nil {
-		matcher = newURLMatcher(url, p.browserContext.options.BaseURL)
+	var matchRequest func(Request) bool
+	switch v := urlOrPredicate.(type) {
+	case nil:
+	case func(Request) bool:
+		matchRequest = v
+	default:
+		matcher = newURLMatcher(urlOrPredicate, p.browserContext.options.BaseURL)
 	}
 	predicate := func(req *requestImpl) bool {
+		if matchRequest != nil {
+			return matchRequest(req)
+		}
 		if matcher != nil {
 			return matcher.Matches(req.URL())
 		}
@@ -634,7 +642,7 @@ func (p *pageImpl) waiterForRequest(url any, options ...PageExpectRequestOptions
 	return waiter.WaitForEvent(p, "request", predicate)
 }
 
-func (p *pageImpl) waiterForResponse(url any, options ...PageExpectResponseOptions) *waiter {
+func (p *pageImpl) waiterForResponse(urlOrPredicate any, options ...PageExpectResponseOptions) *waiter {
 	option := PageExpectResponseOptions{}
 	if len(options) == 1 {
 		option = options[0]
@@ -643,12 +651,20 @@ func (p *pageImpl) waiterForResponse(url any, options ...PageExpectResponseOptio
 		option.Timeout = Float(p.timeoutSettings.Timeout())
 	}
 	var matcher *urlMatcher
-	if url != nil {
-		matcher = newURLMatcher(url, p.browserContext.options.BaseURL)
+	var matchResponse func(Response) bool
+	switch v := urlOrPredicate.(type) {
+	case nil:
+	case func(Response) bool:
+		matchResponse = v
+	default:
+		matcher = newURLMatcher(urlOrPredicate, p.browserContext.options.BaseURL)
 	}
-	predicate := func(req *responseImpl) bool {
+	predicate := func(res *responseImpl) bool {
+		if matchResponse != nil {
+			return matchResponse(res)
+		}
 		if matcher != nil {
-			return matcher.Matches(req.URL())
+			return matcher.Matches(res.URL())
 		}
 		return true
 	}
@@ -726,16 +742,16 @@ func (p *pageImpl) ExpectPopup(cb func() error, options ...PageExpectPopupOption
 	return ret.(*pageImpl), err
 }
 
-func (p *pageImpl) ExpectResponse(url any, cb func() error, options ...PageExpectResponseOptions) (Response, error) {
-	ret, err := p.waiterForResponse(url, options...).RunAndWait(cb)
+func (p *pageImpl) ExpectResponse(urlOrPredicate any, cb func() error, options ...PageExpectResponseOptions) (Response, error) {
+	ret, err := p.waiterForResponse(urlOrPredicate, options...).RunAndWait(cb)
 	if ret == nil {
 		return nil, err
 	}
 	return ret.(*responseImpl), err
 }
 
-func (p *pageImpl) ExpectRequest(url any, cb func() error, options ...PageExpectRequestOptions) (Request, error) {
-	ret, err := p.waiterForRequest(url, options...).RunAndWait(cb)
+func (p *pageImpl) ExpectRequest(urlOrPredicate any, cb func() error, options ...PageExpectRequestOptions) (Request, error) {
+	ret, err := p.waiterForRequest(urlOrPredicate, options...).RunAndWait(cb)
 	if ret == nil {
 		return nil, err
 	}

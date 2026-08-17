@@ -344,6 +344,21 @@ func TestPageExpectRequestFunc(t *testing.T) {
 	require.Equal(t, "GET", request.Method())
 }
 
+func TestPageExpectRequestPredicate(t *testing.T) {
+	BeforeEach(t)
+
+	request, err := page.ExpectRequest(func(r playwright.Request) bool {
+		return r.Method() == "GET" && strings.HasSuffix(r.URL(), "empty.html")
+	}, func() error {
+		_, err := page.Goto(server.EMPTY_PAGE)
+		return err
+	})
+	require.NoError(t, err)
+	require.Equal(t, server.EMPTY_PAGE, request.URL())
+	require.Equal(t, "document", request.ResourceType())
+	require.Equal(t, "GET", request.Method())
+}
+
 func TestPageExpectRequestFinished(t *testing.T) {
 	BeforeEach(t)
 
@@ -1139,6 +1154,19 @@ func TestPageExpectResponse(t *testing.T) {
 
 		predicate := regexp.MustCompile(`(?i).*/one-style.html`)
 		response, err := page.ExpectResponse(predicate, func() error {
+			_, err := page.Goto(server.PREFIX + "/one-style.html")
+			return err
+		}, playwright.PageExpectResponseOptions{Timeout: playwright.Float(3 * 1000)})
+		require.NoError(t, err)
+		require.Equal(t, fmt.Sprintf("%s/one-style.html", server.PREFIX), response.URL())
+	})
+
+	t.Run("should work with response predicate", func(t *testing.T) {
+		BeforeEach(t)
+
+		response, err := page.ExpectResponse(func(r playwright.Response) bool {
+			return r.Status() == 200 && strings.HasSuffix(r.URL(), "one-style.html")
+		}, func() error {
 			_, err := page.Goto(server.PREFIX + "/one-style.html")
 			return err
 		}, playwright.PageExpectResponseOptions{Timeout: playwright.Float(3 * 1000)})
