@@ -284,6 +284,31 @@ func TestLocatorAssertionsToHaveClass(t *testing.T) {
 	require.NoError(t, expect.Locator(locator2).Not().ToHaveClass("test1"))
 }
 
+// A list may mix strings and regexps, matching the documented "string or RegExp
+// or a list of those" (upstream Array<string|RegExp>).
+func TestLocatorAssertionsMixedStringRegexpList(t *testing.T) {
+	BeforeEach(t)
+
+	err := page.SetContent(`
+	<div class="test1">alpha</div>
+	<div class="test2">beta</div>
+	`)
+	require.NoError(t, err)
+
+	div := page.Locator("div")
+	require.NoError(t, div.Err())
+
+	require.NoError(t, expect.Locator(div).ToHaveText([]any{"alpha", regexp.MustCompile("bet.")}))
+	require.NoError(t, expect.Locator(div).ToContainText([]any{"alph", regexp.MustCompile("et")}))
+	require.NoError(t, expect.Locator(div).ToHaveClass([]any{"test1", regexp.MustCompile(`test\d`)}))
+
+	require.Error(t, expect.Locator(div).ToHaveText([]any{"alpha", regexp.MustCompile("gamma")}))
+	require.Error(t, expect.Locator(div).ToHaveClass([]any{"test1", regexp.MustCompile(`nope\d`)}))
+
+	// Elements that are neither string nor regexp are still rejected, per item.
+	require.Error(t, expect.Locator(div).ToHaveText([]any{"alpha", 42}))
+}
+
 func TestLocatorAssertionsToHaveCount(t *testing.T) {
 	BeforeEach(t)
 

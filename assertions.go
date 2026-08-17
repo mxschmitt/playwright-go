@@ -152,6 +152,19 @@ func toExpectedTextValues(
 	return out, nil
 }
 
+// isExpectedList reports whether the expected value is a list rather than a
+// single item. It mirrors upstream's `Array.isArray(expected)` branch: the
+// element types do not select the branch, they are validated per item by
+// toExpectedTextValues. This is what makes a mixed list such as
+// []any{"foo", regexp.MustCompile("bar")} work, matching the documented
+// "string or RegExp or a list of those" (upstream Array<string|RegExp>).
+func isExpectedList(expected any) bool {
+	if expected == nil {
+		return false
+	}
+	return reflect.ValueOf(expected).Kind() == reflect.Slice
+}
+
 func convertToInterfaceList(v any) []any {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Slice {

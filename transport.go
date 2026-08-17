@@ -3,11 +3,10 @@ package playwright
 import (
 	"bufio"
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"io"
 	"os"
-
-	"github.com/go-jose/go-jose/v3/json"
 )
 
 type transport interface {
@@ -42,7 +41,7 @@ func (t *pipeTransport) Poll() (*message, error) {
 	}
 
 	msg := &message{}
-	if err := json.Unmarshal(data, &msg); err != nil {
+	if err := json.Unmarshal(data, msg); err != nil {
 		return nil, fmt.Errorf("could not decode json: %w", err)
 	}
 	if os.Getenv("DEBUGP") != "" {
