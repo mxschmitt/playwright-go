@@ -2,6 +2,8 @@ name: Docs
 on:
   push:
     branches: [ main ]
+# Intentionally serialized per ref, unlike build.yml: this pushes to gh-pages,
+# and concurrent deploys can race so that an older build is published last.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false

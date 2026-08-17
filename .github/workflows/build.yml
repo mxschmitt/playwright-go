@@ -4,8 +4,13 @@ on:
     branches: [ main, roll/* ]
   pull_request:
     branches: [ main, roll/* ]
+# Keyed per PR so a new push supersedes the running check, but per *commit* on
+# push builds. Keying pushes by ref instead would put every commit to main into
+# one serialized queue: GitHub allows only one pending run per group, so each
+# new commit cancels the previously-pending one and intermediate commits on main
+# never get built.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.sha }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 jobs:
   lint:
