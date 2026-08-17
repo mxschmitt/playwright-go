@@ -1386,7 +1386,11 @@ func (p *pageImpl) GetByAltText(text any, options ...PageGetByAltTextOptions) Lo
 			exact = true
 		}
 	}
-	return p.Locator(getByAltTextSelector(text, exact))
+	selector, err := getByAltTextSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByLabel(text any, options ...PageGetByLabelOptions) Locator {
@@ -1396,7 +1400,11 @@ func (p *pageImpl) GetByLabel(text any, options ...PageGetByLabelOptions) Locato
 			exact = true
 		}
 	}
-	return p.Locator(getByLabelSelector(text, exact))
+	selector, err := getByLabelSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByPlaceholder(text any, options ...PageGetByPlaceholderOptions) Locator {
@@ -1406,18 +1414,34 @@ func (p *pageImpl) GetByPlaceholder(text any, options ...PageGetByPlaceholderOpt
 			exact = true
 		}
 	}
-	return p.Locator(getByPlaceholderSelector(text, exact))
+	selector, err := getByPlaceholderSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByRole(role AriaRole, options ...PageGetByRoleOptions) Locator {
 	if len(options) == 1 {
-		return p.Locator(getByRoleSelector(role, LocatorGetByRoleOptions(options[0])))
+		selector, err := getByRoleSelector(role, LocatorGetByRoleOptions(options[0]))
+		if err != nil {
+			return newErrorLocator(p.mainFrame.(*frameImpl), err)
+		}
+		return p.Locator(selector)
 	}
-	return p.Locator(getByRoleSelector(role))
+	selector, err := getByRoleSelector(role)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByTestId(testId any) Locator {
-	return p.Locator(getByTestIdSelector(getTestIdAttributeName(), testId))
+	selector, err := getByTestIdSelector(getTestIdAttributeName(), testId)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByText(text any, options ...PageGetByTextOptions) Locator {
@@ -1427,7 +1451,11 @@ func (p *pageImpl) GetByText(text any, options ...PageGetByTextOptions) Locator 
 			exact = true
 		}
 	}
-	return p.Locator(getByTextSelector(text, exact))
+	selector, err := getByTextSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) GetByTitle(text any, options ...PageGetByTitleOptions) Locator {
@@ -1437,7 +1465,11 @@ func (p *pageImpl) GetByTitle(text any, options ...PageGetByTitleOptions) Locato
 			exact = true
 		}
 	}
-	return p.Locator(getByTitleSelector(text, exact))
+	selector, err := getByTitleSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(p.mainFrame.(*frameImpl), err)
+	}
+	return p.Locator(selector)
 }
 
 func (p *pageImpl) FrameLocator(selector string) FrameLocator {

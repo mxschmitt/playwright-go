@@ -28,10 +28,20 @@ func newLocator(frame *frameImpl, selector string, options ...LocatorOptions) *l
 	}
 	locator := &locatorImpl{frame: frame, selector: selector, options: option, err: nil}
 	if option.HasText != nil {
-		selector += fmt.Sprintf(` >> internal:has-text=%s`, escapeForTextSelector(option.HasText, false))
+		escaped, err := escapeForTextSelector(option.HasText, false)
+		if err != nil {
+			locator.err = errors.Join(locator.err, fmt.Errorf("HasText: %w", err))
+		} else {
+			selector += fmt.Sprintf(` >> internal:has-text=%s`, escaped)
+		}
 	}
 	if option.HasNotText != nil {
-		selector += fmt.Sprintf(` >> internal:has-not-text=%s`, escapeForTextSelector(option.HasNotText, false))
+		escaped, err := escapeForTextSelector(option.HasNotText, false)
+		if err != nil {
+			locator.err = errors.Join(locator.err, fmt.Errorf("HasNotText: %w", err))
+		} else {
+			selector += fmt.Sprintf(` >> internal:has-not-text=%s`, escaped)
+		}
 	}
 	if option.Has != nil {
 		has := option.Has.(*locatorImpl)
@@ -56,6 +66,16 @@ func newLocator(frame *frameImpl, selector string, options ...LocatorOptions) *l
 	locator.selector = selector
 
 	return locator
+}
+
+// newErrorLocator returns a Locator that only carries err. The GetBy* methods
+// return a Locator with no error slot of their own, so an unsupported argument
+// type is reported the same way an invalid selector parameter already is: the
+// error surfaces via Err() and from every action on the locator, rather than
+// panicking. Upstream needs no equivalent because its `string | RegExp`
+// parameter types reject these arguments at compile time.
+func newErrorLocator(frame *frameImpl, err error) *locatorImpl {
+	return &locatorImpl{frame: frame, options: &LocatorOptions{}, err: err}
 }
 
 func (l *locatorImpl) equals(locator Locator) bool {
@@ -477,7 +497,11 @@ func (l *locatorImpl) GetByAltText(text any, options ...LocatorGetByAltTextOptio
 			exact = true
 		}
 	}
-	return l.Locator(getByAltTextSelector(text, exact))
+	selector, err := getByAltTextSelector(text, exact)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) Locator {
@@ -487,7 +511,11 @@ func (l *locatorImpl) GetByLabel(text any, options ...LocatorGetByLabelOptions) 
 			exact = true
 		}
 	}
-	return l.Locator(getByLabelSelector(text, exact))
+	selector, err := getByLabelSelector(text, exact)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByPlaceholder(text any, options ...LocatorGetByPlaceholderOptions) Locator {
@@ -497,15 +525,27 @@ func (l *locatorImpl) GetByPlaceholder(text any, options ...LocatorGetByPlacehol
 			exact = true
 		}
 	}
-	return l.Locator(getByPlaceholderSelector(text, exact))
+	selector, err := getByPlaceholderSelector(text, exact)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByRole(role AriaRole, options ...LocatorGetByRoleOptions) Locator {
-	return l.Locator(getByRoleSelector(role, options...))
+	selector, err := getByRoleSelector(role, options...)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByTestId(testId any) Locator {
-	return l.Locator(getByTestIdSelector(getTestIdAttributeName(), testId))
+	selector, err := getByTestIdSelector(getTestIdAttributeName(), testId)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Locator {
@@ -515,7 +555,11 @@ func (l *locatorImpl) GetByText(text any, options ...LocatorGetByTextOptions) Lo
 			exact = true
 		}
 	}
-	return l.Locator(getByTextSelector(text, exact))
+	selector, err := getByTextSelector(text, exact)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) Locator {
@@ -525,7 +569,11 @@ func (l *locatorImpl) GetByTitle(text any, options ...LocatorGetByTitleOptions) 
 			exact = true
 		}
 	}
-	return l.Locator(getByTitleSelector(text, exact))
+	selector, err := getByTitleSelector(text, exact)
+	if err != nil {
+		return l.withError(err)
+	}
+	return l.Locator(selector)
 }
 
 func (l *locatorImpl) HideHighlight() error {

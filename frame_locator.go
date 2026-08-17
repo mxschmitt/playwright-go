@@ -29,7 +29,11 @@ func (fl *frameLocatorImpl) GetByAltText(text any, options ...FrameLocatorGetByA
 			exact = true
 		}
 	}
-	return fl.Locator(getByAltTextSelector(text, exact))
+	selector, err := getByAltTextSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByLabel(text any, options ...FrameLocatorGetByLabelOptions) Locator {
@@ -39,7 +43,11 @@ func (fl *frameLocatorImpl) GetByLabel(text any, options ...FrameLocatorGetByLab
 			exact = true
 		}
 	}
-	return fl.Locator(getByLabelSelector(text, exact))
+	selector, err := getByLabelSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByPlaceholder(text any, options ...FrameLocatorGetByPlaceholderOptions) Locator {
@@ -49,18 +57,34 @@ func (fl *frameLocatorImpl) GetByPlaceholder(text any, options ...FrameLocatorGe
 			exact = true
 		}
 	}
-	return fl.Locator(getByPlaceholderSelector(text, exact))
+	selector, err := getByPlaceholderSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByRole(role AriaRole, options ...FrameLocatorGetByRoleOptions) Locator {
 	if len(options) == 1 {
-		return fl.Locator(getByRoleSelector(role, LocatorGetByRoleOptions(options[0])))
+		selector, err := getByRoleSelector(role, LocatorGetByRoleOptions(options[0]))
+		if err != nil {
+			return newErrorLocator(fl.frame, err)
+		}
+		return fl.Locator(selector)
 	}
-	return fl.Locator(getByRoleSelector(role))
+	selector, err := getByRoleSelector(role)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByTestId(testId any) Locator {
-	return fl.Locator(getByTestIdSelector(getTestIdAttributeName(), testId))
+	selector, err := getByTestIdSelector(getTestIdAttributeName(), testId)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByText(text any, options ...FrameLocatorGetByTextOptions) Locator {
@@ -70,7 +94,11 @@ func (fl *frameLocatorImpl) GetByText(text any, options ...FrameLocatorGetByText
 			exact = true
 		}
 	}
-	return fl.Locator(getByTextSelector(text, exact))
+	selector, err := getByTextSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) GetByTitle(text any, options ...FrameLocatorGetByTitleOptions) Locator {
@@ -80,7 +108,11 @@ func (fl *frameLocatorImpl) GetByTitle(text any, options ...FrameLocatorGetByTit
 			exact = true
 		}
 	}
-	return fl.Locator(getByTitleSelector(text, exact))
+	selector, err := getByTitleSelector(text, exact)
+	if err != nil {
+		return newErrorLocator(fl.frame, err)
+	}
+	return fl.Locator(selector)
 }
 
 func (fl *frameLocatorImpl) Last() FrameLocator {

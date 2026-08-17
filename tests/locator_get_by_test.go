@@ -166,3 +166,61 @@ func TestGetByRole(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 1, count)
 }
+
+// The GetBy* text parameters are `any` because Go has no string|RegExp union,
+// so an unsupported type has to surface through Locator.Err() rather than
+// panicking on an unchecked type assertion.
+func TestGetByRejectsInvalidArgumentType(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div><button title="Hello">Hello</button></div>`))
+
+	const wantErr = "expected string or *regexp.Regexp, but got int"
+
+	frame := page.MainFrame()
+	locator := page.Locator("div")
+	frameLocator := page.FrameLocator(":scope")
+
+	for name, got := range map[string]playwright.Locator{
+		"page.GetByText":          page.GetByText(42),
+		"page.GetByLabel":         page.GetByLabel(42),
+		"page.GetByPlaceholder":   page.GetByPlaceholder(42),
+		"page.GetByAltText":       page.GetByAltText(42),
+		"page.GetByTitle":         page.GetByTitle(42),
+		"page.GetByTestId":        page.GetByTestId(42),
+		"frame.GetByText":         frame.GetByText(42),
+		"frame.GetByTestId":       frame.GetByTestId(42),
+		"locator.GetByText":       locator.GetByText(42),
+		"locator.GetByTestId":     locator.GetByTestId(42),
+		"frameLocator.GetByText":  frameLocator.GetByText(42),
+		"frameLocator.GetByTitle": frameLocator.GetByTitle(42),
+	} {
+		require.ErrorContains(t, got.Err(), wantErr, name)
+		// The error must also come back from actions on the locator.
+		_, err := got.Count()
+		require.ErrorContains(t, err, wantErr, name)
+	}
+
+	// GetByRole carries the same hazard through its Name/Description options.
+	require.ErrorContains(t, page.GetByRole("button", playwright.PageGetByRoleOptions{
+		Name: 42,
+	}).Err(), wantErr)
+	require.ErrorContains(t, page.GetByRole("button", playwright.PageGetByRoleOptions{
+		Description: 42,
+	}).Err(), wantErr)
+
+	// So do the HasText/HasNotText locator options.
+	require.ErrorContains(t, page.Locator("div", playwright.PageLocatorOptions{
+		HasText: 42,
+	}).Err(), "HasText: "+wantErr)
+	require.ErrorContains(t, page.Locator("div", playwright.PageLocatorOptions{
+		HasNotText: 42,
+	}).Err(), "HasNotText: "+wantErr)
+
+	// Valid arguments are unaffected.
+	require.NoError(t, page.GetByText("Hello").Err())
+	require.NoError(t, page.GetByTitle(regexp.MustCompile("Hel")).Err())
+	count, err := page.GetByText("Hello").Count()
+	require.NoError(t, err)
+	require.Equal(t, 1, count)
+}

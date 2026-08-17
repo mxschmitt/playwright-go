@@ -19,28 +19,39 @@ func convertRegexp(reg *regexp.Regexp) (pattern, flags string) {
 	return
 }
 
-func escapeForAttributeSelector(text any, exact bool) string {
+// errInvalidTextArgument reports an argument that is neither a string nor a
+// regexp. Upstream relies on its `string | RegExp` types to rule this out at
+// compile time; the Go signatures are `any`, so it has to be checked here.
+func errInvalidTextArgument(text any) error {
+	return fmt.Errorf("expected string or *regexp.Regexp, but got %T", text)
+}
+
+func escapeForAttributeSelector(text any, exact bool) (string, error) {
 	switch text := text.(type) {
 	case *regexp.Regexp:
-		return escapeRegexForSelector(text)
-	default:
+		return escapeRegexForSelector(text), nil
+	case string:
 		suffix := "i"
 		if exact {
 			suffix = "s"
 		}
-		return fmt.Sprintf(`"%s"%s`, strings.ReplaceAll(strings.ReplaceAll(text.(string), `\`, `\\`), `"`, `\"`), suffix)
+		return fmt.Sprintf(`"%s"%s`, strings.ReplaceAll(strings.ReplaceAll(text, `\`, `\\`), `"`, `\"`), suffix), nil
+	default:
+		return "", errInvalidTextArgument(text)
 	}
 }
 
-func escapeForTextSelector(text any, exact bool) string {
+func escapeForTextSelector(text any, exact bool) (string, error) {
 	switch text := text.(type) {
 	case *regexp.Regexp:
-		return escapeRegexForSelector(text)
-	default:
+		return escapeRegexForSelector(text), nil
+	case string:
 		if exact {
-			return fmt.Sprintf(`%ss`, escapeText(text.(string)))
+			return fmt.Sprintf(`%ss`, escapeText(text)), nil
 		}
-		return fmt.Sprintf(`%si`, escapeText(text.(string)))
+		return fmt.Sprintf(`%si`, escapeText(text)), nil
+	default:
+		return "", errInvalidTextArgument(text)
 	}
 }
 
@@ -101,23 +112,31 @@ func escapeText(s string) string {
 	return strings.TrimSpace(builder.String())
 }
 
-func getByAltTextSelector(text any, exact bool) string {
+func getByAltTextSelector(text any, exact bool) (string, error) {
 	return getByAttributeTextSelector("alt", text, exact)
 }
 
-func getByAttributeTextSelector(attrName string, text any, exact bool) string {
-	return fmt.Sprintf(`internal:attr=[%s=%s]`, attrName, escapeForAttributeSelector(text, exact))
+func getByAttributeTextSelector(attrName string, text any, exact bool) (string, error) {
+	escaped, err := escapeForAttributeSelector(text, exact)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`internal:attr=[%s=%s]`, attrName, escaped), nil
 }
 
-func getByLabelSelector(text any, exact bool) string {
-	return fmt.Sprintf(`internal:label=%s`, escapeForTextSelector(text, exact))
+func getByLabelSelector(text any, exact bool) (string, error) {
+	escaped, err := escapeForTextSelector(text, exact)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`internal:label=%s`, escaped), nil
 }
 
-func getByPlaceholderSelector(text any, exact bool) string {
+func getByPlaceholderSelector(text any, exact bool) (string, error) {
 	return getByAttributeTextSelector("placeholder", text, exact)
 }
 
-func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) string {
+func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) (string, error) {
 	// Keep the property ordering stable and identical to upstream, since the
 	// produced selector string must be deterministic.
 	props := make([][2]string, 0)
@@ -145,10 +164,18 @@ func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) string
 			props = append(props, [2]string{"level", fmt.Sprintf("%d", *options[0].Level)})
 		}
 		if options[0].Name != nil {
-			props = append(props, [2]string{"name", escapeForAttributeSelector(options[0].Name, exact)})
+			escaped, err := escapeForAttributeSelector(options[0].Name, exact)
+			if err != nil {
+				return "", err
+			}
+			props = append(props, [2]string{"name", escaped})
 		}
 		if options[0].Description != nil {
-			props = append(props, [2]string{"description", escapeForAttributeSelector(options[0].Description, exact)})
+			escaped, err := escapeForAttributeSelector(options[0].Description, exact)
+			if err != nil {
+				return "", err
+			}
+			props = append(props, [2]string{"description", escaped})
 		}
 		if options[0].Pressed != nil {
 			props = append(props, [2]string{"pressed", fmt.Sprintf("%t", *options[0].Pressed)})
@@ -158,15 +185,23 @@ func getByRoleSelector(role AriaRole, options ...LocatorGetByRoleOptions) string
 	for _, p := range props {
 		propsStr.WriteString("[" + p[0] + "=" + p[1] + "]")
 	}
-	return fmt.Sprintf("internal:role=%s%s", role, propsStr.String())
+	return fmt.Sprintf("internal:role=%s%s", role, propsStr.String()), nil
 }
 
-func getByTextSelector(text any, exact bool) string {
-	return fmt.Sprintf(`internal:text=%s`, escapeForTextSelector(text, exact))
+func getByTextSelector(text any, exact bool) (string, error) {
+	escaped, err := escapeForTextSelector(text, exact)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`internal:text=%s`, escaped), nil
 }
 
-func getByTestIdSelector(testIdAttributeName string, testId any) string {
-	return fmt.Sprintf(`internal:testid=[%s=%s]`, encodeTestIdAttributeName(testIdAttributeName), escapeForAttributeSelector(testId, true))
+func getByTestIdSelector(testIdAttributeName string, testId any) (string, error) {
+	escaped, err := escapeForAttributeSelector(testId, true)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf(`internal:testid=[%s=%s]`, encodeTestIdAttributeName(testIdAttributeName), escaped), nil
 }
 
 // encodeTestIdAttributeName JSON-quotes the attribute name when it contains a
@@ -183,7 +218,7 @@ func encodeTestIdAttributeName(testIdAttributeName string) string {
 	return testIdAttributeName
 }
 
-func getByTitleSelector(text any, exact bool) string {
+func getByTitleSelector(text any, exact bool) (string, error) {
 	return getByAttributeTextSelector("title", text, exact)
 }
 
