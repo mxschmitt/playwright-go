@@ -2,7 +2,6 @@ package playwright
 
 import (
 	"fmt"
-	"regexp"
 )
 
 type locatorAssertionsImpl struct {
@@ -249,8 +248,8 @@ func (la *locatorAssertionsImpl) ToContainText(expected any, options ...LocatorA
 		ignoreCase = options[0].IgnoreCase
 	}
 
-	switch expected.(type) {
-	case []string, []*regexp.Regexp:
+	switch {
+	case isExpectedList(expected):
 		expectedText, err := toExpectedTextValues(convertToInterfaceList(expected), true, true, ignoreCase)
 		if err != nil {
 			return err
@@ -368,8 +367,8 @@ func (la *locatorAssertionsImpl) ToHaveClass(expected any, options ...LocatorAss
 	if len(options) == 1 {
 		timeout = options[0].Timeout
 	}
-	switch expected.(type) {
-	case []string, []*regexp.Regexp:
+	switch {
+	case isExpectedList(expected):
 		expectedText, err := toExpectedTextValues(convertToInterfaceList(expected), false, false, nil)
 		if err != nil {
 			return err
@@ -500,8 +499,8 @@ func (la *locatorAssertionsImpl) ToHaveText(expected any, options ...LocatorAsse
 		ignoreCase = options[0].IgnoreCase
 	}
 
-	switch expected.(type) {
-	case []string, []*regexp.Regexp:
+	switch {
+	case isExpectedList(expected):
 		expectedText, err := toExpectedTextValues(convertToInterfaceList(expected), false, true, ignoreCase)
 		if err != nil {
 			return err
