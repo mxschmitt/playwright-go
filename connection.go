@@ -249,18 +249,19 @@ func (c *connection) replaceGuidsWithChannels(payload any) (any, error) {
 	}
 	if v.Kind() == reflect.Map {
 		mapV := payload.(map[string]any)
-		// Check if this map represents an object reference (has "guid" field)
+		// A map whose "guid" names a bound object is a reference to that object.
+		// Any other "guid" key is plain data and the map is walked like every
+		// other map: raw CDP payloads relayed through CDPSession "event" carry
+		// Chrome's own guid fields (Page.downloadWillBegin, Page.downloadProgress),
+		// and the reference client passes such maps through untouched. Treating
+		// them as broken references tore down the whole connection on the first
+		// download seen by any CDP session.
 		if guid, hasGUID := mapV["guid"]; hasGUID {
-			guidStr, ok := guid.(string)
-			if !ok {
-				return nil, fmt.Errorf("guid field is not a string: %T", guid)
+			if guidStr, ok := guid.(string); ok {
+				if channelOwner, ok := c.objects.Load(guidStr); ok {
+					return channelOwner.channel, nil
+				}
 			}
-			// Try to load the object from connection's objects map
-			if channelOwner, ok := c.objects.Load(guidStr); ok {
-				return channelOwner.channel, nil
-			}
-			// Object not found - this indicates a protocol error or message ordering issue
-			return nil, fmt.Errorf("object with guid %s was not bound in the connection", guidStr)
 		}
 		// Recursively process all values in the map
 		for key := range mapV {
