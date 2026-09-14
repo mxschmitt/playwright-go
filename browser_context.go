@@ -273,13 +273,15 @@ func (b *browserContextImpl) ExposeFunction(name string, binding ExposedFunction
 
 func (b *browserContextImpl) Route(url any, handler routeHandler, times ...int) error {
 	b.Lock()
-	defer b.Unlock()
 	b.routes = slices.Insert(b.routes, 0, newRouteHandlerEntry(newURLMatcher(url, b.options.BaseURL), handler, times...))
+	b.Unlock()
 	return b.updateInterceptionPatterns()
 }
 
 func (b *browserContextImpl) Unroute(url any, handlers ...routeHandler) error {
+	b.Lock()
 	removed, remaining, err := unroute(b.routes, url, handlers...)
+	b.Unlock()
 	if err != nil {
 		return err
 	}
@@ -288,8 +290,8 @@ func (b *browserContextImpl) Unroute(url any, handlers ...routeHandler) error {
 
 func (b *browserContextImpl) unrouteInternal(removed []*routeHandlerEntry, remaining []*routeHandlerEntry, behavior *UnrouteBehavior) error {
 	b.Lock()
-	defer b.Unlock()
 	b.routes = remaining
+	b.Unlock()
 	if err := b.updateInterceptionPatterns(); err != nil {
 		return err
 	}
@@ -313,8 +315,11 @@ func (b *browserContextImpl) UnrouteAll(options ...BrowserContextUnrouteAllOptio
 	if len(options) == 1 {
 		behavior = options[0].Behavior
 	}
+	b.Lock()
+	removed := b.routes
+	b.Unlock()
 	defer b.disposeHarRouters()
-	return b.unrouteInternal(b.routes, []*routeHandlerEntry{}, behavior)
+	return b.unrouteInternal(removed, []*routeHandlerEntry{}, behavior)
 }
 
 func (b *browserContextImpl) disposeHarRouters() {
@@ -634,16 +639,21 @@ func (b *browserContextImpl) onRoute(route *routeImpl) {
 	b.Unlock()
 
 	checkInterceptionIfNeeded := func() {
+		// Do not hold the context mutex across the protocol round-trip:
+		// dispatch may need the same lock (e.g. page.onClose) to deliver the
+		// setNetworkInterceptionPatterns reply.
 		b.Lock()
-		defer b.Unlock()
-		if len(b.routes) == 0 {
-			_, err := b.connection.WrapAPICall(func() (any, error) {
-				err := b.updateInterceptionPatterns()
-				return nil, err
-			}, true)
-			if err != nil {
-				logger.Error("could not update interception patterns", "error", err)
-			}
+		empty := len(b.routes) == 0
+		b.Unlock()
+		if !empty {
+			return
+		}
+		_, err := b.connection.WrapAPICall(func() (any, error) {
+			err := b.updateInterceptionPatterns()
+			return nil, err
+		}, true)
+		if err != nil {
+			logger.Error("could not update interception patterns", "error", err)
 		}
 	}
 
@@ -656,15 +666,18 @@ func (b *browserContextImpl) onRoute(route *routeImpl) {
 		if !handlerEntry.Matches(url) {
 			continue
 		}
-		if !slices.ContainsFunc(b.routes, func(entry *routeHandlerEntry) bool {
+		b.Lock()
+		stillListed := slices.ContainsFunc(b.routes, func(entry *routeHandlerEntry) bool {
 			return entry == handlerEntry
-		}) {
-			continue
-		}
-		if handlerEntry.WillExceed() {
+		})
+		if stillListed && handlerEntry.WillExceed() {
 			b.routes = slices.DeleteFunc(b.routes, func(rhe *routeHandlerEntry) bool {
 				return rhe == handlerEntry
 			})
+		}
+		b.Unlock()
+		if !stillListed {
+			continue
 		}
 		handled := handlerEntry.Handle(route)
 		checkInterceptionIfNeeded()
@@ -679,7 +692,9 @@ func (b *browserContextImpl) onRoute(route *routeImpl) {
 }
 
 func (b *browserContextImpl) updateInterceptionPatterns() error {
+	b.Lock()
 	patterns := prepareInterceptionPatterns(b.routes)
+	b.Unlock()
 	_, err := b.channel.Send("setNetworkInterceptionPatterns", map[string]any{
 		"patterns": patterns,
 	})
