@@ -1568,3 +1568,32 @@ func TestPageRequestsWithNavigation(t *testing.T) {
 	require.Equal(t, "GET", req.Method())
 	require.Equal(t, "document", req.ResourceType())
 }
+
+func TestPageContentShouldIncludeShadowRoots(t *testing.T) {
+	BeforeEach(t)
+
+	html := `<!DOCTYPE html><html lang="en"><head></head><body><div id="host"><template shadowrootmode="open"><div id="nested"><template shadowrootmode="open"><span>nested</span></template><slot></slot></div></template><span>light</span></div><div id="closed"></div></body></html>`
+	// Closed shadow roots are not accessible from script and are never serialized.
+	require.NoError(t, page.SetContent(strings.Replace(html, `<div id="closed">`, `<div id="closed"><template shadowrootmode="closed"><span>closed</span></template>`, 1)))
+	content, err := page.Content()
+	require.NoError(t, err)
+	require.Equal(t, `<!DOCTYPE html><html lang="en"><head></head><body><div id="host"><span>light</span></div><div id="closed"></div></body></html>`, content)
+	content, err = page.Content(playwright.PageContentOptions{IncludeShadow: playwright.Bool(true)})
+	require.NoError(t, err)
+	require.Equal(t, html, content)
+	content, err = page.MainFrame().Content(playwright.FrameContentOptions{IncludeShadow: playwright.Bool(true)})
+	require.NoError(t, err)
+	require.Equal(t, html, content)
+}
+
+func TestPageGetByRefShouldLocateElementsByAriaRef(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<button>One</button><button>Two</button>`))
+	snapshot, err := page.AriaSnapshot(playwright.PageAriaSnapshotOptions{Mode: playwright.AriaSnapshotModeAi})
+	require.NoError(t, err)
+	require.Contains(t, snapshot, `button "One" [ref=e2]`)
+	require.Contains(t, snapshot, `button "Two" [ref=e3]`)
+	require.NoError(t, expect.Locator(page.GetByRef("e2")).ToHaveText("One"))
+	require.NoError(t, expect.Locator(page.GetByRef("e3")).ToHaveText("Two"))
+}

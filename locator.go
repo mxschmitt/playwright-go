@@ -45,6 +45,7 @@ func newLocator(frame *frameImpl, selector string, options ...LocatorOptions) *l
 	}
 	if option.Has != nil {
 		has := option.Has.(*locatorImpl)
+		locator.err = errors.Join(locator.err, has.err)
 		if frame != has.frame {
 			locator.err = errors.Join(locator.err, ErrLocatorNotSameFrame)
 		} else {
@@ -53,6 +54,7 @@ func newLocator(frame *frameImpl, selector string, options ...LocatorOptions) *l
 	}
 	if option.HasNot != nil {
 		hasNot := option.HasNot.(*locatorImpl)
+		locator.err = errors.Join(locator.err, hasNot.err)
 		if frame != hasNot.frame {
 			locator.err = errors.Join(locator.err, ErrLocatorNotSameFrame)
 		} else {
@@ -94,6 +96,14 @@ func (l *locatorImpl) withError(err error) *locatorImpl {
 	}
 }
 
+// derive returns a locator for selector that keeps l's error, so that every
+// locator built from an invalid locator reports the same error.
+func (l *locatorImpl) derive(selector string, options ...LocatorOptions) *locatorImpl {
+	locator := newLocator(l.frame, selector, options...)
+	locator.err = errors.Join(l.err, locator.err)
+	return locator
+}
+
 func (l *locatorImpl) Err() error {
 	return l.err
 }
@@ -101,7 +111,7 @@ func (l *locatorImpl) Err() error {
 func (l *locatorImpl) Describe(description string) Locator {
 	// Embed the description into the selector via the internal:describe engine so
 	// it reaches the server (traces, error messages, call logs), matching upstream.
-	return newLocator(l.frame, l.selector+" >> internal:describe="+escapeText(description))
+	return l.derive(l.selector + " >> internal:describe=" + escapeText(description))
 }
 
 func (l *locatorImpl) Description() (string, error) {
@@ -156,14 +166,18 @@ func (l *locatorImpl) And(locator Locator) Locator {
 	if l.frame != locator.(*locatorImpl).frame {
 		return l.withError(ErrLocatorNotSameFrame)
 	}
-	return newLocator(l.frame, l.selector+` >> internal:and=`+escapeText(locator.(*locatorImpl).selector))
+	combined := l.derive(l.selector + ` >> internal:and=` + escapeText(locator.(*locatorImpl).selector))
+	combined.err = errors.Join(combined.err, locator.(*locatorImpl).err)
+	return combined
 }
 
 func (l *locatorImpl) Or(locator Locator) Locator {
 	if l.frame != locator.(*locatorImpl).frame {
 		return l.withError(ErrLocatorNotSameFrame)
 	}
-	return newLocator(l.frame, l.selector+` >> internal:or=`+escapeText(locator.(*locatorImpl).selector))
+	combined := l.derive(l.selector + ` >> internal:or=` + escapeText(locator.(*locatorImpl).selector))
+	combined.err = errors.Join(combined.err, locator.(*locatorImpl).err)
+	return combined
 }
 
 func (l *locatorImpl) Blur(options ...LocatorBlurOptions) error {
@@ -267,7 +281,7 @@ func (l *locatorImpl) Click(options ...LocatorClickOptions) error {
 }
 
 func (l *locatorImpl) ContentFrame() FrameLocator {
-	return newFrameLocator(l.frame, l.selector)
+	return &frameLocatorImpl{frame: l.frame, frameSelector: l.selector, err: l.err}
 }
 
 func (l *locatorImpl) Count() (int, error) {
@@ -447,13 +461,13 @@ func (l *locatorImpl) Fill(value string, options ...LocatorFillOptions) error {
 
 func (l *locatorImpl) Filter(options ...LocatorFilterOptions) Locator {
 	if len(options) == 1 {
-		return newLocator(l.frame, l.selector, LocatorOptions(options[0]))
+		return l.derive(l.selector, LocatorOptions(options[0]))
 	}
-	return newLocator(l.frame, l.selector)
+	return l.derive(l.selector)
 }
 
 func (l *locatorImpl) First() Locator {
-	return newLocator(l.frame, l.selector+" >> nth=0")
+	return l.derive(l.selector + " >> nth=0")
 }
 
 func (l *locatorImpl) Focus(options ...LocatorFocusOptions) error {
@@ -472,7 +486,7 @@ func (l *locatorImpl) Focus(options ...LocatorFocusOptions) error {
 }
 
 func (l *locatorImpl) FrameLocator(selector string) FrameLocator {
-	return newFrameLocator(l.frame, l.selector+" >> "+selector)
+	return &frameLocatorImpl{frame: l.frame, frameSelector: l.selector + " >> " + selector, err: l.err}
 }
 
 func (l *locatorImpl) GetAttribute(name string, options ...LocatorGetAttributeOptions) (string, error) {
@@ -744,7 +758,7 @@ func (l *locatorImpl) IsVisible(options ...LocatorIsVisibleOptions) (bool, error
 }
 
 func (l *locatorImpl) Last() Locator {
-	return newLocator(l.frame, l.selector+" >> nth=-1")
+	return l.derive(l.selector + " >> nth=-1")
 }
 
 func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOptions) Locator {
@@ -760,24 +774,22 @@ func (l *locatorImpl) Locator(selectorOrLocator any, options ...LocatorLocatorOp
 
 	selector, ok := selectorOrLocator.(string)
 	if ok {
-		return newLocator(l.frame, l.selector+" >> "+selector, option)
+		return l.derive(l.selector+" >> "+selector, option)
 	}
 	locator, ok := selectorOrLocator.(*locatorImpl)
 	if ok {
 		if l.frame != locator.frame {
 			return l.withError(ErrLocatorNotSameFrame)
 		}
-		return newLocator(
-			l.frame,
-			l.selector+" >> internal:chain="+escapeText(locator.selector),
-			option,
-		)
+		chained := l.derive(l.selector+" >> internal:chain="+escapeText(locator.selector), option)
+		chained.err = errors.Join(chained.err, locator.err)
+		return chained
 	}
 	return l.withError(fmt.Errorf("invalid locator parameter: %v", selectorOrLocator))
 }
 
 func (l *locatorImpl) Nth(index int) Locator {
-	return newLocator(l.frame, l.selector+" >> nth="+strconv.Itoa(index))
+	return l.derive(l.selector + " >> nth=" + strconv.Itoa(index))
 }
 
 func (l *locatorImpl) Page() (Page, error) {
@@ -981,6 +993,14 @@ func (l *locatorImpl) Uncheck(options ...LocatorUncheckOptions) error {
 	return l.frame.Uncheck(l.selector, opt)
 }
 
+func (l *locatorImpl) Within(locator Locator) Locator {
+	return locator.Locator(l)
+}
+
+func (l *locatorImpl) Visible() Locator {
+	return l.derive(l.selector, LocatorOptions{Visible: Bool(true)})
+}
+
 func (l *locatorImpl) WaitFor(options ...LocatorWaitForOptions) error {
 	if l.err != nil {
 		return l.err
@@ -1095,6 +1115,9 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 			if v, ok := detailed.details["timedOut"].(bool); ok {
 				result.TimedOut = &v
 			}
+			if v, ok := detailed.details["customErrorMessage"].(string); ok {
+				result.ErrorMessage = v
+			}
 			return result, nil
 		}
 		return nil, err
@@ -1104,13 +1127,16 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 }
 
 func (l *locatorImpl) Normalize() Locator {
-	result, err := l.frame.channel.Send("resolveSelector", map[string]any{
+	if l.err != nil {
+		return l
+	}
+	result, err := l.frame.channel.SendReturnAsDict("resolveSelector", map[string]any{
 		"selector": l.selector,
 	})
 	if err != nil {
 		return l
 	}
-	if selector, ok := result.(string); ok {
+	if selector, ok := result["resolvedSelector"].(string); ok {
 		return newLocator(l.frame, selector)
 	}
 	return l

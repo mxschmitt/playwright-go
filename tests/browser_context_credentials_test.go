@@ -367,3 +367,70 @@ func TestStorageStateRoundTripWebAuthnCredentials(t *testing.T) {
 	require.Equal(t, state.Origins, reqFileState.Origins)
 	require.NoError(t, reqFromFile.Dispose())
 }
+
+const webAuthnSignCountScript = `async () => {
+	const challenge = crypto.getRandomValues(new Uint8Array(32));
+	const cred = await navigator.credentials.get({
+		publicKey: { challenge, rpId: 'localhost', userVerification: 'preferred' },
+	});
+	return new DataView(cred.response.authenticatorData).getUint32(33);
+}`
+
+func TestBrowserContextCredentialsShouldSeedAndReportSignCount(t *testing.T) {
+	BeforeEach(t)
+
+	creds := context.Credentials()
+	fresh, err := creds.Create("fresh.example.com")
+	require.NoError(t, err)
+	require.Equal(t, 0, fresh.SignCount)
+	seeded, err := creds.Create(webAuthnRPID, playwright.CredentialsCreateOptions{SignCount: playwright.Int(41)})
+	require.NoError(t, err)
+	require.Equal(t, 41, seeded.SignCount)
+	require.NoError(t, creds.Install())
+
+	_, err = page.Goto(server.CROSS_PROCESS_PREFIX + "/empty.html")
+	require.NoError(t, err)
+	// Each assertion increments the counter and reports the new value to the page.
+	signCount, err := page.Evaluate(webAuthnSignCountScript)
+	require.NoError(t, err)
+	require.Equal(t, 42, signCount)
+	signCount, err = page.Evaluate(webAuthnSignCountScript)
+	require.NoError(t, err)
+	require.Equal(t, 43, signCount)
+
+	got, err := creds.Get(playwright.CredentialsGetOptions{Id: playwright.String(seeded.Id)})
+	require.NoError(t, err)
+	expected := *seeded
+	expected.SignCount = 43
+	require.Equal(t, []playwright.VirtualCredential{expected}, got)
+	got, err = creds.Get(playwright.CredentialsGetOptions{Id: playwright.String(fresh.Id)})
+	require.NoError(t, err)
+	require.Equal(t, []playwright.VirtualCredential{*fresh}, got)
+}
+
+func TestBrowserContextCredentialsShouldPreserveSignCountViaStorageState(t *testing.T) {
+	BeforeEach(t)
+
+	seeded, err := context.Credentials().Create(webAuthnRPID, playwright.CredentialsCreateOptions{SignCount: playwright.Int(7)})
+	require.NoError(t, err)
+	state, err := context.StorageState(playwright.BrowserContextStorageStateOptions{Credentials: playwright.Bool(true)})
+	require.NoError(t, err)
+	require.Len(t, state.Credentials, 1)
+	require.Equal(t, 7, state.Credentials[0].SignCount)
+
+	context2, _ := newBrowserContextAndPage(t, playwright.BrowserNewContextOptions{StorageState: state.ToOptionalStorageState()})
+	got, err := context2.Credentials().Get(playwright.CredentialsGetOptions{Id: playwright.String(seeded.Id)})
+	require.NoError(t, err)
+	require.Len(t, got, 1)
+	require.Equal(t, 7, got[0].SignCount)
+}
+
+func TestBrowserContextCredentialsShouldRejectInvalidSignCount(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := context.Credentials().Create("example.com", playwright.CredentialsCreateOptions{SignCount: playwright.Int(-1)})
+	require.ErrorContains(t, err, "signCount must be between 0 and 4294967295, got -1")
+	credentials, err := context.Credentials().Get()
+	require.NoError(t, err)
+	require.Empty(t, credentials)
+}

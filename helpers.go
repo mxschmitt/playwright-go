@@ -173,6 +173,9 @@ func remapValue(inMapValue reflect.Value, outStructValue reflect.Value) {
 			}
 			remapValue(value, structFieldDeref)
 		}
+	case reflect.Interface:
+		// Free-form JSON values, such as a WebMCP tool's input schema, are kept as decoded.
+		outStructValue.Set(inMapValue)
 	default:
 		panic(inMapValue.Interface())
 	}

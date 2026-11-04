@@ -19,6 +19,7 @@ type frameImpl struct {
 	parentFrame Frame
 	childFrames []Frame
 	loadStates  mapset.Set[string]
+	webmcp      *webMCPImpl
 }
 
 func newFrame(parent *channelOwner, objectType string, guid string, initializer map[string]any) *frameImpl {
@@ -37,6 +38,7 @@ func newFrame(parent *channelOwner, objectType string, guid string, initializer 
 		loadStates:  loadStates,
 		childFrames: make([]Frame, 0),
 	}
+	f.webmcp = newWebMCP(f)
 	f.createChannelOwner(f, parent, objectType, guid, initializer)
 
 	channelOwner := fromNullableChannel(initializer["parentFrame"])
@@ -48,6 +50,10 @@ func newFrame(parent *channelOwner, objectType string, guid string, initializer 
 	f.channel.On("navigated", f.onFrameNavigated)
 	f.channel.On("loadstate", f.onLoadState)
 	return f
+}
+
+func (f *frameImpl) WebMCP() WebMCP {
+	return f.webmcp
 }
 
 func (f *frameImpl) URL() string {
@@ -74,8 +80,8 @@ func (f *frameImpl) SetContent(content string, options ...FrameSetContentOptions
 	return err
 }
 
-func (f *frameImpl) Content() (string, error) {
-	content, err := f.channel.Send("content")
+func (f *frameImpl) Content(options ...FrameContentOptions) (string, error) {
+	content, err := f.channel.Send("content", options)
 	if content == nil {
 		return "", err
 	}
@@ -988,8 +994,11 @@ func (f *frameImpl) GetByTitle(text any, options ...FrameGetByTitleOptions) Loca
 	return f.Locator(selector)
 }
 
-func (f *frameImpl) FrameLocator(selector string) FrameLocator {
-	return newFrameLocator(f, selector)
+func (f *frameImpl) FrameLocator(selector ...string) FrameLocator {
+	if len(selector) == 0 {
+		return newFrameLocator(f, anyFrameSelector)
+	}
+	return newFrameLocator(f, selector[0])
 }
 
 func (f *frameImpl) highlight(selector string) error {

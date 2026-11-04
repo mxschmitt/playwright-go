@@ -52,7 +52,7 @@ func (t *timeoutSemanticsTransport) Send(outgoing map[string]any) error {
 	case "waitForSelector":
 		result["element"] = map[string]any{"guid": t.elementGUID}
 	}
-	t.replies <- &message{ID: int(captured["id"].(float64)), Result: result}
+	t.replies <- &message{ID: captured["id"].(string), Result: result}
 	return nil
 }
 

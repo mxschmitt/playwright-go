@@ -3,6 +3,7 @@ package playwright
 import (
 	"errors"
 	"fmt"
+	"math/rand/v2"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -26,11 +27,14 @@ type connection struct {
 	// each other's stack/internal metadata. A zone is removed as soon as its
 	// first protocol message is built, matching upstream's exit from the API zone
 	// before waiting for the server or dispatching re-entrant events.
-	apiZone      sync.Map // map[uint64]parsedStackTrace
-	objects      *safe.SyncMap[string, *channelOwner]
+	apiZone sync.Map // map[uint64]parsedStackTrace
+	objects *safe.SyncMap[string, *channelOwner]
+	// callIDPrefix makes call ids unique across connections, since they
+	// double as call ids in traces.
+	callIDPrefix string
 	lastID       atomic.Uint32
 	rootObject   *rootChannelOwner
-	callbacks    *safe.SyncMap[uint32, *protocolCallback]
+	callbacks    *safe.SyncMap[string, *protocolCallback]
 	afterClose   func()
 	onClose      func() error
 	isRemote     bool
@@ -118,8 +122,8 @@ func (c *connection) Dispatch(msg *message) {
 		return
 	}
 	method := msg.Method
-	if msg.ID != 0 {
-		cb, ok := c.callbacks.LoadAndDelete(uint32(msg.ID))
+	if msg.ID != "" {
+		cb, ok := c.callbacks.LoadAndDelete(msg.ID)
 		if !ok {
 			// No pending callback for this id (duplicate or unknown reply).
 			// Upstream throws "Cannot find command to respond"; dereferencing
@@ -288,7 +292,7 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 		return
 	}
 
-	id := c.lastID.Add(1)
+	id := fmt.Sprintf("%s@%d", c.callIDPrefix, c.lastID.Add(1))
 	// The server never replies to noReply messages, so storing their callbacks
 	// would leak an entry per call for the connection's lifetime.
 	if !noReply {
@@ -405,15 +409,27 @@ func serializeCallLocation(caller stack.Call) map[string]any {
 	}
 }
 
+// newCallIDPrefix returns four random lowercase letters, matching the call id
+// prefix of the upstream clients.
+func newCallIDPrefix() string {
+	const alphabet = "abcdefghijklmnopqrstuvwxyz"
+	prefix := make([]byte, 4)
+	for i := range prefix {
+		prefix[i] = alphabet[rand.IntN(len(alphabet))]
+	}
+	return string(prefix)
+}
+
 func newConnection(transport transport, localUtils ...*localUtilsImpl) *connection {
 	connection := &connection{
-		abort:       make(chan struct{}, 1),
-		callbacks:   safe.NewSyncMap[uint32, *protocolCallback](),
-		objects:     safe.NewSyncMap[string, *channelOwner](),
-		transport:   transport,
-		isRemote:    false,
-		err:         &safeValue[error]{},
-		closedError: &safeValue[error]{},
+		abort:        make(chan struct{}, 1),
+		callbacks:    safe.NewSyncMap[string, *protocolCallback](),
+		callIDPrefix: newCallIDPrefix(),
+		objects:      safe.NewSyncMap[string, *channelOwner](),
+		transport:    transport,
+		isRemote:     false,
+		err:          &safeValue[error]{},
+		closedError:  &safeValue[error]{},
 	}
 	if len(localUtils) > 0 {
 		connection.localUtils = localUtils[0]

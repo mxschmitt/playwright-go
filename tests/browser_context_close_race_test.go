@@ -104,7 +104,7 @@ func TestBrowserContextCloseRace(t *testing.T) {
 	require.NoError(t, err)
 
 	// Wait for navigation to complete
-	<-done
+	<-done //nolint:errcheck // the navigation result does not matter to the race
 }
 
 // TestPageCloseRace covers the sibling of the browser-context race: Page.Close()
@@ -139,5 +139,5 @@ func TestPageCloseRace(t *testing.T) {
 	// Close the page while its route handler goroutine is reading closeWasCalled.
 	require.NoError(t, page.Close())
 
-	<-done
+	<-done //nolint:errcheck // the navigation result does not matter to the race
 }

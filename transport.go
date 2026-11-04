@@ -51,7 +51,7 @@ func (t *pipeTransport) Poll() (*message, error) {
 }
 
 type message struct {
-	ID     int            `json:"id"`
+	ID     string         `json:"id"`
 	GUID   string         `json:"guid"`
 	Method string         `json:"method,omitempty"`
 	Params map[string]any `json:"params,omitempty"`

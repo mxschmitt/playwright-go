@@ -60,6 +60,9 @@ type frameExpectResult struct {
 	Received any      `json:"received,omitempty"`
 	TimedOut *bool    `json:"timedOut,omitempty"`
 	Log      []string `json:"log,omitempty"`
+	// ErrorMessage is the driver's explanation of why the assertion could not
+	// be evaluated, such as a locator matching elements in multiple frames.
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 type assertionsBase struct {
@@ -91,6 +94,9 @@ func (b *assertionsBase) expect(
 		log := strings.Join(result.Log, "\n")
 		if log != "" {
 			log = "\nCall log:\n" + log
+		}
+		if result.ErrorMessage != "" {
+			log = "\nError: " + result.ErrorMessage + log
 		}
 		if expected != nil {
 			return fmt.Errorf("%s '%v'\nActual value: %v %s", message, expected, actual, log)

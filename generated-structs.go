@@ -36,6 +36,12 @@ type APIRequestNewContextOptions struct {
 	//
 	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
 	HttpCredentials *HttpCredentials `json:"httpCredentials"`
+	// A list of credentials for [HTTP authentication],
+	// used to send different credentials to different origins. The first entry that matches the request origin is used,
+	// and entries with no origin match any request. Takes precedence over `httpCredentials`.
+	//
+	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
+	HttpCredentialsList []HttpCredentials `json:"httpCredentialsList"`
 	// Whether to ignore HTTPS errors when sending network requests. Defaults to `false`.
 	IgnoreHttpsErrors *bool `json:"ignoreHTTPSErrors"`
 	// Maximum number of request redirects that will be followed automatically. An error will be thrown if the number is
@@ -57,6 +63,54 @@ type APIRequestNewContextOptions struct {
 	Timeout *float64 `json:"timeout"`
 	// Specific user agent to use in this context.
 	UserAgent *string `json:"userAgent"`
+}
+
+type OptionalCookie struct {
+	Name  string `json:"name"`
+	Value string `json:"value"`
+	// Either `url` or both `domain` and `path` are required. Optional.
+	URL *string `json:"url"`
+	// For the cookie to apply to all subdomains as well, prefix domain with a dot, like this: ".example.com". Either
+	// `url` or both `domain` and `path` are required. Optional.
+	Domain *string `json:"domain"`
+	// Either `url` or both `domain` and `path` are required. Optional.
+	Path *string `json:"path"`
+	// Unix time in seconds. Optional.
+	Expires *float64 `json:"expires"`
+	// Optional.
+	HttpOnly *bool `json:"httpOnly"`
+	// Optional.
+	Secure *bool `json:"secure"`
+	// Optional.
+	SameSite *SameSiteAttribute `json:"sameSite"`
+	// For partitioned third-party cookies (aka
+	// [CHIPS], the
+	// partition key. Optional.
+	//
+	// [CHIPS]: https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/Privacy_sandbox/Partitioned_cookies)
+	PartitionKey *string `json:"partitionKey"`
+}
+
+type APIRequestContextClearCookiesOptions struct {
+	// Only removes cookies with the given domain.
+	Domain any `json:"domain"`
+	// Only removes cookies with the given name.
+	Name any `json:"name"`
+	// Only removes cookies with the given path.
+	Path any `json:"path"`
+}
+
+type Cookie struct {
+	Name   string `json:"name"`
+	Value  string `json:"value"`
+	Domain string `json:"domain"`
+	Path   string `json:"path"`
+	// Unix time in seconds.
+	Expires      float64            `json:"expires"`
+	HttpOnly     bool               `json:"httpOnly"`
+	Secure       bool               `json:"secure"`
+	SameSite     *SameSiteAttribute `json:"sameSite"`
+	PartitionKey *string            `json:"partitionKey"`
 }
 
 type APIRequestContextDeleteOptions struct {
@@ -340,6 +394,8 @@ type StorageState struct {
 type APIRequestContextStorageStateOptions struct {
 	// Set to `true` to include IndexedDB in the storage state snapshot.
 	IndexedDB *bool `json:"indexedDB"`
+	// Set to `true` to include the origin private file system in the storage state snapshot.
+	Opfs *bool `json:"opfs"`
 	// The file path to save the storage state to. If “[object Object]” is a relative path, then it is resolved relative
 	// to current working directory. If no path is provided, storage state is still returned, but won't be saved to the
 	// disk.
@@ -470,11 +526,17 @@ type BrowserNewContextOptions struct {
 	//
 	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
 	HttpCredentials *HttpCredentials `json:"httpCredentials"`
+	// A list of credentials for [HTTP authentication],
+	// used to send different credentials to different origins. The first entry that matches the request origin is used,
+	// and entries with no origin match any request. Takes precedence over `httpCredentials`.
+	//
+	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
+	HttpCredentialsList []HttpCredentials `json:"httpCredentialsList"`
 	// Whether to ignore HTTPS errors when sending network requests. Defaults to `false`.
 	IgnoreHttpsErrors *bool `json:"ignoreHTTPSErrors"`
 	// Whether the `meta viewport` tag is taken into account and touch events are enabled. isMobile is a part of device,
-	// so you don't actually need to set it manually. Defaults to `false` and is not supported in Firefox. Learn more
-	// about [mobile emulation].
+	// so you don't actually need to set it manually. Defaults to `false`. Learn more about
+	// [mobile emulation].
 	//
 	// [mobile emulation]: https://playwright.dev/docs/emulation#ismobile
 	IsMobile *bool `json:"isMobile"`
@@ -624,11 +686,17 @@ type BrowserNewPageOptions struct {
 	//
 	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
 	HttpCredentials *HttpCredentials `json:"httpCredentials"`
+	// A list of credentials for [HTTP authentication],
+	// used to send different credentials to different origins. The first entry that matches the request origin is used,
+	// and entries with no origin match any request. Takes precedence over `httpCredentials`.
+	//
+	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
+	HttpCredentialsList []HttpCredentials `json:"httpCredentialsList"`
 	// Whether to ignore HTTPS errors when sending network requests. Defaults to `false`.
 	IgnoreHttpsErrors *bool `json:"ignoreHTTPSErrors"`
 	// Whether the `meta viewport` tag is taken into account and touch events are enabled. isMobile is a part of device,
-	// so you don't actually need to set it manually. Defaults to `false` and is not supported in Firefox. Learn more
-	// about [mobile emulation].
+	// so you don't actually need to set it manually. Defaults to `false`. Learn more about
+	// [mobile emulation].
 	//
 	// [mobile emulation]: https://playwright.dev/docs/emulation#ismobile
 	IsMobile *bool `json:"isMobile"`
@@ -742,32 +810,6 @@ type BrowserStartTracingOptions struct {
 	Screenshots *bool `json:"screenshots"`
 }
 
-type OptionalCookie struct {
-	Name  string `json:"name"`
-	Value string `json:"value"`
-	// Either `url` or both `domain` and `path` are required. Optional.
-	URL *string `json:"url"`
-	// For the cookie to apply to all subdomains as well, prefix domain with a dot, like this: ".example.com". Either
-	// `url` or both `domain` and `path` are required. Optional.
-	Domain *string `json:"domain"`
-	// Either `url` or both `domain` and `path` are required. Optional.
-	Path *string `json:"path"`
-	// Unix time in seconds. Optional.
-	Expires *float64 `json:"expires"`
-	// Optional.
-	HttpOnly *bool `json:"httpOnly"`
-	// Optional.
-	Secure *bool `json:"secure"`
-	// Optional.
-	SameSite *SameSiteAttribute `json:"sameSite"`
-	// For partitioned third-party cookies (aka
-	// [CHIPS], the
-	// partition key. Optional.
-	//
-	// [CHIPS]: https://developer.mozilla.org/en-US/docs/Web/Privacy/Guides/Privacy_sandbox/Partitioned_cookies)
-	PartitionKey *string `json:"partitionKey"`
-}
-
 type Script struct {
 	// Path to the JavaScript file. If `path` is a relative path, then it is resolved relative to the current working
 	// directory. Optional.
@@ -788,19 +830,6 @@ type BrowserContextClearCookiesOptions struct {
 type BrowserContextCloseOptions struct {
 	// The reason to be reported to the operations interrupted by the context closure.
 	Reason *string `json:"reason"`
-}
-
-type Cookie struct {
-	Name   string `json:"name"`
-	Value  string `json:"value"`
-	Domain string `json:"domain"`
-	Path   string `json:"path"`
-	// Unix time in seconds.
-	Expires      float64            `json:"expires"`
-	HttpOnly     bool               `json:"httpOnly"`
-	Secure       bool               `json:"secure"`
-	SameSite     *SameSiteAttribute `json:"sameSite"`
-	PartitionKey *string            `json:"partitionKey"`
 }
 
 type BrowserContextGrantPermissionsOptions struct {
@@ -839,10 +868,10 @@ type Geolocation struct {
 
 type BrowserContextStorageStateOptions struct {
 	// Set to `true` to include the context's virtual WebAuthn [BrowserContext.Credentials] (passkeys) in the storage
-	// state snapshot. The captured credentials carry their private keys, so they can be re-seeded into a later context
-	// via the “[object Object]” option or [BrowserContext.SetStorageState]. Note that restoring the storage state that
-	// contains credentials will automatically install the virtual WebAuthn authenticator (see [Credentials.Install]), and
-	// prevent all real authenticators from working in this context.
+	// state snapshot. The captured credentials carry their private keys and signature counters, so they can be re-seeded
+	// into a later context via the “[object Object]” option or [BrowserContext.SetStorageState]. Note that restoring the
+	// storage state that contains credentials will automatically install the virtual WebAuthn authenticator (see
+	// [Credentials.Install]), and prevent all real authenticators from working in this context.
 	Credentials *bool `json:"credentials"`
 	// Set to `true` to include [IndexedDB] in the storage
 	// state snapshot. If your application uses IndexedDB to store authentication tokens, like Firebase Authentication,
@@ -850,6 +879,13 @@ type BrowserContextStorageStateOptions struct {
 	//
 	// [IndexedDB]: https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API
 	IndexedDB *bool `json:"indexedDB"`
+	// Set to `true` to include the
+	// [origin private file system]
+	// in the storage state snapshot.
+	// **NOTE** OPFS is currently not supported in ephemeral WebKit contexts.
+	//
+	// [origin private file system]: https://developer.mozilla.org/en-US/docs/Web/API/File_System_API/Origin_private_file_system
+	Opfs *bool `json:"opfs"`
 	// The file path to save the storage state to. If “[object Object]” is a relative path, then it is resolved relative
 	// to current working directory. If no path is provided, storage state is still returned, but won't be saved to the
 	// disk.
@@ -1005,7 +1041,7 @@ type BrowserTypeLaunchOptions struct {
 	// Slows down Playwright operations by the specified amount of milliseconds. Useful so that you can see what is going
 	// on.
 	SlowMo *float64 `json:"slowMo"`
-	// Maximum time in milliseconds to wait for the browser instance to start. Defaults to `30000` (30 seconds). Pass `0`
+	// Maximum time in milliseconds to wait for the browser instance to start. Defaults to `180000` (3 minutes). Pass `0`
 	// to disable timeout.
 	Timeout *float64 `json:"timeout"`
 	// If specified, traces are saved into this directory.
@@ -1124,6 +1160,12 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	//
 	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
 	HttpCredentials *HttpCredentials `json:"httpCredentials"`
+	// A list of credentials for [HTTP authentication],
+	// used to send different credentials to different origins. The first entry that matches the request origin is used,
+	// and entries with no origin match any request. Takes precedence over `httpCredentials`.
+	//
+	// [HTTP authentication]: https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
+	HttpCredentialsList []HttpCredentials `json:"httpCredentialsList"`
 	// If `true`, Playwright does not pass its own configurations args and only uses the ones from “[object Object]”.
 	// Dangerous option; use with care. Defaults to `false`.
 	IgnoreAllDefaultArgs *bool `json:"ignoreAllDefaultArgs"`
@@ -1133,8 +1175,8 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	// Whether to ignore HTTPS errors when sending network requests. Defaults to `false`.
 	IgnoreHttpsErrors *bool `json:"ignoreHTTPSErrors"`
 	// Whether the `meta viewport` tag is taken into account and touch events are enabled. isMobile is a part of device,
-	// so you don't actually need to set it manually. Defaults to `false` and is not supported in Firefox. Learn more
-	// about [mobile emulation].
+	// so you don't actually need to set it manually. Defaults to `false`. Learn more about
+	// [mobile emulation].
 	//
 	// [mobile emulation]: https://playwright.dev/docs/emulation#ismobile
 	IsMobile *bool `json:"isMobile"`
@@ -1202,7 +1244,7 @@ type BrowserTypeLaunchPersistentContextOptions struct {
 	// option does not affect any Locator APIs (Locators are always strict). Defaults to `false`. See [Locator] to learn
 	// more about the strict mode.
 	StrictSelectors *bool `json:"strictSelectors"`
-	// Maximum time in milliseconds to wait for the browser instance to start. Defaults to `30000` (30 seconds). Pass `0`
+	// Maximum time in milliseconds to wait for the browser instance to start. Defaults to `180000` (3 minutes). Pass `0`
 	// to disable timeout.
 	Timeout *float64 `json:"timeout"`
 	// Changes the timezone of the context. See
@@ -1251,6 +1293,8 @@ type VirtualCredential struct {
 	PrivateKey string `json:"privateKey"`
 	// Base64url-encoded SPKI (DER) public key.
 	PublicKey string `json:"publicKey"`
+	// Signature counter, the value reported to the relying party in the most recent assertion.
+	SignCount int `json:"signCount"`
 }
 
 type CredentialsCreateOptions struct {
@@ -1260,6 +1304,12 @@ type CredentialsCreateOptions struct {
 	PrivateKey *string `json:"privateKey"`
 	// Base64url-encoded SPKI (DER) public key. Auto-generated if omitted.
 	PublicKey *string `json:"publicKey"`
+	// Initial value of the [signature counter]. The counter is
+	// incremented by one on every successful `navigator.credentials.get()` assertion, so the first assertion reports
+	// `signCount + 1`. Defaults to `0`.
+	//
+	// [signature counter]: https://www.w3.org/TR/webauthn-2/#signature-counter
+	SignCount *int `json:"signCount"`
 	// Base64url-encoded user handle. Auto-generated if omitted.
 	UserHandle *string `json:"userHandle"`
 }
@@ -1783,6 +1833,16 @@ type FrameClickOptions struct {
 	//
 	// [actionability]: https://playwright.dev/docs/actionability
 	Trial *bool `json:"trial"`
+}
+
+type FrameContentOptions struct {
+	// When true, contents of open shadow roots are included as
+	// [declarative shadow DOM],
+	// i.e. `<template shadowrootmode="open">` elements nested inside their host elements. Closed shadow roots are never
+	// included. Defaults to `false`.
+	//
+	// [declarative shadow DOM]: https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM#declaratively_with_html
+	IncludeShadow *bool `json:"includeShadow"`
 }
 
 type FrameDblclickOptions struct {
@@ -2801,7 +2861,8 @@ type LocatorFilterOptions struct {
 	// passed a [string], matching is case-insensitive and searches for a substring. For example, `"Playwright"` matches
 	// `<article><div>Playwright</div></article>`.
 	HasText any `json:"hasText"`
-	// Only matches visible or invisible elements.
+	// Only matches visible or invisible elements. Prefer the [Locator.Visible] shortcut when matching only visible
+	// elements.
 	Visible *bool `json:"visible"`
 }
 
@@ -3567,6 +3628,16 @@ type PageCloseOptions struct {
 	//
 	// [before unload]: https://developer.mozilla.org/en-US/docs/Web/Events/beforeunload
 	RunBeforeUnload *bool `json:"runBeforeUnload"`
+}
+
+type PageContentOptions struct {
+	// When true, contents of open shadow roots are included as
+	// [declarative shadow DOM],
+	// i.e. `<template shadowrootmode="open">` elements nested inside their host elements. Closed shadow roots are never
+	// included. Defaults to `false`.
+	//
+	// [declarative shadow DOM]: https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_shadow_DOM#declaratively_with_html
+	IncludeShadow *bool `json:"includeShadow"`
 }
 
 type PageDblclickOptions struct {
@@ -4616,6 +4687,12 @@ type RouteFulfillOptions struct {
 }
 
 type ScreencastStartOptions struct {
+	// Frame rate of the video recording in frames per second. Only used together with “[object Object]”. Defaults to
+	// `25`.
+	// Higher frame rates make animations and scrolling smoother at the cost of more CPU spent on encoding. Combine with
+	// “[object Object]” to record high resolution videos. The video can only contain as many distinct frames as the
+	// browser produces; Firefox and WebKit currently capture up to 25 frames per second.
+	Fps *int `json:"fps"`
 	// Callback that receives JPEG-encoded frame data along with the page viewport size at the time of capture.
 	OnFrame func(OnFrame) `json:"onFrame"`
 	// Path where the video should be saved when the screencast is stopped. When provided, video recording is started.
@@ -4649,9 +4726,13 @@ type ScreencastShowActionsOptions struct {
 	// How long each annotation is displayed in milliseconds. Defaults to `500`.
 	Duration *float64 `json:"duration"`
 	// Font size of the action title in pixels. Defaults to `24`.
+	//
+	// Deprecated: Use `title` in “[object Object]” instead, for example `style: { title: 'font-size: 32px' }`.
 	FontSize *int `json:"fontSize"`
 	// Position of the action title overlay. Defaults to `"top-right"`.
 	Position *AnnotatePosition `json:"position"`
+	// Styles of the action decorations. All decorations fade out over “[object Object]”.
+	Style *ScreencastActionStyle `json:"style"`
 }
 
 type SelectorsRegisterOptions struct {
@@ -4662,6 +4743,8 @@ type SelectorsRegisterOptions struct {
 }
 
 type TracingStartOptions struct {
+	// Whether to capture aria snapshot of the page on every action.
+	AriaSnapshots *bool `json:"ariaSnapshots"`
 	// When enabled, the trace is written to an unarchived file that is updated in real time as actions occur, instead of
 	// caching changes and archiving them into a zip file at the end. This is useful for live trace viewing during test
 	// execution.
@@ -4672,9 +4755,9 @@ type TracingStartOptions struct {
 	Name *string `json:"name"`
 	// Whether to capture screenshots during tracing. Screenshots are used to build a timeline preview.
 	Screenshots *bool `json:"screenshots"`
-	// If this option is true tracing will
-	//  - capture DOM snapshot on every action
-	//  - record network activity
+	// Whether to capture a screenshot of the page on every action.
+	ScreenSnapshots *bool `json:"screenSnapshots"`
+	// Whether to capture DOM snapshot and record network activity on every action.
 	Snapshots *bool `json:"snapshots"`
 	// Whether to include source files for trace actions.
 	Sources *bool `json:"sources"`
@@ -4720,6 +4803,29 @@ type WebErrorLocation struct {
 	Line int `json:"line"`
 	// 0-based column number in the resource.
 	Column int `json:"column"`
+}
+
+type WebMCPCallToolOptions struct {
+	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
+	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	Timeout *float64 `json:"timeout"`
+}
+
+type WebMCPTool struct {
+	// Tool name, unique within the frame.
+	Name string `json:"name"`
+	// Tool description.
+	Description string `json:"description"`
+	// JSON Schema of the tool input, when the page provides one.
+	InputSchema any `json:"inputSchema"`
+	// Hints the page provides about the tool.
+	Annotations *WebMCPToolAnnotations `json:"annotations"`
+}
+
+type WebMCPToolsOptions struct {
+	// Maximum time in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout. The default value can
+	// be changed by using the [BrowserContext.SetDefaultTimeout] or [Page.SetDefaultTimeout] methods.
+	Timeout *float64 `json:"timeout"`
 }
 
 type WebSocketExpectEventOptions struct {
@@ -4800,6 +4906,8 @@ type Proxy struct {
 type Origin struct {
 	Origin       string      `json:"origin"`
 	LocalStorage []NameValue `json:"localStorage"`
+	// Origin private file system entries, when the storage state was captured with OPFS.
+	Opfs []OPFSEntry `json:"opfs"`
 }
 
 type RecordVideo struct {
@@ -4810,6 +4918,9 @@ type RecordVideo struct {
 	// fit into 800x800. If `viewport` is not configured explicitly the video size defaults to 800x450. Actual picture of
 	// each page will be scaled down if necessary to fit the specified size.
 	Size *Size `json:"size"`
+	// Frame rate of the recorded videos in frames per second. Defaults to `25`. Firefox and WebKit currently capture up
+	// to 25 frames per second.
+	Fps *int `json:"fps"`
 	// If specified, enables visual annotations on interacted elements during video recording.
 	ShowActions *ShowAction `json:"showActions"`
 }
@@ -4856,10 +4967,39 @@ type OnFrame struct {
 	ViewportHeight int `json:"viewportHeight"`
 }
 
+type ScreencastActionStyle struct {
+	// CSS declarations for the marker at the action point. The marker is positioned at the action point, has zero size
+	// and is centered on the point, so its size and look come from this style. Not shown when omitted.
+	Point *string `json:"point"`
+	// CSS declarations for the box that covers the target element. The box is positioned and sized to the element bounds.
+	// Not shown when omitted.
+	Highlight *string `json:"highlight"`
+	// CSS declarations for the action title, for example `'font-size: 32px; background: #333'`. The title is placed
+	// according to “[object Object]”.
+	Title *string `json:"title"`
+}
+
 type TracingGroupOptionsLocation struct {
 	File   string `json:"file"`
 	Line   *int   `json:"line"`
 	Column *int   `json:"column"`
+}
+
+type WebMCPToolAnnotations struct {
+	// The tool does not modify any state.
+	ReadOnly *bool `json:"readOnly"`
+	// The tool output may contain third-party content.
+	UntrustedContent *bool `json:"untrustedContent"`
+	// The tool takes a consequential action, such as placing an order.
+	Consequential *bool `json:"consequential"`
+}
+
+type OPFSEntry struct {
+	// Entry path relative to the origin private file system root.
+	Path string         `json:"path"`
+	Type *OPFSEntryType `json:"type"`
+	// Base64-encoded file contents. Only set for files.
+	Base64 *string `json:"base64"`
 }
 
 type ShowAction struct {
@@ -4867,9 +5007,11 @@ type ShowAction struct {
 	Duration *float64 `json:"duration"`
 	// Position of the action title overlay. Defaults to `"top-right"`.
 	Position *AnnotatePosition `json:"position"`
-	// Font size of the action title in pixels. Defaults to `24`.
+	// Font size of the action title in pixels. Defaults to `24`. Deprecated, use `style.title` instead.
 	FontSize *int `json:"fontSize"`
 	// Cursor decoration shown for pointer actions. `"pointer"` (the default) renders a mouse pointer that animates from
 	// the previous action point to the next one. `"none"` disables the cursor decoration.
 	Cursor *ScreencastCursor `json:"cursor"`
+	// Styles of the action decorations.
+	Style *ScreencastActionStyle `json:"style"`
 }

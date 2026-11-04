@@ -19,11 +19,11 @@ import (
 )
 
 const (
-	playwrightCliVersion = "1.62.1"
+	playwrightCliVersion = "1.64.1"
 	// nodeVersion is the Node.js runtime downloaded alongside the driver when no
 	// PLAYWRIGHT_NODEJS_PATH is provided. It is kept aligned with the Node.js
 	// version used by the official Playwright bindings.
-	nodeVersion = "24.19.0"
+	nodeVersion = "24.21.0"
 
 	// defaultNpmRegistry serves the platform-independent playwright-core package.
 	// Override with the PLAYWRIGHT_GO_NPM_REGISTRY environment variable.

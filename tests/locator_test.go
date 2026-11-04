@@ -979,3 +979,39 @@ func TestLocatorWaitForFunctionElementHandleThrowRerenderAndDefaultTimeout(t *te
 	require.ErrorIs(t, err, playwright.ErrTimeout)
 	require.Less(t, time.Since(started), 2*time.Second)
 }
+
+func TestLocatorShouldSupportVisible(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`<div>
+		<div class="item" style="display: none">Hidden data0</div>
+		<div class="item">visible data1</div>
+		<div class="item" style="display: none">Hidden data1</div>
+		<div class="item">visible data2</div>
+		<div class="item" style="display: none">Hidden data2</div>
+		<div class="item">visible data3</div>
+	</div>`))
+	require.NoError(t, expect.Locator(page.Locator(".item").Visible().Nth(1)).ToHaveText("visible data2"))
+	require.NoError(t, expect.Locator(page.Locator(".item").Visible().GetByText("data3")).ToHaveText("visible data3"))
+	require.NoError(t, expect.Locator(page.Locator(".item").Visible()).ToHaveCount(3))
+}
+
+func TestLocatorShouldSupportWithin(t *testing.T) {
+	BeforeEach(t)
+
+	require.NoError(t, page.SetContent(`
+		<table>
+			<tr><td>a1</td><td>a2</td><td>a3</td></tr>
+			<tr><td>b1</td><td>b2</td><td>b3</td></tr>
+			<tr><td>c1</td><td>c2</td><td>c3</td></tr>
+		</table>
+		<span>outside</span>`))
+	cells := page.GetByRole("cell")
+	rows := page.GetByRole("row")
+	require.NoError(t, expect.Locator(cells.Within(rows)).ToHaveText([]string{"a1", "a2", "a3", "b1", "b2", "b3", "c1", "c2", "c3"}))
+	require.NoError(t, expect.Locator(cells.Nth(1).Within(rows)).ToHaveText([]string{"a2", "b2", "c2"}))
+	require.NoError(t, expect.Locator(cells.Last().Within(rows)).ToHaveText([]string{"a3", "b3", "c3"}))
+	require.NoError(t, expect.Locator(cells.Nth(1).Within(rows.Nth(2))).ToHaveText([]string{"c2"}))
+	require.NoError(t, expect.Locator(page.Locator("span").Within(rows)).ToHaveCount(0))
+	require.NoError(t, expect.Locator(cells.Nth(1).Within(rows).Nth(1)).ToHaveText("b2"))
+}

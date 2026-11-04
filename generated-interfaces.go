@@ -20,6 +20,20 @@ type APIRequest interface {
 // If you want API requests that do **not** share cookies with the browser, create an isolated context via
 // [APIRequest.NewContext]. Such `APIRequestContext` object will have its own isolated cookie storage.
 type APIRequestContext interface {
+	// Adds cookies into this request context. They will be sent with matching subsequent requests. For
+	// [BrowserContext.Request] and [Page.Request], this is equivalent to calling [BrowserContext.AddCookies] on the
+	// corresponding browser context.
+	AddCookies(cookies []OptionalCookie) error
+
+	// Removes cookies from this request context. Accepts optional filter. For [BrowserContext.Request] and
+	// [Page.Request], this is equivalent to calling [BrowserContext.ClearCookies] on the corresponding browser context.
+	ClearCookies(options ...APIRequestContextClearCookiesOptions) error
+
+	// If no URLs are specified, this method returns all cookies. If URLs are specified, only cookies that affect those
+	// URLs are returned. For [BrowserContext.Request] and [Page.Request], this is equivalent to calling
+	// [BrowserContext.Cookies] on the corresponding browser context.
+	Cookies(urls ...string) ([]Cookie, error)
+
 	// Sends HTTP(S) [DELETE] request and returns its
 	// response. The method will populate request cookies from the context and update context cookies from the response.
 	// The method will automatically follow redirects.
@@ -89,6 +103,7 @@ type APIRequestContext interface {
 	// passed to the constructor.
 	StorageState(options ...APIRequestContextStorageStateOptions) (*StorageState, error)
 
+	// Tracing recorder for requests made through this API request context.
 	Tracing() Tracing
 }
 
@@ -276,6 +291,10 @@ type BrowserContext interface {
 	//
 	// [freeze]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/EventLoop#never_blocking
 	OnDialog(fn func(Dialog))
+
+	// Emitted when a JavaScript dialog in any page belonging to this context has been closed, either by [Dialog.Accept],
+	// by [Dialog.Dismiss], or manually by the user in the headed browser.
+	OnDialogClosed(fn func(Dialog))
 
 	// Emitted when attachment download started in any page belonging to this context. User can access basic file
 	// operations on downloaded content via the passed [Download] instance. See also [Page.OnDownload] to receive events
@@ -518,15 +537,21 @@ type BrowserContext interface {
 
 	//
 	//  offline: Whether to emulate network being offline for the browser context.
+	//
+	//    **NOTE** Offline emulation only affects requests that go through the browser's regular network stack, such as page
+	//    navigations, `fetch()`, `XMLHttpRequest` and WebSockets. It does not affect WebRTC traffic: established
+	//    `RTCPeerConnection`s keep sending and receiving media over UDP. To test WebRTC connection loss, interrupt the
+	//    connection outside the browser, for example by stopping the TURN server or using an OS-level firewall.
 	SetOffline(offline bool) error
 
 	// Returns storage state for this browser context, contains current cookies, local storage snapshot, IndexedDB
-	// snapshot and virtual WebAuthn credentials.
+	// snapshot, origin private file system snapshot and virtual WebAuthn credentials.
 	StorageState(options ...BrowserContextStorageStateOptions) (*StorageState, error)
 
-	// Clears the existing cookies, local storage, IndexedDB entries and virtual WebAuthn credentials, and sets the new
-	// storage state. When the storage state contains credentials, the virtual WebAuthn authenticator is installed
-	// (equivalent to [Credentials.Install]), preventing all real authenticators from working in this context.
+	// Clears the existing cookies, local storage, IndexedDB entries, origin private file system entries and virtual
+	// WebAuthn credentials, and sets the new storage state. When the storage state contains credentials, the virtual
+	// WebAuthn authenticator is installed (equivalent to [Credentials.Install]), preventing all real authenticators from
+	// working in this context.
 	//
 	//  storageStatePath: Populates context with given storage state. This option can be used to initialize context with logged-in
 	//    information obtained via [BrowserContext.StorageState]. Path to the file with saved storage state.
@@ -672,6 +697,7 @@ type Clock interface {
 
 	// Install fake implementations for the following time-related functions:
 	//  - `Date`
+	//  - `Temporal.Now`
 	//  - `setTimeout`
 	//  - `clearTimeout`
 	//  - `setInterval`
@@ -756,7 +782,7 @@ type ConsoleMessage interface {
 // **Usage: seed a known credential**
 // **Usage: capture a credential, then reuse it**
 // **Usage: save credentials in the storage state, restore later**
-// See [authentication guide] for examples of using saving and resotring the storage state.
+// See [authentication guide] for examples of using saving and restoring the storage state.
 // **Defaults**
 //
 // [authentication guide]: https://playwright.dev/docs/auth
@@ -775,7 +801,8 @@ type Credentials interface {
 	// passkey flows. The returned object carries the private and public keys, so it can be persisted to disk and
 	// re-seeded in a later test.
 	// To **import a known credential**, supply all four of “[object Object]”, “[object Object]”, “[object Object]” and
-	// “[object Object]” together.
+	// “[object Object]” together. Pass “[object Object]” as well to continue from the signature counter the relying party
+	// has already seen.
 	// Call [Credentials.Install] before navigating to a page that uses WebAuthn.
 	//
 	//  rpId: Relying party id (typically the site's effective domain).
@@ -790,8 +817,9 @@ type Credentials interface {
 	// Returns every credential currently held by the authenticator, optionally filtered by “[object Object]” or
 	// “[object Object]”. This includes both credentials seeded with [Credentials.Create] and credentials the page
 	// registered itself by calling `navigator.credentials.create()`.
-	// Each returned credential includes its private and public keys, so a passkey the app just registered can be saved
-	// and re-seeded into a later test with [Credentials.Create] — see the second example in the class overview.
+	// Each returned credential includes its private and public keys and the current signature counter, so a passkey the
+	// app just registered can be saved and re-seeded into a later test with [Credentials.Create] — see the second example
+	// in the class overview.
 	Get(options ...CredentialsGetOptions) ([]VirtualCredential, error)
 }
 
@@ -1454,7 +1482,7 @@ type Frame interface {
 	Click(selector string, options ...FrameClickOptions) error
 
 	// Gets the full HTML contents of the frame, including the doctype.
-	Content() (string, error)
+	Content(options ...FrameContentOptions) (string, error)
 
 	// This method double clicks an element matching “[object Object]” by performing the following steps:
 	//  1. Find an element matching “[object Object]”. If there is none, wait until a matching element is attached to
@@ -1598,9 +1626,10 @@ type Frame interface {
 
 	// When working with iframes, you can create a frame locator that will enter the iframe and allow selecting elements
 	// in that iframe.
-	//
-	//  selector: A selector to use when resolving DOM element.
-	FrameLocator(selector string) FrameLocator
+	// When called without “[object Object]”, the search starts in this frame or in any of the iframes inside it, so that
+	// you don't need to locate each iframe first. Note that the rest of the locator is resolved inside a single frame,
+	// just like any other locator. If it matches elements inside multiple frames, an error is thrown.
+	FrameLocator(selector ...string) FrameLocator
 
 	// Returns element attribute value.
 	//
@@ -2087,6 +2116,9 @@ type Frame interface {
 	//    the parameter is a string without wildcard characters, the method will wait for navigation to URL that is exactly
 	//    equal to the string.
 	WaitForURL(url any, options ...FrameWaitForURLOptions) error
+
+	// Tools that the frame registers through the experimental [WebMCP] browser API. See [WebMCP] for details.
+	WebMCP() WebMCP
 }
 
 // FrameLocator represents a view to the `iframe` on the page. It captures the logic sufficient to retrieve the
@@ -2095,6 +2127,14 @@ type Frame interface {
 // **Strictness**
 // Frame locators are strict. This means that all operations on frame locators will throw if more than one element
 // matches a given selector.
+// **Any frame**
+// Calling [Page.FrameLocator] or [Frame.FrameLocator] without a selector creates a frame locator that starts the
+// search in any frame of the subtree - so that you don't need to locate the iframe first.
+// Only the start of the search is affected - the rest of the locator is resolved inside a single frame, just like any
+// other locator. Following the strictness rules above, an error is thrown when elements are matched in multiple
+// frames.
+// Such a frame locator does not point to a particular `iframe`, so [FrameLocator.Owner], [FrameLocator.First],
+// [FrameLocator.Last] and [FrameLocator.Nth] are not supported on it.
 // **Converting Locator to FrameLocator**
 // If you have a [Locator] object pointing to an `iframe` it can be converted to [FrameLocator] using
 // [Locator.ContentFrame].
@@ -3053,6 +3093,14 @@ type Locator interface {
 	// [actionability]: https://playwright.dev/docs/actionability
 	Uncheck(options ...LocatorUncheckOptions) error
 
+	// Returns a locator that matches only [visible] elements, ignoring the invisible ones.
+	// This is the recommended way to distinguish elements by visibility, as opposed to the `:visible` CSS pseudo-class.
+	// Note that visibility is checked every time the locator is used, and not at the moment of the [Locator.Visible]
+	// call.
+	//
+	// [visible]: https://playwright.dev/docs/actionability#visible
+	Visible() Locator
+
 	// Returns when element specified by locator satisfies the “[object Object]” option.
 	// If target element already satisfies the condition, the method returns immediately. Otherwise, waits for up to
 	// “[object Object]” milliseconds until the condition is met.
@@ -3070,6 +3118,14 @@ type Locator interface {
 	//    function is automatically invoked.
 	// 2. arg: Optional argument to pass to “[object Object]”.
 	WaitForFunction(expression string, arg any, options ...LocatorWaitForFunctionOptions) error
+
+	// Returns a locator that matches this locator's elements inside each element matched by “[object Object]”.
+	// Note that relative locators, such as [Locator.Nth] or [Locator.First], are resolved separately inside each matched
+	// parent. In the example below, `page.getByRole('cell').nth(2)` picks the third cell of every row, not the third cell
+	// in the whole table.
+	//
+	//  locator: Locator matching the parent elements to search within.
+	Within(locator Locator) Locator
 
 	Err() error
 }
@@ -3328,6 +3384,10 @@ type Page interface {
 	// [freeze]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/EventLoop#never_blocking
 	OnDialog(fn func(Dialog))
 
+	// Emitted when a JavaScript dialog has been closed, either by [Dialog.Accept], by [Dialog.Dismiss], or manually by
+	// the user in the headed browser.
+	OnDialogClosed(fn func(Dialog))
+
 	// Emitted when the JavaScript
 	// [`DOMContentLoaded`] event is dispatched.
 	//
@@ -3469,7 +3529,7 @@ type Page interface {
 	Close(options ...PageCloseOptions) error
 
 	// Gets the full HTML contents of the page, including the doctype.
-	Content() (string, error)
+	Content(options ...PageContentOptions) (string, error)
 
 	// Get the browser context that the page belongs to.
 	Context() BrowserContext
@@ -3641,9 +3701,10 @@ type Page interface {
 
 	// When working with iframes, you can create a frame locator that will enter the iframe and allow selecting elements
 	// in that iframe.
-	//
-	//  selector: A selector to use when resolving DOM element.
-	FrameLocator(selector string) FrameLocator
+	// When called without “[object Object]”, the search starts in any frame on the page - the main frame or any of the
+	// iframes - so that you don't need to locate each iframe first. Note that the rest of the locator is resolved inside
+	// a single frame, just like any other locator. If it matches elements inside multiple frames, an error is thrown.
+	FrameLocator(selector ...string) FrameLocator
 
 	// An array of all frames attached to the page.
 	Frames() []Frame
@@ -3674,6 +3735,12 @@ type Page interface {
 	//
 	//  text: Text to locate the element for.
 	GetByPlaceholder(text any, options ...PageGetByPlaceholderOptions) Locator
+
+	// Locate element by its aria ref. Refs like `[ref=e2]` are reported by [Page.AriaSnapshot] when called with the
+	// `"ai"` mode, and resolve against the latest snapshot taken in the element's frame.
+	//
+	//  ref: Aria ref of the element, for example `e2` or `f1e3`.
+	GetByRef(ref string) Locator
 
 	// Allows locating elements by their [ARIA role],
 	// [ARIA attributes] and
@@ -3729,7 +3796,7 @@ type Page interface {
 	// Returns the main resource response. In case of multiple redirects, the navigation will resolve with the response of
 	// the last redirect. If cannot go back, returns `null`.
 	// Navigate to the previous page in history.
-	// **NOTE** **Testing Back/Forward Cache (BFCache) is not supported.**  By default, Playwright disables the
+	// **NOTE** **Testing Back/Forward Cache (BFCache) is not supported.** By default, Playwright disables the
 	// Back/Forward Cache across all browsers. Even if explicitly enabled, Playwright's internal state relies on
 	// network-level navigation events. Because BFCache restores unfreeze the DOM without firing these events, using
 	// `page.goBack()` or `page.goForward()` to trigger a BFCache restore will result in timeouts and a desynchronized
@@ -3739,7 +3806,7 @@ type Page interface {
 	// Returns the main resource response. In case of multiple redirects, the navigation will resolve with the response of
 	// the last redirect. If cannot go forward, returns `null`.
 	// Navigate to the next page in history.
-	// **NOTE** **Testing Back/Forward Cache (BFCache) is not supported.**  By default, Playwright disables the
+	// **NOTE** **Testing Back/Forward Cache (BFCache) is not supported.** By default, Playwright disables the
 	// Back/Forward Cache across all browsers. Even if explicitly enabled, Playwright's internal state relies on
 	// network-level navigation events. Because BFCache restores unfreeze the DOM without firing these events, using
 	// `page.goBack()` or `page.goForward()` to trigger a BFCache restore will result in timeouts and a desynchronized
@@ -4425,6 +4492,10 @@ type Page interface {
 	// closed before the worker event is fired.
 	ExpectWorker(cb func() error, options ...PageExpectWorkerOptions) (Worker, error)
 
+	// Tools that the main frame registers through the experimental [WebMCP] browser API. Shortcut for [Frame.WebMCP] of
+	// [Page.MainFrame], see [WebMCP] for details.
+	WebMCP() WebMCP
+
 	// This method returns all of the dedicated
 	// [WebWorkers] associated with the page.
 	// **NOTE** This does not contain ServiceWorkers
@@ -4560,7 +4631,7 @@ type Request interface {
 
 	// Contains the request's resource type as it was perceived by the rendering engine. ResourceType will be one of the
 	// following: `document`, `stylesheet`, `image`, `media`, `font`, `script`, `texttrack`, `xhr`, `fetch`,
-	// `eventsource`, `websocket`, `manifest`, `other`.
+	// `eventsource`, `websocket`, `manifest`, `beacon`, `ping`, `cspreport`, `other`.
 	ResourceType() string
 
 	// Returns the matching [Response] object, or `null` if the response was not received due to error.
@@ -4610,8 +4681,10 @@ type Response interface {
 	// headers that include `cookie` information.
 	Headers() map[string]string
 
-	// An array with all the request HTTP headers associated with this response. Unlike [Response.AllHeaders], header
+	// An array with all the response HTTP headers associated with this response. Unlike [Response.AllHeaders], header
 	// names are NOT lower-cased. Headers with multiple entries, such as `Set-Cookie`, appear in the array multiple times.
+	// Some browser network stacks combine multiple field values before reporting them, so separate entries are not always
+	// available.
 	HeadersArray() ([]NameValue, error)
 
 	// Returns the value of the header matching the name. The name is case-insensitive. If multiple headers have the same
@@ -4791,7 +4864,8 @@ type Touchscreen interface {
 // [enable tracing in your config file]: https://playwright.dev/docs/api/class-testoptions#test-options-trace
 // [enabling tracing through Playwright Test configuration]: https://playwright.dev/docs/api/class-testoptions#test-options-trace
 type Tracing interface {
-	// Start tracing.
+	// Start tracing. Disposing the returned [Disposable] stops tracing without saving the trace, similarly to calling
+	// [Tracing.Stop] without a path.
 	// **NOTE** You probably want to
 	// [enable tracing in your config file] instead
 	// of using `Tracing.start`.
@@ -4804,13 +4878,14 @@ type Tracing interface {
 	// [enabling tracing through Playwright Test configuration]: https://playwright.dev/docs/api/class-testoptions#test-options-trace
 	Start(options ...TracingStartOptions) error
 
-	// Start a new trace chunk. If you'd like to record multiple traces on the same [BrowserContext], use [Tracing.Start]
-	// once, and then create multiple trace chunks with [Tracing.StartChunk] and [Tracing.StopChunk].
+	// Start a new trace chunk. Disposing the returned [Disposable] stops the chunk without saving it, similarly to
+	// calling [Tracing.StopChunk] without a path. If you'd like to record multiple traces on the same [BrowserContext],
+	// use [Tracing.Start] once, and then create multiple trace chunks with [Tracing.StartChunk] and [Tracing.StopChunk].
 	StartChunk(options ...TracingStartChunkOptions) error
 
 	// Start recording a HAR (HTTP Archive) of network activity in this context. The HAR file is written to disk when
 	// [Tracing.StopHar] is called, or when the returned [Disposable] is disposed.
-	// Only one HAR recording can be active at a time per [BrowserContext].
+	// Only one HAR recording can be active at a time per [Tracing] instance.
 	//
 	//  path: Path on the filesystem to write the HAR file to. If the file name ends with `.zip`, the HAR is saved as a zip
 	//    archive with response bodies attached as separate files.
@@ -4862,6 +4937,28 @@ type WebError interface {
 	Error() error
 
 	Location() *WebErrorLocation
+}
+
+// [WebMCP] exposes the tools that a frame registers through the experimental [WebMCP] browser API,
+// `navigator.modelContext`. It lists the tools and calls them.
+// Instances are accessed through [Frame.WebMCP]. [Page.WebMCP] is the instance of the main frame.
+// **NOTE** WebMCP is an experimental browser feature. Chromium enables it with the `--enable-features=WebMCP` launch
+// argument, Firefox with the `dom.modelcontext.enabled` and `dom.modelcontext.testing.enabled` preferences. WebKit
+// does not implement it.
+// Tool names, descriptions, input schemas and results are provided by the page, so treat them as untrusted input.
+type WebMCP interface {
+	// Calls a tool registered by the frame and returns its result. The result is whatever the tool's `execute` function
+	// resolved to, typically an object with a `content` array. A result with `isError: true` is returned as is. The
+	// method throws when the tool is not registered or its `execute` function throws.
+	//
+	// 1. name: Name of the tool, as reported by [WebMCP.Tools].
+	// 2. input: Input for the tool, matching its `inputSchema`. Defaults to an empty object.
+	CallTool(name string, input any, options ...WebMCPCallToolOptions) (any, error)
+
+	// Returns the tools currently registered by the frame. Throws if the browser was launched without WebMCP support, see
+	// the note above for the launch options that enable it.
+	// [Page.WebMCP] covers the main frame only, child frames list their tools through their own [Frame.WebMCP].
+	Tools(options ...WebMCPToolsOptions) ([]WebMCPTool, error)
 }
 
 // The [WebSocket] class represents WebSocket connections within a page. It provides the ability to inspect and

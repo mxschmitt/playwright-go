@@ -143,7 +143,7 @@ func (l *localUtilsImpl) TraceDiscarded(stacksId string) error {
 	return err
 }
 
-func (l *localUtilsImpl) AddStackToTracingNoReply(id uint32, stack []map[string]any) {
+func (l *localUtilsImpl) AddStackToTracingNoReply(id string, stack []map[string]any) {
 	l.channel.SendNoReply("addStackToTracingNoReply", map[string]any{
 		"callData": map[string]any{
 			"id":    id,

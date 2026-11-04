@@ -242,7 +242,7 @@ func TestBrowserTypeConnectInitializationErrorClosesTransport(t *testing.T) {
 	protocolErrors := make(chan error, 1)
 	server.OnceWebSocketMessage(func(connection *websocket.Conn, request *http.Request, _ websocket.MessageType, payload []byte) {
 		var initialize struct {
-			ID int `json:"id"`
+			ID string `json:"id"`
 		}
 		if err := json.Unmarshal(payload, &initialize); err != nil {
 			protocolErrors <- err
@@ -303,7 +303,7 @@ func TestBrowserTypeConnectMalformedEndpointClosesTransport(t *testing.T) {
 	protocolErrors := make(chan error, 1)
 	server.OnceWebSocketMessage(func(connection *websocket.Conn, request *http.Request, _ websocket.MessageType, payload []byte) {
 		var initialize struct {
-			ID int `json:"id"`
+			ID string `json:"id"`
 		}
 		if err := json.Unmarshal(payload, &initialize); err != nil {
 			protocolErrors <- err

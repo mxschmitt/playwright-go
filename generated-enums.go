@@ -121,6 +121,19 @@ var (
 	AriaRoleTreeitem                   = getAriaRole("treeitem")
 )
 
+func getSameSiteAttribute(in string) *SameSiteAttribute {
+	v := SameSiteAttribute(in)
+	return &v
+}
+
+type SameSiteAttribute string
+
+var (
+	SameSiteAttributeStrict *SameSiteAttribute = getSameSiteAttribute("Strict")
+	SameSiteAttributeLax                       = getSameSiteAttribute("Lax")
+	SameSiteAttributeNone                      = getSameSiteAttribute("None")
+)
+
 func getColorScheme(in string) *ColorScheme {
 	v := ColorScheme(in)
 	return &v
@@ -209,19 +222,6 @@ type ServiceWorkerPolicy string
 var (
 	ServiceWorkerPolicyAllow *ServiceWorkerPolicy = getServiceWorkerPolicy("allow")
 	ServiceWorkerPolicyBlock                      = getServiceWorkerPolicy("block")
-)
-
-func getSameSiteAttribute(in string) *SameSiteAttribute {
-	v := SameSiteAttribute(in)
-	return &v
-}
-
-type SameSiteAttribute string
-
-var (
-	SameSiteAttributeStrict *SameSiteAttribute = getSameSiteAttribute("Strict")
-	SameSiteAttributeLax                       = getSameSiteAttribute("Lax")
-	SameSiteAttributeNone                      = getSameSiteAttribute("None")
 )
 
 func getHarNotFound(in string) *HarNotFound {
@@ -478,4 +478,16 @@ type HttpCredentialsSend string
 var (
 	HttpCredentialsSendUnauthorized *HttpCredentialsSend = getHttpCredentialsSend("unauthorized")
 	HttpCredentialsSendAlways                            = getHttpCredentialsSend("always")
+)
+
+func getOPFSEntryType(in string) *OPFSEntryType {
+	v := OPFSEntryType(in)
+	return &v
+}
+
+type OPFSEntryType string
+
+var (
+	OPFSEntryTypeFile      *OPFSEntryType = getOPFSEntryType("file")
+	OPFSEntryTypeDirectory                = getOPFSEntryType("directory")
 )
