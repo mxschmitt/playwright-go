@@ -407,8 +407,13 @@ func TestResponseSecurityDetails(t *testing.T) {
 		// asserts these optional fields.
 		require.Nil(t, securityDetails.Issuer)
 		require.NotNil(t, securityDetails.SubjectName)
-		// httptest's self-signed certificate is issued to "Acme Co".
-		require.Equal(t, "Acme Co", *securityDetails.SubjectName)
+		// httptest's self-signed certificate has the organization "Acme Co" and
+		// no common name. WebKit on macOS summarizes it by its first DNS name.
+		if runtime.GOOS == "darwin" {
+			require.Equal(t, "example.com", *securityDetails.SubjectName)
+		} else {
+			require.Equal(t, "Acme Co", *securityDetails.SubjectName)
+		}
 		// WebKit on Windows does not surface the TLS protocol, and WebKit on
 		// WSL does not reliably expose it.
 		if runtime.GOOS != "windows" && securityDetails.Protocol != nil {
