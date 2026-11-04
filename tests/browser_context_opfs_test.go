@@ -101,3 +101,38 @@ func TestBrowserContextStorageStateShouldRoundTripOPFS(t *testing.T) {
 	require.NoError(t, err)
 	require.JSONEq(t, `{"data":[0,1,2,255],"text":"Hello, world!"}`, string(encoded))
 }
+
+func TestBrowserContextStorageStateShouldRoundTripOPFSThroughTheReturnedValue(t *testing.T) {
+	if isWebKit {
+		t.Skip("OPFS is unavailable in ephemeral WebKit contexts")
+	}
+	BeforeEach(t)
+
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	_, err = page.Evaluate(writeOPFSScript)
+	require.NoError(t, err)
+
+	state, err := context.StorageState(playwright.BrowserContextStorageStateOptions{Opfs: playwright.Bool(true)})
+	require.NoError(t, err)
+	require.Len(t, state.Origins, 1)
+	require.Equal(t, []playwright.OPFSEntry{
+		{Path: "hello.txt", Type: playwright.OPFSEntryTypeFile, Base64: playwright.String("SGVsbG8sIHdvcmxkIQ==")},
+		{Path: "nested", Type: playwright.OPFSEntryTypeDirectory},
+		{Path: "nested/data.bin", Type: playwright.OPFSEntryTypeFile, Base64: playwright.String("AAEC/w==")},
+		{Path: "nested/empty", Type: playwright.OPFSEntryTypeDirectory},
+	}, state.Origins[0].Opfs)
+
+	requestState, err := context.Request().StorageState(playwright.APIRequestContextStorageStateOptions{Opfs: playwright.Bool(true)})
+	require.NoError(t, err)
+	require.Equal(t, state.Origins, requestState.Origins)
+
+	_, page2 := newBrowserContextAndPage(t, playwright.BrowserNewContextOptions{StorageState: state.ToOptionalStorageState()})
+	_, err = page2.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	contents, err := page2.Evaluate(readOPFSScript)
+	require.NoError(t, err)
+	encoded, err := json.Marshal(contents)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"data":[0,1,2,255],"text":"Hello, world!"}`, string(encoded))
+}

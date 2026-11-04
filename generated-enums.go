@@ -479,3 +479,15 @@ var (
 	HttpCredentialsSendUnauthorized *HttpCredentialsSend = getHttpCredentialsSend("unauthorized")
 	HttpCredentialsSendAlways                            = getHttpCredentialsSend("always")
 )
+
+func getOPFSEntryType(in string) *OPFSEntryType {
+	v := OPFSEntryType(in)
+	return &v
+}
+
+type OPFSEntryType string
+
+var (
+	OPFSEntryTypeFile      *OPFSEntryType = getOPFSEntryType("file")
+	OPFSEntryTypeDirectory                = getOPFSEntryType("directory")
+)

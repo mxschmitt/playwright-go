@@ -4906,6 +4906,8 @@ type Proxy struct {
 type Origin struct {
 	Origin       string      `json:"origin"`
 	LocalStorage []NameValue `json:"localStorage"`
+	// Origin private file system entries, when the storage state was captured with OPFS.
+	Opfs []OPFSEntry `json:"opfs"`
 }
 
 type RecordVideo struct {
@@ -4990,6 +4992,14 @@ type WebMCPToolAnnotations struct {
 	UntrustedContent *bool `json:"untrustedContent"`
 	// The tool takes a consequential action, such as placing an order.
 	Consequential *bool `json:"consequential"`
+}
+
+type OPFSEntry struct {
+	// Entry path relative to the origin private file system root.
+	Path string         `json:"path"`
+	Type *OPFSEntryType `json:"type"`
+	// Base64-encoded file contents. Only set for files.
+	Base64 *string `json:"base64"`
 }
 
 type ShowAction struct {

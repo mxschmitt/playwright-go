@@ -1,5 +1,5 @@
 diff --git a/docs/src/api/class-apirequest.md b/docs/src/api/class-apirequest.md
-index 8e4471433..5b3bee511 100644
+index 8e4471433..06ce72418 100644
 --- a/docs/src/api/class-apirequest.md
 +++ b/docs/src/api/class-apirequest.md
 @@ -31,6 +31,12 @@ for all status codes.
@@ -24,7 +24,7 @@ index 8e4471433..5b3bee511 100644
  - `storageState` <[path]|[Object]>
    - `cookies` <[Array]<[Object]>>
      - `name` <[string]>
-@@ -73,11 +79,20 @@ Methods like [`method: APIRequestContext.get`] take the base URL into considerat
+@@ -73,11 +79,25 @@ Methods like [`method: APIRequestContext.get`] take the base URL into considerat
      - `httpOnly` <[boolean]>
      - `secure` <[boolean]>
      - `sameSite` <[SameSiteAttribute]<"Strict"|"Lax"|"None">>
@@ -34,6 +34,11 @@ index 8e4471433..5b3bee511 100644
      - `localStorage` <[Array]<[Object]>>
        - `name` <[string]>
        - `value` <[string]>
++    - `opfs` ?<[Array]<[Object]>> Origin private file system entries, when the storage state was captured with OPFS.
++      * alias: OPFSEntry
++      - `path` <[string]> Entry path relative to the origin private file system root.
++      - `type` <[OPFSEntryType]<"file"|"directory">>
++      - `base64` ?<[string]> Base64-encoded file contents. Only set for files.
 +  - `credentials` ?<[Array]<[Object]>> Virtual WebAuthn credentials. BrowserContext captures and restores them; APIRequestContext ignores this field.
 +    * alias: VirtualCredential
 +    - `id` <[string]> Base64url-encoded credential id.
@@ -46,7 +51,7 @@ index 8e4471433..5b3bee511 100644
  Populates context with given storage state. This option can be used to initialize context with logged-in information
  obtained via [`method: BrowserContext.storageState`] or [`method: APIRequestContext.storageState`]. Either a path to the
 diff --git a/docs/src/api/class-apirequestcontext.md b/docs/src/api/class-apirequestcontext.md
-index e467b3087..262b90c25 100644
+index e467b3087..ca4033a29 100644
 --- a/docs/src/api/class-apirequestcontext.md
 +++ b/docs/src/api/class-apirequestcontext.md
 @@ -276,6 +276,9 @@ context cookies from the response. The method will automatically follow redirect
@@ -268,7 +273,7 @@ index e467b3087..262b90c25 100644
  ### option: APIRequestContext.put.timeout = %%-js-python-csharp-fetch-option-timeout-%%
  * since: v1.16
  
-@@ -1006,11 +1069,20 @@ context cookies from the response. The method will automatically follow redirect
+@@ -1006,11 +1069,25 @@ context cookies from the response. The method will automatically follow redirect
      - `httpOnly` <[boolean]>
      - `secure` <[boolean]>
      - `sameSite` <[SameSiteAttribute]<"Strict"|"Lax"|"None">>
@@ -278,6 +283,11 @@ index e467b3087..262b90c25 100644
      - `localStorage` <[Array]<[Object]>>
        - `name` <[string]>
        - `value` <[string]>
++    - `opfs` ?<[Array]<[Object]>> Origin private file system entries, when the storage state was captured with OPFS.
++      * alias: OPFSEntry
++      - `path` <[string]> Entry path relative to the origin private file system root.
++      - `type` <[OPFSEntryType]<"file"|"directory">>
++      - `base64` ?<[string]> Base64-encoded file contents. Only set for files.
 +  - `credentials` ?<[Array]<[Object]>> Virtual WebAuthn credentials. BrowserContext captures and restores them; APIRequestContext ignores this field and never populates it.
 +    * alias: VirtualCredential
 +    - `id` <[string]> Base64url-encoded credential id.
@@ -289,7 +299,7 @@ index e467b3087..262b90c25 100644
  
  Returns storage state for this request context, contains current cookies and local storage snapshot if it was passed to the constructor.
  
-@@ -1024,6 +1096,7 @@ Returns storage state for this request context, contains current cookies and loc
+@@ -1024,6 +1101,7 @@ Returns storage state for this request context, contains current cookies and loc
  
  ### option: APIRequestContext.storageState.indexedDB
  * since: v1.51
@@ -385,7 +395,7 @@ index 174a94f25..ce4c83d79 100644
  
  :::note
 diff --git a/docs/src/api/class-browsercontext.md b/docs/src/api/class-browsercontext.md
-index 1c36fc50b..63260af9c 100644
+index 1c36fc50b..0695f2ebd 100644
 --- a/docs/src/api/class-browsercontext.md
 +++ b/docs/src/api/class-browsercontext.md
 @@ -434,7 +434,7 @@ The order of evaluation of multiple scripts installed via [`method: BrowserConte
@@ -433,7 +443,7 @@ index 1c36fc50b..63260af9c 100644
  - returns: <[Array]<[Worker]>>
  
  :::note
-@@ -1539,11 +1539,20 @@ Offline emulation only affects requests that go through the browser's regular ne
+@@ -1539,11 +1539,25 @@ Offline emulation only affects requests that go through the browser's regular ne
      - `httpOnly` <[boolean]>
      - `secure` <[boolean]>
      - `sameSite` <[SameSiteAttribute]<"Strict"|"Lax"|"None">>
@@ -443,6 +453,11 @@ index 1c36fc50b..63260af9c 100644
      - `localStorage` <[Array]<[Object]>>
        - `name` <[string]>
        - `value` <[string]>
++    - `opfs` ?<[Array]<[Object]>> Origin private file system entries, when the storage state was captured with OPFS.
++      * alias: OPFSEntry
++      - `path` <[string]> Entry path relative to the origin private file system root.
++      - `type` <[OPFSEntryType]<"file"|"directory">>
++      - `base64` ?<[string]> Base64-encoded file contents. Only set for files.
 +  - `credentials` ?<[Array]<[Object]>> Virtual WebAuthn credentials when [`option: BrowserContext.storageState.credentials`] is set.
 +    * alias: VirtualCredential
 +    - `id` <[string]> Base64url-encoded credential id.
@@ -454,7 +469,7 @@ index 1c36fc50b..63260af9c 100644
  
  Returns storage state for this browser context, contains current cookies, local storage snapshot, IndexedDB snapshot, origin private file system snapshot and virtual WebAuthn credentials.
  
-@@ -1557,6 +1566,7 @@ Returns storage state for this browser context, contains current cookies, local
+@@ -1557,6 +1571,7 @@ Returns storage state for this browser context, contains current cookies, local
  
  ### option: BrowserContext.storageState.indexedDB
  * since: v1.51
@@ -462,7 +477,7 @@ index 1c36fc50b..63260af9c 100644
  - `indexedDB` ?<boolean>
  
  Set to `true` to include [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) in the storage state snapshot.
-@@ -1652,7 +1662,7 @@ A glob pattern, regex pattern, URL pattern, or predicate receiving [URL] used to
+@@ -1652,7 +1667,7 @@ A glob pattern, regex pattern, URL pattern, or predicate receiving [URL] used to
  
  ### param: BrowserContext.unroute.url
  * since: v1.8
@@ -471,7 +486,7 @@ index 1c36fc50b..63260af9c 100644
  - `url` <[string]|[RegExp]|[function]\([URL]\):[boolean]>
  
  A glob pattern, regex pattern, or predicate receiving [URL] used to register a routing with
-@@ -1665,6 +1675,13 @@ A glob pattern, regex pattern, or predicate receiving [URL] used to register a r
+@@ -1665,6 +1680,13 @@ A glob pattern, regex pattern, or predicate receiving [URL] used to register a r
  
  Optional handler function used to register a routing with [`method: BrowserContext.route`].
  
@@ -485,7 +500,7 @@ index 1c36fc50b..63260af9c 100644
  ### param: BrowserContext.unroute.handler
  * since: v1.8
  * langs: csharp, java
-@@ -1706,7 +1723,8 @@ Condition to wait for.
+@@ -1706,7 +1728,8 @@ Condition to wait for.
  
  ## async method: BrowserContext.waitForConsoleMessage
  * since: v1.34
@@ -495,7 +510,7 @@ index 1c36fc50b..63260af9c 100644
    - alias-python: expect_console_message
    - alias-csharp: RunAndWaitForConsoleMessage
  - returns: <[ConsoleMessage]>
-@@ -1756,7 +1774,8 @@ Receives the [ConsoleMessage] object and resolves to truthy value when the waiti
+@@ -1756,7 +1779,8 @@ Receives the [ConsoleMessage] object and resolves to truthy value when the waiti
  
  ## async method: BrowserContext.waitForEvent
  * since: v1.8
@@ -505,7 +520,7 @@ index 1c36fc50b..63260af9c 100644
    - alias-python: expect_event
  - returns: <[any]>
  
-@@ -1823,7 +1842,8 @@ Either a predicate that receives an event or an options object. Optional.
+@@ -1823,7 +1847,8 @@ Either a predicate that receives an event or an options object. Optional.
  
  ## async method: BrowserContext.waitForPage
  * since: v1.9
@@ -515,7 +530,7 @@ index 1c36fc50b..63260af9c 100644
    - alias-python: expect_page
    - alias-csharp: RunAndWaitForPage
  - returns: <[Page]>
-@@ -1860,7 +1880,7 @@ print(new_page.title())
+@@ -1860,7 +1885,7 @@ print(new_page.title())
  
  ### option: BrowserContext.waitForPage.predicate
  * since: v1.9
@@ -524,7 +539,7 @@ index 1c36fc50b..63260af9c 100644
  - `predicate` <[function]\([Page]\):[boolean]>
  
  Receives the [Page] object and resolves to truthy value when the waiting should resolve.
-@@ -1874,7 +1894,8 @@ Receives the [Page] object and resolves to truthy value when the waiting should
+@@ -1874,7 +1899,8 @@ Receives the [Page] object and resolves to truthy value when the waiting should
  
  ## async method: BrowserContext.waitForEvent2
  * since: v1.8
@@ -1445,7 +1460,7 @@ index c4c8dfc0b..f04bca717 100644
  * since: v1.48
  * langs: csharp, java
 diff --git a/docs/src/api/params.md b/docs/src/api/params.md
-index 1a0be85da..c4bb9e11b 100644
+index 1a0be85da..008895808 100644
 --- a/docs/src/api/params.md
 +++ b/docs/src/api/params.md
 @@ -14,7 +14,7 @@ When true, contents of open shadow roots are included as [declarative shadow DOM
@@ -1512,7 +1527,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `env` <[Object]<[string], [string]>>
  
  Specify environment variables that will be visible to the browser. Defaults to `process.env`.
-@@ -316,6 +316,38 @@ Learn more about [storage state and auth](../auth.md).
+@@ -316,6 +316,43 @@ Learn more about [storage state and auth](../auth.md).
  
  Populates context with given storage state. This option can be used to initialize context with logged-in information obtained via [`method: BrowserContext.storageState`].
  
@@ -1535,6 +1550,11 @@ index 1a0be85da..c4bb9e11b 100644
 +    - `localStorage` <[Array]<[Object]>>
 +      - `name` <[string]>
 +      - `value` <[string]>
++    - `opfs` ?<[Array]<[Object]>> Origin private file system entries, when the storage state was captured with OPFS.
++      * alias: OPFSEntry
++      - `path` <[string]> Entry path relative to the origin private file system root.
++      - `type` <[OPFSEntryType]<"file"|"directory">>
++      - `base64` ?<[string]> Base64-encoded file contents. Only set for files.
 +  - `credentials` ?<[Array]<[Object]>> Virtual WebAuthn credentials to seed into the context.
 +    * alias: VirtualCredential
 +    - `id` <[string]> Base64url-encoded credential id.
@@ -1551,7 +1571,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## csharp-java-context-option-storage-state
  * langs: csharp, java
  - `storageState` <[string]>
-@@ -324,7 +356,7 @@ Populates context with given storage state. This option can be used to initializ
+@@ -324,7 +361,7 @@ Populates context with given storage state. This option can be used to initializ
  obtained via [`method: BrowserContext.storageState`].
  
  ## csharp-java-context-option-storage-state-path
@@ -1560,7 +1580,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `storageStatePath` <[path]>
  
  Populates context with given storage state. This option can be used to initialize context with logged-in information
-@@ -489,7 +521,7 @@ Query parameters to be sent with the URL.
+@@ -489,7 +526,7 @@ Query parameters to be sent with the URL.
  Query parameters to be sent with the URL.
  
  ## csharp-fetch-option-params
@@ -1569,7 +1589,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `params` <[Object]<[string], [Serializable]>>
  
  Query parameters to be sent with the URL.
-@@ -507,19 +539,19 @@ Query parameters to be sent with the URL.
+@@ -507,19 +544,19 @@ Query parameters to be sent with the URL.
  Optional request parameters.
  
  ## js-python-csharp-fetch-option-headers
@@ -1592,7 +1612,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `failOnStatusCode` <[boolean]>
  
  Whether to throw on response codes other than 2xx and 3xx. By default response object is returned
-@@ -551,6 +583,14 @@ unless explicitly provided.
+@@ -551,6 +588,14 @@ unless explicitly provided.
  
  An instance of [FormData] can be created via [`method: APIRequestContext.createFormData`].
  
@@ -1607,7 +1627,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## js-fetch-option-multipart
  * langs: js
  - `multipart` <[FormData]|[Object]<[string], [string]|[float]|[boolean]|[ReadStream]|[Object]>>
-@@ -585,6 +625,15 @@ unless explicitly provided. File values can be passed as file-like object contai
+@@ -585,6 +630,15 @@ unless explicitly provided. File values can be passed as file-like object contai
  
  An instance of [FormData] can be created via [`method: APIRequestContext.createFormData`].
  
@@ -1623,7 +1643,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## js-python-csharp-fetch-option-data
  * langs: js, python, csharp
  - `data` <[string]|[Buffer]|[Serializable]>
-@@ -593,21 +642,29 @@ Allows to set post data of the request. If the data parameter is an object, it w
+@@ -593,21 +647,29 @@ Allows to set post data of the request. If the data parameter is an object, it w
  and `content-type` header will be set to `application/json` if not explicitly set. Otherwise the `content-type` header will be
  set to `application/octet-stream` if not explicitly set.
  
@@ -1656,7 +1676,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `maxRetries` <[int]>
  
  Maximum number of times network errors should be retried. Currently only `ECONNRESET` error is retried. Does not retry based on HTTP response codes. An error will be thrown if the limit is exceeded. Defaults to `0` - no retries.
-@@ -661,7 +718,7 @@ Function to be evaluated in the worker context.
+@@ -661,7 +723,7 @@ Function to be evaluated in the worker context.
  Function to be evaluated in the main Electron process.
  
  ## python-context-option-viewport
@@ -1665,7 +1685,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `viewport` <[null]|[Object]>
    - `width` <[int]> page width in pixels.
    - `height` <[int]> page height in pixels.
-@@ -669,7 +726,7 @@ Function to be evaluated in the main Electron process.
+@@ -669,7 +731,7 @@ Function to be evaluated in the main Electron process.
  Sets a consistent viewport for each page. Defaults to an 1280x720 viewport. `no_viewport` disables the fixed viewport. Learn more about [viewport emulation](../emulation.md#viewport).
  
  ## python-context-option-no-viewport
@@ -1674,7 +1694,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `noViewport` <[boolean]>
  
  Does not enforce fixed viewport, allows resizing window in the headed mode.
-@@ -758,6 +815,7 @@ An object containing additional HTTP headers to be sent with every request. Defa
+@@ -758,6 +820,7 @@ An object containing additional HTTP headers to be sent with every request. Defa
  Whether to emulate network being offline. Defaults to `false`. Learn more about [network emulation](../emulation.md#offline).
  
  ## context-option-httpcredentials
@@ -1682,7 +1702,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `httpCredentials` <[Object]|[Array]<[Object]>>
    * alias: HttpCredentials
    - `username` <[string]>
-@@ -770,6 +828,29 @@ If no origin is specified, the username and password are sent to any servers upo
+@@ -770,6 +833,29 @@ If no origin is specified, the username and password are sent to any servers upo
  
  Pass an array to use different credentials for different origins. The first entry that matches the request origin is used, and entries with no origin match any request.
  
@@ -1712,7 +1732,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## context-option-colorscheme
  * langs: js, java
  - `colorScheme` <null|[ColorScheme]<"light"|"dark"|"no-preference">>
-@@ -784,6 +865,13 @@ Emulates [prefers-colors-scheme](https://developer.mozilla.org/en-US/docs/Web/CS
+@@ -784,6 +870,13 @@ Emulates [prefers-colors-scheme](https://developer.mozilla.org/en-US/docs/Web/CS
  Emulates [prefers-colors-scheme](https://developer.mozilla.org/en-US/docs/Web/CSS/@media/prefers-color-scheme) media feature, supported values are `'light'` and `'dark'`. See
  [`method: Page.emulateMedia`] for more details. Passing `'null'` resets emulation to system defaults. Defaults to `'light'`.
  
@@ -1726,7 +1746,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## context-option-reducedMotion
  * langs: js, java
  - `reducedMotion` <null|[ReducedMotion]<"reduce"|"no-preference">>
-@@ -796,6 +884,12 @@ Emulates `'prefers-reduced-motion'` media feature, supported values are `'reduce
+@@ -796,6 +889,12 @@ Emulates `'prefers-reduced-motion'` media feature, supported values are `'reduce
  
  Emulates `'prefers-reduced-motion'` media feature, supported values are `'reduce'`, `'no-preference'`. See [`method: Page.emulateMedia`] for more details. Passing `'null'` resets emulation to system defaults. Defaults to `'no-preference'`.
  
@@ -1739,7 +1759,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## context-option-forcedColors
  * langs: js, java
  - `forcedColors` <null|[ForcedColors]<"active"|"none">>
-@@ -803,10 +897,10 @@ Emulates `'prefers-reduced-motion'` media feature, supported values are `'reduce
+@@ -803,10 +902,10 @@ Emulates `'prefers-reduced-motion'` media feature, supported values are `'reduce
  Emulates `'forced-colors'` media feature, supported values are `'active'`, `'none'`. See [`method: Page.emulateMedia`] for more details. Passing `null` resets emulation to system defaults. Defaults to `'none'`.
  
  ## context-option-forcedColors-csharp-python
@@ -1753,7 +1773,7 @@ index 1a0be85da..c4bb9e11b 100644
  
  ## context-option-contrast
  * langs: js, java
-@@ -820,6 +914,12 @@ Emulates `'prefers-contrast'` media feature, supported values are `'no-preferenc
+@@ -820,6 +919,12 @@ Emulates `'prefers-contrast'` media feature, supported values are `'no-preferenc
  
  Emulates `'prefers-contrast'` media feature, supported values are `'no-preference'`, `'more'`. See [`method: Page.emulateMedia`] for more details. Passing `'null'` resets emulation to system defaults. Defaults to `'no-preference'`.
  
@@ -1766,7 +1786,7 @@ index 1a0be85da..c4bb9e11b 100644
  ## context-option-logger
  * langs: js
  * deprecated: The logs received by the logger are incomplete. Please use tracing instead.
-@@ -842,7 +942,7 @@ specified, the HAR is not recorded. Make sure to await [`method: BrowserContext.
+@@ -842,7 +947,7 @@ specified, the HAR is not recorded. Make sure to await [`method: BrowserContext.
  saved.
  
  ## context-option-recordhar-path
@@ -1775,7 +1795,7 @@ index 1a0be85da..c4bb9e11b 100644
    - alias-python: record_har_path
  - `recordHarPath` <[path]>
  
-@@ -851,33 +951,33 @@ specified HAR file on the filesystem. If not specified, the HAR is not recorded.
+@@ -851,33 +956,33 @@ specified HAR file on the filesystem. If not specified, the HAR is not recorded.
  call [`method: BrowserContext.close`] for the HAR to be saved.
  
  ## context-option-recordhar-omit-content
@@ -1814,7 +1834,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `recordVideo` <[Object]>
    - `dir` ?<[path]> Path to the directory to put videos into. If not specified, the videos will be stored in `artifactsDir` (see [`method: BrowserType.launch`] options).
    - `size` ?<[Object]> Optional dimensions of the recorded videos. If not specified the size will be equal to `viewport`
-@@ -963,7 +1063,7 @@ Specifies whether to wait for already running listeners and what to do if they t
+@@ -963,7 +1068,7 @@ Specifies whether to wait for already running listeners and what to do if they t
  * `'ignoreErrors'` - do not wait for current listener calls (if any) to finish, all errors thrown by the listeners after removal are silently caught
  
  ## unroute-all-options-behavior
@@ -1823,7 +1843,7 @@ index 1a0be85da..c4bb9e11b 100644
  * since: v1.41
  - `behavior` <[UnrouteBehavior]<"wait"|"ignoreErrors"|"default">>
  
-@@ -974,7 +1074,7 @@ Specifies whether to wait for already running handlers and what to do if they th
+@@ -974,7 +1079,7 @@ Specifies whether to wait for already running handlers and what to do if they th
  
  
  ## select-options-values
@@ -1832,7 +1852,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `values` <[null]|[string]|[ElementHandle]|[Array]<[string]>|[Object]|[Array]<[ElementHandle]>|[Array]<[Object]>>
    * alias-java: SelectOption
    - `value` ?<[string]> Matches by `option.value`. Optional.
-@@ -994,7 +1094,7 @@ the parameter is a string without wildcard characters, the method will wait for
+@@ -994,7 +1099,7 @@ the parameter is a string without wildcard characters, the method will wait for
  equal to the string.
  
  ## python-csharp-java-wait-for-navigation-url
@@ -1841,7 +1861,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `url` <[string]|[RegExp]|[function]\([URL]\):[boolean]>
  
  A glob pattern, regex pattern, or predicate receiving [URL] to match while waiting for the navigation. Note that if
-@@ -1002,7 +1102,7 @@ the parameter is a string without wildcard characters, the method will wait for
+@@ -1002,7 +1107,7 @@ the parameter is a string without wildcard characters, the method will wait for
  equal to the string.
  
  ## wait-for-event-event
@@ -1850,7 +1870,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `event` <[string]>
  
  Event name, same one typically passed into `*.on(event)`.
-@@ -1060,7 +1160,7 @@ only the first option matching one of the passed options is selected. Optional.
+@@ -1060,7 +1165,7 @@ only the first option matching one of the passed options is selected. Optional.
  Receives the event data and resolves to truthy value when the waiting should resolve.
  
  ## wait-for-event-timeout
@@ -1859,7 +1879,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `timeout` <[float]>
  
  Maximum time to wait for in milliseconds. Defaults to `30000` (30 seconds). Pass `0` to disable timeout.
-@@ -1106,7 +1206,7 @@ is aborted while the assertion is retrying, or is already aborted before the ass
+@@ -1106,7 +1211,7 @@ is aborted while the assertion is retrying, or is already aborted before the ass
  the assertion fails without retrying further.
  
  ## csharp-java-python-assertions-timeout
@@ -1868,7 +1888,7 @@ index 1a0be85da..c4bb9e11b 100644
  - `timeout` <[float]>
  
  Time to retry the assertion for in milliseconds. Defaults to `5000`.
-@@ -1158,14 +1258,19 @@ between the same pixel in compared images, between zero (strict) and one (lax),
+@@ -1158,14 +1263,19 @@ between the same pixel in compared images, between zero (strict) and one (lax),
  - %%-context-option-extrahttpheaders-%%
  - %%-context-option-offline-%%
  - %%-context-option-httpcredentials-%%
@@ -1888,7 +1908,7 @@ index 1a0be85da..c4bb9e11b 100644
  - %%-context-option-logger-%%
  - %%-context-option-recordhar-%%
  - %%-context-option-recordhar-path-%%
-@@ -1250,7 +1355,7 @@ Firefox user preferences. Learn more about the Firefox user preferences at
+@@ -1250,7 +1360,7 @@ Firefox user preferences. Learn more about the Firefox user preferences at
  You can also provide a path to a custom [`policies.json` file](https://mozilla.github.io/policy-templates/) via `PLAYWRIGHT_FIREFOX_POLICIES_JSON` environment variable.
  
  ## csharp-java-browser-option-firefoxuserprefs
@@ -1899,10 +1919,10 @@ index 1a0be85da..c4bb9e11b 100644
  Firefox user preferences. Learn more about the Firefox user preferences at
 diff --git a/utils/doclint/generateGoApi.js b/utils/doclint/generateGoApi.js
 new file mode 100644
-index 000000000..34d7d29ca
+index 000000000..9dd057172
 --- /dev/null
 +++ b/utils/doclint/generateGoApi.js
-@@ -0,0 +1,912 @@
+@@ -0,0 +1,916 @@
 +/**
 + * Copyright (c) Microsoft Corporation.
 + *
@@ -2302,6 +2322,10 @@ index 000000000..34d7d29ca
 +          attemptedName = 'WebMCPToolAnnotations';
 +        if (attemptedName === 'Style')
 +          attemptedName = 'ScreencastActionStyle';
++        // Origin.opfs: use the documented `* alias: OPFSEntry` over the
++        // plural-stripped member name Opf.
++        if (attemptedName === 'Opf')
++          attemptedName = 'OPFSEntry';
 +        if (attemptedName === 'Timing')
 +          attemptedName = 'RequestTiming';
 +        if (attemptedName === 'HeadersArray' || attemptedName == 'LocalStorage')
