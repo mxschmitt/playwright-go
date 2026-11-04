@@ -411,3 +411,67 @@ func TestFrameLocatorAnyFrameShouldNotAllowOwner(t *testing.T) {
 	_, err := page.FrameLocator().Owner().Count()
 	require.ErrorContains(t, err, "Selector cannot be empty after frameLocator()")
 }
+
+func TestFrameLocatorAnyFrameNthErrorSurvivesDerivedLocators(t *testing.T) {
+	BeforeEach(t)
+	// A single frame with a single button: without the error the actions below would succeed.
+	routeAnyFramePage(t, "empty.html", `<iframe src="a.html"></iframe>`)
+	routeAnyFramePage(t, "a.html", `<button onclick="window.__clicked = true">one</button>`)
+	_, err := page.Goto(server.EMPTY_PAGE)
+	require.NoError(t, err)
+	waitForAllFrames(t, 2, "button")
+
+	nth := page.FrameLocator().First() //nolint:staticcheck // the deprecated API must report the error
+	button := nth.Locator("button")
+	for _, tc := range []struct {
+		name    string
+		locator playwright.Locator
+	}{
+		{"First", button.First()},
+		{"Last", button.Last()},
+		{"Nth", button.Nth(0)},
+		{"Filter", button.Filter(playwright.LocatorFilterOptions{HasText: "one"})},
+		{"Visible", button.Visible()},
+		{"Locator", nth.Locator("body").Locator("button")},
+		{"GetByRole", nth.Locator("body").GetByRole("button")},
+		{"GetByText", nth.GetByText("one")},
+		{"Describe", button.Describe("the button")},
+		{"Or", page.Locator("button").Or(button)},
+		{"And", page.Locator("button").And(button)},
+		{"Has", page.Locator("body").Filter(playwright.LocatorFilterOptions{Has: button})},
+		{"Within", page.Locator("button").Within(nth.Locator("body"))},
+		{"ContentFrame", nth.Locator("body").ContentFrame().Locator("button")},
+		{"FrameLocator", nth.FrameLocator("iframe").Locator("button")},
+		{"Chained twice", button.First().Locator("xpath=.").First()},
+	} {
+		name, locator := tc.name, tc.locator
+		require.ErrorContains(t, locator.Click(playwright.LocatorClickOptions{Timeout: playwright.Float(1000)}), "selecting the nth frame is not allowed", name)
+		_, err := locator.Count()
+		require.ErrorContains(t, err, "selecting the nth frame is not allowed", name)
+		require.ErrorContains(t, expect.Locator(locator).ToHaveCount(1), "selecting the nth frame is not allowed", name)
+	}
+	clicked, err := page.Frames()[1].Evaluate(`() => window.__clicked`)
+	require.NoError(t, err)
+	require.Nil(t, clicked)
+}
+
+func TestLocatorInvalidArgumentErrorSurvivesDerivedLocators(t *testing.T) {
+	BeforeEach(t)
+	require.NoError(t, page.SetContent(`<button>42</button>`))
+
+	invalid := page.GetByText(42)
+	require.Error(t, invalid.Err())
+	for _, tc := range []struct {
+		name    string
+		locator playwright.Locator
+	}{
+		{"First", invalid.First()},
+		{"Nth", invalid.Nth(0)},
+		{"Filter", invalid.Filter()},
+		{"Locator", invalid.Locator("xpath=.")},
+		{"Or", page.Locator("button").Or(invalid)},
+	} {
+		_, err := tc.locator.Count()
+		require.ErrorIs(t, err, invalid.Err(), tc.name)
+	}
+}
