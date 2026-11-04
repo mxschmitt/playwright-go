@@ -2,6 +2,7 @@ package playwright
 
 import (
 	"fmt"
+	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -30,7 +31,7 @@ func TestJsonPipeEnqueueNeverBlocks(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		for i := 0; i < burst; i++ {
-			j.enqueue(&message{ID: i})
+			j.enqueue(&message{ID: strconv.Itoa(i)})
 		}
 		close(done)
 	}()
@@ -45,7 +46,7 @@ func TestJsonPipeEnqueueNeverBlocks(t *testing.T) {
 	for i := 0; i < burst; i++ {
 		msg, err := j.Poll()
 		require.NoError(t, err)
-		require.Equal(t, i, msg.ID)
+		require.Equal(t, strconv.Itoa(i), msg.ID)
 	}
 }
 
@@ -56,7 +57,7 @@ func TestJsonPipeMultipleConsumers(t *testing.T) {
 	j := newTestJsonPipe()
 
 	const total = 200
-	got := make(chan int, total)
+	got := make(chan string, total)
 	var wg sync.WaitGroup
 	for c := 0; c < 4; c++ {
 		wg.Add(1)
@@ -73,15 +74,15 @@ func TestJsonPipeMultipleConsumers(t *testing.T) {
 	}
 
 	for i := 0; i < total; i++ {
-		j.enqueue(&message{ID: i})
+		j.enqueue(&message{ID: strconv.Itoa(i)})
 	}
 	j.markClosed()
 	wg.Wait()
 	close(got)
 
-	seen := make(map[int]bool, total)
+	seen := make(map[string]bool, total)
 	for id := range got {
-		require.False(t, seen[id], "message %d delivered more than once", id)
+		require.False(t, seen[id], "message %s delivered more than once", id)
 		seen[id] = true
 	}
 	require.Len(t, seen, total, "every enqueued message must be delivered exactly once")
@@ -92,12 +93,12 @@ func TestJsonPipeMultipleConsumers(t *testing.T) {
 func TestJsonPipePreservesOrder(t *testing.T) {
 	j := newTestJsonPipe()
 	for i := 0; i < 100; i++ {
-		j.enqueue(&message{ID: i})
+		j.enqueue(&message{ID: strconv.Itoa(i)})
 	}
 	for i := 0; i < 100; i++ {
 		msg, err := j.Poll()
 		require.NoError(t, err)
-		require.Equal(t, i, msg.ID)
+		require.Equal(t, strconv.Itoa(i), msg.ID)
 	}
 }
 
@@ -114,11 +115,11 @@ func TestJsonPipePollBlocksUntilMessage(t *testing.T) {
 
 	// Give Poll a moment to start waiting, then deliver.
 	time.Sleep(50 * time.Millisecond)
-	j.enqueue(&message{ID: 42})
+	j.enqueue(&message{ID: strconv.Itoa(42)})
 
 	select {
 	case msg := <-got:
-		require.Equal(t, 42, msg.ID)
+		require.Equal(t, strconv.Itoa(42), msg.ID)
 	case <-time.After(5 * time.Second):
 		t.Fatal("Poll did not return after enqueue")
 	}
@@ -150,14 +151,14 @@ func TestJsonPipeCloseUnblocksPoll(t *testing.T) {
 func TestJsonPipeDrainsQueueBeforeClose(t *testing.T) {
 	j := newTestJsonPipe()
 	for i := 0; i < 3; i++ {
-		j.enqueue(&message{ID: i})
+		j.enqueue(&message{ID: strconv.Itoa(i)})
 	}
 	j.markClosed()
 
 	for i := 0; i < 3; i++ {
 		msg, err := j.Poll()
 		require.NoError(t, err, fmt.Sprintf("message %d should drain before close", i))
-		require.Equal(t, i, msg.ID)
+		require.Equal(t, strconv.Itoa(i), msg.ID)
 	}
 	_, err := j.Poll()
 	require.Error(t, err)

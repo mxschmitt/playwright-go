@@ -981,6 +981,18 @@ func (l *locatorImpl) Uncheck(options ...LocatorUncheckOptions) error {
 	return l.frame.Uncheck(l.selector, opt)
 }
 
+func (l *locatorImpl) Within(locator Locator) Locator {
+	return locator.Locator(l)
+}
+
+func (l *locatorImpl) Visible() Locator {
+	locator := newLocator(l.frame, l.selector, LocatorOptions{Visible: Bool(true)})
+	if l.err != nil {
+		return locator.withError(l.err)
+	}
+	return locator
+}
+
 func (l *locatorImpl) WaitFor(options ...LocatorWaitForOptions) error {
 	if l.err != nil {
 		return l.err
@@ -1095,6 +1107,9 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 			if v, ok := detailed.details["timedOut"].(bool); ok {
 				result.TimedOut = &v
 			}
+			if v, ok := detailed.details["customErrorMessage"].(string); ok {
+				result.ErrorMessage = v
+			}
 			return result, nil
 		}
 		return nil, err
@@ -1104,13 +1119,13 @@ func (l *locatorImpl) expect(expression string, options frameExpectOptions) (*fr
 }
 
 func (l *locatorImpl) Normalize() Locator {
-	result, err := l.frame.channel.Send("resolveSelector", map[string]any{
+	result, err := l.frame.channel.SendReturnAsDict("resolveSelector", map[string]any{
 		"selector": l.selector,
 	})
 	if err != nil {
 		return l
 	}
-	if selector, ok := result.(string); ok {
+	if selector, ok := result["resolvedSelector"].(string); ok {
 		return newLocator(l.frame, selector)
 	}
 	return l

@@ -25,21 +25,28 @@ func (r *apiRequestImpl) NewContext(options ...APIRequestNewContextOptions) (API
 			overrides["clientCertificates"] = certs
 			options[0].ClientCertificates = nil
 		}
+		if options[0].HttpCredentials != nil || options[0].HttpCredentialsList != nil {
+			if credentials := toHttpCredentialsProtocol(options[0].HttpCredentials, options[0].HttpCredentialsList); credentials != nil {
+				overrides["httpCredentials"] = credentials
+			}
+			options[0].HttpCredentials = nil
+			options[0].HttpCredentialsList = nil
+		}
 		if options[0].ExtraHttpHeaders != nil {
 			overrides["extraHTTPHeaders"] = serializeMapToNameAndValue(options[0].ExtraHttpHeaders)
 			options[0].ExtraHttpHeaders = nil
 		}
 		if options[0].StorageStatePath != nil {
-			var storageState *StorageState
-			storageString, err := os.ReadFile(*options[0].StorageStatePath)
+			storageState, err := readStorageStateFile(*options[0].StorageStatePath)
 			if err != nil {
-				return nil, fmt.Errorf("could not read storage state file: %w", err)
+				return nil, err
 			}
-			err = json.Unmarshal(storageString, &storageState)
-			if err != nil {
-				return nil, fmt.Errorf("could not parse storage state file: %w", err)
+			// APIRequestContext storageState accepts only cookies/origins (protocol).
+			overrides["storageState"] = map[string]any{
+				"cookies": storageState["cookies"],
+				"origins": storageState["origins"],
 			}
-			options[0].StorageState = storageState
+			options[0].StorageState = nil
 			options[0].StorageStatePath = nil
 		}
 		// APIRequestContext storageState accepts only cookies/origins (protocol).
@@ -95,6 +102,43 @@ func (r *apiRequestContextImpl) Dispose(options ...APIRequestContextDisposeOptio
 		return nil
 	}
 	return err
+}
+
+func (r *apiRequestContextImpl) AddCookies(cookies []OptionalCookie) error {
+	_, err := r.channel.Send("addCookies", map[string]any{
+		"cookies": cookies,
+	})
+	return err
+}
+
+func (r *apiRequestContextImpl) ClearCookies(options ...APIRequestContextClearCookiesOptions) error {
+	params := map[string]any{}
+	if len(options) == 1 {
+		var err error
+		if params, err = toClearCookiesParams(options[0].Name, options[0].Domain, options[0].Path); err != nil {
+			return err
+		}
+	}
+	_, err := r.channel.Send("clearCookies", params)
+	return err
+}
+
+func (r *apiRequestContextImpl) Cookies(urls ...string) ([]Cookie, error) {
+	if urls == nil {
+		urls = []string{}
+	}
+	result, err := r.channel.Send("cookies", map[string]any{
+		"urls": urls,
+	})
+	if err != nil {
+		return nil, err
+	}
+	items, _ := result.([]any)
+	cookies := make([]Cookie, len(items))
+	for i, item := range items {
+		remapMapToStruct(item, &cookies[i])
+	}
+	return cookies, nil
 }
 
 func (r *apiRequestContextImpl) Delete(url string, options ...APIRequestContextDeleteOptions) (APIResponse, error) {
@@ -347,6 +391,7 @@ func (r *apiRequestContextImpl) StorageState(options ...APIRequestContextStorage
 	var path *string
 	if len(options) == 1 {
 		params["indexedDB"] = options[0].IndexedDB
+		params["opfs"] = options[0].Opfs
 		path = options[0].Path
 	}
 	result, err := r.channel.SendReturnAsDict("storageState", params)

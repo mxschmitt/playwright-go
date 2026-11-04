@@ -363,7 +363,10 @@ func (p *pageImpl) UnrouteAll(options ...PageUnrouteAllOptions) error {
 	return p.unrouteInternal(removed, []*routeHandlerEntry{}, behavior)
 }
 
-func (p *pageImpl) Content() (string, error) {
+func (p *pageImpl) Content(options ...PageContentOptions) (string, error) {
+	if len(options) == 1 {
+		return p.mainFrame.Content(FrameContentOptions(options[0]))
+	}
 	return p.mainFrame.Content()
 }
 
@@ -1030,6 +1033,7 @@ func newPage(parent *channelOwner, objectType string, guid string, initializer m
 	bt.setEventSubscriptionMapping(map[string]string{
 		"console":         "console",
 		"dialog":          "dialog",
+		"dialogclosed":    "dialogClosed",
 		"request":         "request",
 		"response":        "response",
 		"requestfinished": "requestFinished",
@@ -1248,6 +1252,10 @@ func (p *pageImpl) TextContent(selector string, options ...PageTextContentOption
 	return p.mainFrame.TextContent(selector)
 }
 
+func (p *pageImpl) WebMCP() WebMCP {
+	return p.mainFrame.WebMCP()
+}
+
 func (p *pageImpl) Video() Video {
 	p.Lock()
 	defer p.Unlock()
@@ -1432,6 +1440,10 @@ func (p *pageImpl) GetByPlaceholder(text any, options ...PageGetByPlaceholderOpt
 	return p.Locator(selector)
 }
 
+func (p *pageImpl) GetByRef(ref string) Locator {
+	return p.Locator("aria-ref=" + ref)
+}
+
 func (p *pageImpl) GetByRole(role AriaRole, options ...PageGetByRoleOptions) Locator {
 	if len(options) == 1 {
 		selector, err := getByRoleSelector(role, LocatorGetByRoleOptions(options[0]))
@@ -1483,8 +1495,8 @@ func (p *pageImpl) GetByTitle(text any, options ...PageGetByTitleOptions) Locato
 	return p.Locator(selector)
 }
 
-func (p *pageImpl) FrameLocator(selector string) FrameLocator {
-	return p.mainFrame.FrameLocator(selector)
+func (p *pageImpl) FrameLocator(selector ...string) FrameLocator {
+	return p.mainFrame.FrameLocator(selector...)
 }
 
 func (p *pageImpl) OnClose(fn func(Page)) {
@@ -1501,6 +1513,10 @@ func (p *pageImpl) OnCrash(fn func(Page)) {
 
 func (p *pageImpl) OnDialog(fn func(Dialog)) {
 	p.On("dialog", fn)
+}
+
+func (p *pageImpl) OnDialogClosed(fn func(Dialog)) {
+	p.On("dialogclosed", fn)
 }
 
 func (p *pageImpl) OnDOMContentLoaded(fn func(Page)) {

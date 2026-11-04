@@ -3,6 +3,7 @@ package playwright_test
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -250,4 +251,58 @@ func TestScreencastReportsCallbackPanicsAndContinuesDeliveringFrames(t *testing.
 
 	require.NoError(t, sc.Stop())
 	stopped = true
+}
+
+func TestScreencastStartShouldRecordVideoWithFps(t *testing.T) {
+	BeforeEach(t)
+
+	sc, err := page.Screencast()
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "video.webm")
+	require.NoError(t, sc.Start(playwright.ScreencastStartOptions{
+		Path: playwright.String(path),
+		Fps:  playwright.Int(60),
+	}))
+	_, err = page.Evaluate(`() => new Promise(resolve => {
+		let count = 0;
+		const tick = () => { document.body.style.background = count % 2 ? 'red' : 'blue'; if (++count === 10) resolve(); else requestAnimationFrame(tick); };
+		tick();
+	})`)
+	require.NoError(t, err)
+	require.NoError(t, sc.Stop())
+	require.FileExists(t, path)
+}
+
+func TestScreencastStartShouldThrowOnInvalidFps(t *testing.T) {
+	BeforeEach(t)
+
+	sc, err := page.Screencast()
+	require.NoError(t, err)
+	err = sc.Start(playwright.ScreencastStartOptions{
+		Path: playwright.String(filepath.Join(t.TempDir(), "video.webm")),
+		Fps:  playwright.Int(-1),
+	})
+	require.ErrorContains(t, err, `"fps" must be a positive number, got -1`)
+}
+
+func TestScreencastShowActionsShouldAcceptStyle(t *testing.T) {
+	BeforeEach(t)
+
+	_, err := page.Goto(server.PREFIX + "/input/button.html")
+	require.NoError(t, err)
+	sc, err := page.Screencast()
+	require.NoError(t, err)
+	require.NoError(t, sc.ShowActions(playwright.ScreencastShowActionsOptions{
+		Duration: playwright.Float(100),
+		Style: &playwright.ScreencastActionStyle{
+			Point:     playwright.String("width: 20px; height: 20px; border-radius: 50%; background: red"),
+			Highlight: playwright.String("outline: 2px solid #333"),
+			Title:     playwright.String("font-size: 16px"),
+		},
+	}))
+	require.NoError(t, page.Locator("button").Click())
+	result, err := page.Evaluate("result")
+	require.NoError(t, err)
+	require.Equal(t, "Clicked", result)
+	require.NoError(t, sc.HideActions())
 }

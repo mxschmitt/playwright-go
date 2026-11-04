@@ -337,3 +337,34 @@ func TestVideoShowActionsCursorAccepted(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, ctx2.Close())
 }
+
+func TestVideoShouldRecordWithFps(t *testing.T) {
+	BeforeEach(t)
+
+	dir := t.TempDir()
+	recordContext, recordPage := newBrowserContextAndPage(t, playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{Dir: playwright.String(dir), Fps: playwright.Int(60)},
+	})
+	_, err := recordPage.Goto(server.PREFIX + "/grid.html")
+	require.NoError(t, err)
+	time.Sleep(500 * time.Millisecond)
+	require.NoError(t, recordContext.Close())
+	path, err := recordPage.Video().Path()
+	require.NoError(t, err)
+	require.FileExists(t, path)
+}
+
+func TestVideoShouldThrowOnInvalidFps(t *testing.T) {
+	BeforeEach(t)
+
+	dir := t.TempDir()
+	_, err := browser.NewContext(playwright.BrowserNewContextOptions{
+		RecordVideo: &playwright.RecordVideo{Dir: playwright.String(dir), Fps: playwright.Int(0)},
+	})
+	require.ErrorContains(t, err, `"recordVideo.fps" must be a positive number, got 0`)
+	_, err = browserType.LaunchPersistentContext(filepath.Join(dir, "user-data-dir"), playwright.BrowserTypeLaunchPersistentContextOptions{
+		Headless:    playwright.Bool(headless),
+		RecordVideo: &playwright.RecordVideo{Dir: playwright.String(dir), Fps: playwright.Int(0)},
+	})
+	require.ErrorContains(t, err, `"recordVideo.fps" must be a positive number, got 0`)
+}

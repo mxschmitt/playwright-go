@@ -18,6 +18,7 @@ type tracingImpl struct {
 
 func (t *tracingImpl) Start(options ...TracingStartOptions) error {
 	chunkOption := TracingStartChunkOptions{}
+	params := map[string]any{}
 	if len(options) == 1 {
 		if options[0].Sources != nil {
 			t.includeSources = *options[0].Sources
@@ -25,9 +26,15 @@ func (t *tracingImpl) Start(options ...TracingStartOptions) error {
 		t.isLive = options[0].Live != nil && *options[0].Live
 		chunkOption.Name = options[0].Name
 		chunkOption.Title = options[0].Title
+		params["name"] = options[0].Name
+		params["snapshotDom"] = options[0].Snapshots
+		params["snapshotAria"] = options[0].AriaSnapshots
+		params["snapshotScreen"] = options[0].ScreenSnapshots
+		params["screencast"] = options[0].Screenshots
+		params["live"] = options[0].Live
 	}
 	innerStart := func() (any, error) {
-		if _, err := t.channel.Send("tracingStart", options); err != nil {
+		if _, err := t.channel.Send("tracingStart", params); err != nil {
 			return "", err
 		}
 		return t.channel.Send("tracingStartChunk", chunkOption)

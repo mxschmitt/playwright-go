@@ -2,7 +2,6 @@ package playwright
 
 import (
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -55,17 +54,20 @@ func (b *browserImpl) NewContext(options ...BrowserNewContextOptions) (BrowserCo
 		overrides["clientCertificates"] = certs
 		options[0].ClientCertificates = nil
 	}
+	if option.HttpCredentials != nil || option.HttpCredentialsList != nil {
+		if credentials := toHttpCredentialsProtocol(option.HttpCredentials, option.HttpCredentialsList); credentials != nil {
+			overrides["httpCredentials"] = credentials
+		}
+		options[0].HttpCredentials = nil
+		options[0].HttpCredentialsList = nil
+	}
 	if option.StorageStatePath != nil {
-		var storageState *OptionalStorageState
-		storageString, err := os.ReadFile(*options[0].StorageStatePath)
+		storageState, err := readStorageStateFile(*options[0].StorageStatePath)
 		if err != nil {
-			return nil, fmt.Errorf("could not read storage state file: %w", err)
+			return nil, err
 		}
-		err = json.Unmarshal(storageString, &storageState)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse storage state file: %w", err)
-		}
-		options[0].StorageState = storageState
+		overrides["storageState"] = storageState
+		options[0].StorageState = nil
 		options[0].StorageStatePath = nil
 	}
 	if option.NoViewport != nil && *options[0].NoViewport {
@@ -270,6 +272,19 @@ func newBrowser(parent *channelOwner, objectType string, guid string, initialize
 		b.Emit("context", context)
 	})
 	return b
+}
+
+// toHttpCredentialsProtocol returns the credentials list the driver expects for
+// the httpCredentials option, or nil when none are set. A non-empty list takes
+// precedence over a single credential.
+func toHttpCredentialsProtocol(credentials *HttpCredentials, credentialsList []HttpCredentials) []HttpCredentials {
+	if len(credentialsList) > 0 {
+		return credentialsList
+	}
+	if credentials != nil {
+		return []HttpCredentials{*credentials}
+	}
+	return nil
 }
 
 func transformClientCertificate(clientCertificates []ClientCertificate) ([]map[string]any, error) {

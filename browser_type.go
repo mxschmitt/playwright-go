@@ -85,6 +85,13 @@ func (b *browserTypeImpl) LaunchPersistentContext(userDataDir string, options ..
 			overrides["clientCertificates"] = certs
 			options[0].ClientCertificates = nil
 		}
+		if options[0].HttpCredentials != nil || options[0].HttpCredentialsList != nil {
+			if credentials := toHttpCredentialsProtocol(options[0].HttpCredentials, options[0].HttpCredentialsList); credentials != nil {
+				overrides["httpCredentials"] = credentials
+			}
+			options[0].HttpCredentials = nil
+			options[0].HttpCredentialsList = nil
+		}
 		if options[0].ExtraHttpHeaders != nil {
 			overrides["extraHTTPHeaders"] = serializeMapToNameAndValue(options[0].ExtraHttpHeaders)
 			options[0].ExtraHttpHeaders = nil

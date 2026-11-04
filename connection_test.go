@@ -55,7 +55,7 @@ func (t *captureTransport) Send(message map[string]any) error {
 	t.messages = append(t.messages, copy)
 	t.mu.Unlock()
 	// Auto-reply with empty result so SendWithTimeout unblocks.
-	id, _ := copy["id"].(float64)
+	id, _ := copy["id"].(string)
 	t.replies <- map[string]any{"id": id, "result": map[string]any{}}
 	return nil
 }
@@ -64,7 +64,7 @@ func (t *captureTransport) Poll() (*message, error) {
 	select {
 	case msg := <-t.replies:
 		return &message{
-			ID:     int(msg["id"].(float64)),
+			ID:     msg["id"].(string),
 			Result: msg["result"].(map[string]any),
 		}, nil
 	case <-t.closed:

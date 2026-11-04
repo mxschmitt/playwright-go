@@ -73,14 +73,12 @@ func (s *screencastImpl) Start(options ...ScreencastStartOptions) error {
 			s.savePath = options[0].Path
 		}
 	}
-	result, err := s.page.channel.Send("screencastStart", options, overrides)
+	result, err := s.page.channel.SendReturnAsDict("screencastStart", options, overrides)
 	if err != nil {
 		return err
 	}
-	if resultMap, ok := result.(map[string]any); ok {
-		if artifactChannel := fromNullableChannel(resultMap["artifact"]); artifactChannel != nil {
-			s.artifact = artifactChannel.(*artifactImpl)
-		}
+	if artifactChannel := fromNullableChannel(result["artifact"]); artifactChannel != nil {
+		s.artifact = artifactChannel.(*artifactImpl)
 	}
 	return nil
 }
