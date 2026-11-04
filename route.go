@@ -76,7 +76,7 @@ func (r *routeImpl) raceWithPageClose(f func() error) error {
 	}()
 
 	select {
-	case <-r.Request().(*requestImpl).targetClosed():
+	case <-r.Request().(*requestImpl).targetClosed(): //nolint:errcheck
 		// upstream does not throw the err
 		return nil
 	case err := <-errChan:
