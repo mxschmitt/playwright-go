@@ -94,7 +94,7 @@ jobs:
       shell: bash
       env:
         BROWSER: ${{ matrix.browser }}
-        FLAKINESS_PROJECT: playwright-community/playwright-go
+        FLAKINESS_PROJECT: max/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os == 'ubuntu-latest'
       run: |
@@ -112,7 +112,7 @@ jobs:
       shell: bash
       env:
         BROWSER: ${{ matrix.browser }}
-        FLAKINESS_PROJECT: playwright-community/playwright-go
+        FLAKINESS_PROJECT: max/playwright-go
         FLAKINESS_NAME: ${{ matrix.browser }}
       if: matrix.os != 'ubuntu-latest'
       run: |
