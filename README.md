@@ -3,7 +3,7 @@
 [![PkgGoDev](https://pkg.go.dev/badge/github.com/mxschmitt/playwright-go)](https://pkg.go.dev/github.com/mxschmitt/playwright-go)
 [![License](https://img.shields.io/badge/License-MIT-blue.svg)](http://opensource.org/licenses/MIT)
 [![Go](https://github.com/mxschmitt/playwright-go/actions/workflows/build.yml/badge.svg)](https://github.com/mxschmitt/playwright-go/actions/workflows/build.yml)
-[![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fflakiness.io%2Fapi%2Fbadge%3Finput%3D%257B%2522badgeToken%2522%253A%2522badge-6g4pNCL3d8qZbDdJEqFhSI%2522%257D)](https://flakiness.io/playwright-community/playwright-go)
+[![Tests](https://img.shields.io/endpoint?url=https%3A%2F%2Fflakiness.io%2Fapi%2Fbadge%3Finput%3D%257B%2522badgeToken%2522%253A%2522badge-6g4pNCL3d8qZbDdJEqFhSI%2522%257D)](https://flakiness.io/max/playwright-go)
 [![Coverage Status](https://coveralls.io/repos/github/mxschmitt/playwright-go/badge.svg?branch=main)](https://coveralls.io/github/mxschmitt/playwright-go?branch=main)
 [![Join Discord](https://img.shields.io/badge/join-discord-informational)](https://aka.ms/playwright/discord)<!-- GEN:chromium-version-badge -->[![Chromium version](https://img.shields.io/badge/chromium-156.0.8078.4-blue.svg?logo=google-chrome)](https://www.chromium.org/Home)<!-- GEN:stop --> <!-- GEN:firefox-version-badge -->[![Firefox version](https://img.shields.io/badge/firefox-157.0-blue.svg?logo=mozilla-firefox)](https://www.mozilla.org/en-US/firefox/new/)<!-- GEN:stop --> <!-- GEN:webkit-version-badge -->[![WebKit version](https://img.shields.io/badge/webkit-27.2-blue.svg?logo=safari)](https://webkit.org/)<!-- GEN:stop -->
 
