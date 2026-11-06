@@ -322,7 +322,7 @@ func (c *connection) sendMessageToServer(object *channelOwner, method string, pa
 		"params":   params, // channel.MarshalJSON will replace channel with guid
 		"metadata": metadata,
 	}
-	if c.tracingCount.Load() > 0 && len(stack) > 0 && object.guid != "localUtils" {
+	if c.localUtils != nil && c.tracingCount.Load() > 0 && len(stack) > 0 && object.guid != "localUtils" {
 		c.LocalUtils().AddStackToTracingNoReply(id, stack)
 	}
 

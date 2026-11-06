@@ -101,7 +101,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 		_, err = t.channel.Send("tracingStopChunk", map[string]any{
 			"mode": "discard",
 		})
-		if t.stacksId != "" {
+		if t.stacksId != "" && t.connection.localUtils != nil {
 			return t.connection.LocalUtils().TraceDiscarded(t.stacksId)
 		}
 		return err
@@ -144,7 +144,7 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	artifact := fromNullableChannel(artifactChannel).(*artifactImpl)
 	// The artifact may be missing if the browser closed while stopping tracing.
 	if artifact == nil {
-		if t.stacksId != "" {
+		if t.stacksId != "" && t.connection.localUtils != nil {
 			return t.connection.LocalUtils().TraceDiscarded(t.stacksId)
 		}
 		return
@@ -154,6 +154,11 @@ func (t *tracingImpl) doStopChunk(filePath string) (err error) {
 	}
 	if err := artifact.Delete(); err != nil {
 		return err
+	}
+	// Without a local driver there is nobody to append client-side stacks and
+	// sources; the server's archive is already a complete trace.
+	if t.connection.localUtils == nil {
+		return nil
 	}
 	_, err = t.connection.LocalUtils().Zip(localUtilsZipOptions{
 		ZipFile:           filePath,
@@ -170,6 +175,9 @@ func (t *tracingImpl) startCollectingStacks(name string) (err error) {
 	if !t.isTracing {
 		t.isTracing = true
 		t.connection.setInTracing(true)
+	}
+	if t.connection.localUtils == nil {
+		return nil
 	}
 	t.stacksId, err = t.connection.LocalUtils().TracingStarted(name, t.isLive, t.tracesDir)
 	return

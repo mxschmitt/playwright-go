@@ -14,6 +14,9 @@ var (
 	ErrTargetClosed = errors.New("target closed")
 	// ErrTimeout wraps timeout errors. It can be either Playwright TimeoutError or client timeout.
 	ErrTimeout = errors.New("timeout")
+	// ErrVersionMismatch is returned by ConnectRemote when the server runs a
+	// different Playwright major.minor than this client speaks.
+	ErrVersionMismatch = errors.New("playwright version mismatch")
 )
 
 // Error represents a Playwright error
